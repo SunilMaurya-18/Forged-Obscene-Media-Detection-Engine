@@ -6,5 +6,6 @@ public enum ProvenanceEventType {
     DECISION_CHANGED,
     COMPLAINT_OPENED,
     SLA_ESCALATED,
-    SLA_RESOLVED
+    SLA_RESOLVED,
+    REPORT_GENERATED
 }

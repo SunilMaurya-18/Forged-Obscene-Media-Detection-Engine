@@ -40,7 +40,8 @@
   },
   "artifacts": {
     "roc_curve": "ml/results/roc_curve.png",
-    "confusion_matrix": "ml/results/confusion_matrix.png"
+    "confusion_matrix": "ml/results/confusion_matrix.png",
+    "diffusion_robustness": "ml/results/diffusion_robustness.png"
   },
   "latency": {
     "n": 5,
@@ -64,5 +65,132 @@
     "dir": "ml/results/failure_gallery",
     "policy": "Synthetic/research-pipeline crops only (FaceForensics++/DFDC/Celeb-DF style splits). No non-consensual or explicit imagery."
   },
-  "notes": "Phase 11 smoke evaluation on synthetic cross-dataset splits unless licensed FF++/DFDC/Celeb-DF crops are provided under ml/data/crops."
+  "notes": "Phase 11 smoke evaluation on synthetic cross-dataset splits unless licensed FF++/DFDC/Celeb-DF crops are provided under ml/data/crops.",
+  "gan_era": {
+    "datasets": [
+      "faceforensics++",
+      "dfdc",
+      "celeb-df"
+    ],
+    "baseline": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 30,
+      "per_dataset": {
+        "faceforensics++": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 10
+        },
+        "dfdc": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 10
+        },
+        "celeb-df": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 10
+        }
+      }
+    },
+    "retrained": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 30,
+      "per_dataset": {
+        "faceforensics++": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 10
+        },
+        "dfdc": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 10
+        },
+        "celeb-df": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 10
+        }
+      }
+    },
+    "regression": {
+      "faceforensics++": {
+        "accuracy": 0.0,
+        "auc": 0.0,
+        "f1": 0.0
+      },
+      "dfdc": {
+        "accuracy": 0.0,
+        "auc": 0.0,
+        "f1": 0.0
+      },
+      "celeb-df": {
+        "accuracy": 0.0,
+        "auc": 0.0,
+        "f1": 0.0
+      }
+    },
+    "allowed_regression": 0.02,
+    "within_margin": true
+  },
+  "diffusion_era": {
+    "dataset": "diffusion (synthetic inpainting stand-in)",
+    "split": "held-out test identities",
+    "baseline": {
+      "accuracy": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "auc": 0.11875,
+      "n": 80
+    },
+    "retrained": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 80
+    },
+    "auc_gain": 0.8812
+  },
+  "generation_family": {
+    "head": "sigmoid \u2192 P(diffusion); 'unknown' below the forgery threshold or when 0.35 < p < 0.65",
+    "diffusion_test_fakes": {
+      "accuracy": 1.0,
+      "n": 40
+    },
+    "gan_era_fakes": {
+      "accuracy": 1.0,
+      "n": 15
+    }
+  },
+  "phase17_notes": "Diffusion-era detection is an active research area, not a solved problem. These numbers come from a synthetic diffusion-inpainting stand-in over synthetic crops, so they show the retraining mechanism, not real-world coverage. Re-run with --source import on diffusion fakes generated from licensed FF++ originals for report-quality figures."
 }

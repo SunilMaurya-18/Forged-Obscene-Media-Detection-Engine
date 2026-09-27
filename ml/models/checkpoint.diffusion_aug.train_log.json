@@ -1,0 +1,122 @@
+[
+  {
+    "epoch": 1,
+    "loss": 0.7785542365577486,
+    "val_gan_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "val_diffusion_era": {
+      "accuracy": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  },
+  {
+    "epoch": 2,
+    "loss": 0.3418088303671943,
+    "val_gan_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "val_diffusion_era": {
+      "accuracy": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  },
+  {
+    "epoch": 3,
+    "loss": 0.32349888417455885,
+    "val_gan_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "val_diffusion_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  },
+  {
+    "epoch": 4,
+    "loss": 0.1875380085574256,
+    "val_gan_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "val_diffusion_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  },
+  {
+    "epoch": 5,
+    "loss": 0.1393757109840711,
+    "val_gan_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "val_diffusion_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  },
+  {
+    "epoch": 6,
+    "loss": 0.200302834643258,
+    "val_gan_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "val_diffusion_era": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  }
+]

@@ -1,0 +1,427 @@
+{
+  "common": {
+    "skipToContent": "Skip to main content",
+    "signIn": "Sign in",
+    "back": "Back",
+    "continue": "Continue",
+    "tryAgain": "Try again",
+    "copy": "Copy",
+    "copied": "Copied",
+    "optional": "optional",
+    "done": "done",
+    "notGiven": "Not given",
+    "loading": "Loading…",
+    "language": "Language",
+    "languageName": "English",
+    "footer": {
+      "stored": "Only perceptual hashes, scores, and decisions are stored. Raw media is never retained.",
+      "benchmarks": "Research benchmarks: FaceForensics++ · DFDC · Celeb-DF",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "legal": "Legal"
+    },
+    "theme": {
+      "toLight": "Switch to light theme",
+      "toDark": "Switch to dark theme"
+    },
+    "nav": {
+      "analyze": "Analyze",
+      "report": "Report",
+      "status": "Track case",
+      "verify": "Verify",
+      "dashboard": "Dashboard",
+      "explained": "Explained"
+    }
+  },
+  "loading": {
+    "checking": "Checking for signs of editing…",
+    "filing": "Sending your report securely…",
+    "lookingUp": "Looking up your case…",
+    "hashing": "Making a fingerprint of your image on this device…",
+    "queue": "Loading the review queue…",
+    "compliance": "Loading open complaints and their deadlines…"
+  },
+  "errors": {
+    "network": "We couldn't reach the service. Check your connection and try again.",
+    "badRequest": "Something in the form isn't quite right. Please check it and try again.",
+    "auth": "Please sign in again to continue.",
+    "forbidden": "You don't have access to this.",
+    "notFound": "We couldn't find that.",
+    "conflict": "That already exists.",
+    "tooLarge": "That file is too large. The limit is 25 MB.",
+    "unsupported": "That file type isn't supported. Use a JPG, PNG or WEBP image.",
+    "unprocessable": "We couldn't process that file. Try a different image.",
+    "tooMany": "Too many attempts. Please wait a few minutes and try again.",
+    "server": "Something went wrong on our side. Please try again in a moment.",
+    "unavailable": "The checking service is busy or offline. Please try again in a moment.",
+    "codes": {
+      "file_required": "Choose the image you want to report.",
+      "consent_required": "Please confirm the image shows you, or that you have permission to report it for the person shown.",
+      "relationship_required": "Tell us whether the image shows you or someone you're helping.",
+      "relationship_invalid": "Tell us whether the image shows you or someone you're helping.",
+      "invalid_contact": "Enter a valid email address or phone number, or leave it empty.",
+      "details_too_long": "Details must be at most 1000 characters.",
+      "invalid_jurisdiction": "Choose where you are from the list.",
+      "case_not_found": "We couldn't find a case with that number and PIN. Check both and try again.",
+      "too_many_attempts": "Too many wrong PINs for this case. Please wait a few minutes and try again.",
+      "only_hash_accepted": "Only the image fingerprint can be sent for this check.",
+      "invalid_hash": "That fingerprint isn't valid. Try choosing the image again."
+    }
+  },
+  "verdict": {
+    "automatedCheck": "Automated check",
+    "LIKELY_FORGED": {
+      "label": "Likely forged",
+      "description": "Our check found strong signs that this image was edited or made with AI."
+    },
+    "NEEDS_REVIEW": {
+      "label": "Needs a closer look",
+      "description": "Some signs of editing. A person will look at it before anything else happens."
+    },
+    "LOOKS_GENUINE": {
+      "label": "Looks genuine",
+      "description": "We didn't find signs of editing. That doesn't prove the image is real, or that it was shared with consent."
+    },
+    "seeDetails": "See details",
+    "hideDetails": "Hide details",
+    "detailsHint": "Scores and the heatmap, for people who want the technical view.",
+    "finalSay": "This is an automated first check. A person makes the final decision.",
+    "next": {
+      "ALLOW": "It can be posted.",
+      "REVIEW": "A person will look at it before it's posted.",
+      "AUTO_FLAG": "It's blocked from being posted."
+    },
+    "whatHappensNext": "What happens next",
+    "reportCta": "Is this an image of you, shared without your consent?",
+    "reportAction": "Report it",
+    "checkOnDevice": "Check it on your device instead"
+  },
+  "privacy": {
+    "title": "Your privacy comes first",
+    "body": "Your photo is checked and then deleted. We keep only its fingerprint (a short code that can't be turned back into the picture) and the result of the check.",
+    "onDevice": "Only want to know whether it's already on our list of known abusive images? \"Check before you post\" works entirely on your device, so the photo never leaves your phone or computer.",
+    "onDeviceLink": "Check on my device instead"
+  },
+  "wizard": {
+    "eyebrow": "Report an image",
+    "title": "Report a fake or intimate image",
+    "description": "It takes about two minutes. No account needed: you'll get a case number and PIN to follow up.",
+    "progress": "Step {{n}} of {{total}}",
+    "steps": {
+      "select": "Choose image",
+      "consent": "Confirm",
+      "details": "Details",
+      "review": "Send"
+    },
+    "select": {
+      "heading": "Which image do you want to report?",
+      "drop": "Drop the image here, or",
+      "browse": "choose a file",
+      "hint": "JPG, PNG or WEBP · up to 25 MB",
+      "change": "Choose a different image",
+      "notImage": "That file isn't an image. Choose a JPG, PNG or WEBP.",
+      "tooBig": "That image is {{size}}. The limit is 25 MB.",
+      "required": "Choose an image to continue.",
+      "selected": "Selected image",
+      "show": "Show",
+      "hide": "Blur"
+    },
+    "consent": {
+      "heading": "Who is in the image?",
+      "self": "It's me",
+      "selfHint": "The image shows me.",
+      "behalf": "I'm helping someone",
+      "behalfHint": "The image shows someone who asked me to report it, or who can't report it themselves.",
+      "confirm": "I confirm the image shows me, or that I have permission to report it for the person shown.",
+      "chooseOne": "Choose who is in the image.",
+      "confirmRequired": "Tick the box to confirm before continuing."
+    },
+    "details": {
+      "heading": "Anything else we should know?",
+      "subheading": "Everything on this step is optional.",
+      "where": "Where did you see it?",
+      "whereHint": "A link, or the name of the app or website",
+      "notes": "Anything else",
+      "notesHint": "For example, when it was posted or who shared it",
+      "contact": "Email or phone for updates",
+      "contactHint": "We only use it to tell you when your case changes.",
+      "jurisdiction": "Where are you?",
+      "jurisdictionHint": "This sets the legal deadline for handling your report.",
+      "regions": {
+        "IN": "India",
+        "US": "United States",
+        "OTHER": "Somewhere else"
+      },
+      "remaining": "{{count}} characters left"
+    },
+    "review": {
+      "heading": "Check and send",
+      "image": "Image",
+      "who": "Who is in it",
+      "where": "Where you saw it",
+      "contact": "Updates to",
+      "region": "Your location",
+      "edit": "Edit",
+      "submit": "Send report",
+      "agree": "By sending this report you agree to the <terms>Terms and Conditions</terms> and confirm you have read the <privacy>Privacy Policy</privacy>."
+    },
+    "done": {
+      "title": "We've received your report",
+      "body": "A moderator will review it. Keep these two details: you need both to check your case.",
+      "caseNumber": "Case number",
+      "pin": "PIN",
+      "pinWarning": "We can't show this PIN again. Write it down or save it now.",
+      "deadline": "Under {{rule}}, it must be handled within {{hours}} hours, by {{time}}.",
+      "notify": "We'll send updates to the {{channel}} you gave us.",
+      "channel": {
+        "EMAIL": "email address",
+        "SMS": "phone number"
+      },
+      "save": "Save as a text file",
+      "saveFileIntro": "Forged Media Detection: your report",
+      "checkStatus": "Check case status",
+      "another": "Report another image"
+    },
+    "aside": {
+      "title": "What happens after you send it",
+      "one": "Your report joins the moderators' queue straight away, and the legal deadline clock starts.",
+      "two": "A trained person reviews it. The automated check only helps them decide.",
+      "three": "Use your case number and PIN to see progress at any time.",
+      "haveCase": "I already have a case number"
+    }
+  },
+  "status": {
+    "eyebrow": "Case status",
+    "title": "Check on your report",
+    "description": "Enter the case number and PIN you got when you reported. No account needed.",
+    "caseNumber": "Case number",
+    "caseNumberHint": "Looks like FMD-7K3Q-9XPA",
+    "pin": "PIN",
+    "pinHint": "6 digits",
+    "showPin": "Show PIN",
+    "hidePin": "Hide PIN",
+    "submit": "Check status",
+    "refresh": "Refresh",
+    "another": "Check another case",
+    "lostPin": "Lost your PIN? For your safety we can't recover it, but you can send a new report.",
+    "stages": {
+      "IN_REVIEW": {
+        "title": "Being reviewed",
+        "body": "A moderator is looking at your report."
+      },
+      "REMOVED": {
+        "title": "Content removed",
+        "body": "The content was taken down."
+      },
+      "NO_ACTION": {
+        "title": "Reviewed, not removed",
+        "body": "A moderator reviewed your report and didn't remove the content. If you think that's wrong, you can report it again with more details."
+      }
+    },
+    "timeline": {
+      "label": "Progress",
+      "RECEIVED": "Report received",
+      "IN_REVIEW": "Being reviewed",
+      "REMOVED": "Content removed",
+      "NO_ACTION": "Reviewed, not removed",
+      "pending": "Waiting for a decision"
+    },
+    "dueBy": "Under {{rule}}, action is due within {{hours}} hours: by {{time}}.",
+    "overdue": "This is taking longer than the deadline. It has been escalated to senior moderators.",
+    "onTime": "Handled within the legal deadline.",
+    "late": "Handled after the legal deadline.",
+    "updatesTo": "Updates go to the {{channel}} you gave us.",
+    "noUpdates": "You didn't give contact details, so check back here for updates."
+  },
+  "prescreen": {
+    "title": "Check before you post",
+    "description": "Your image never leaves this device. A fingerprint is made in your browser, and only that short code is checked against content already confirmed as abusive.",
+    "idleTitle": "Made on your device, never uploaded",
+    "idleHint": "Open your browser's network tools: only a tiny line of text goes out.",
+    "onDevice": "On this device",
+    "choose": "Choose image",
+    "demo": "Try the demo pattern",
+    "demoTitle": "A synthetic test pattern whose fingerprint is on the known list",
+    "stepHash": "Fingerprint made in your browser",
+    "stepSend": "Only the fingerprint is sent",
+    "stepResult": "Match or no match comes back",
+    "sentLabel": "What left your device",
+    "nothingYet": "{ nothing yet }",
+    "bytesSent": "Image bytes sent: 0 · 64-bit fingerprint, the same kind the server uses",
+    "matchTitle": "Matches known abusive content",
+    "matchBody": "This image matches content already confirmed as abusive. Please don't post it. If it's an image of you, the platform or StopNCII.org can help.",
+    "noMatchTitle": "No match",
+    "noMatchBody": "It isn't on the known list. That doesn't make the image safe or consensual; it only means it isn't on the list.",
+    "match": "match",
+    "noMatch": "no match",
+    "footnote": "This works like StopNCII.org: fingerprints are made on your own device and only fingerprints are shared. A live StopNCII connection needs approval as a participating organisation; this demo checks a local list.",
+    "failed": "We couldn't check this image. Try another one."
+  },
+  "landing": {
+    "eyebrow": "Trust & safety for the deepfake era",
+    "title": "Spot fake and intimate images. Act before the legal deadline.",
+    "subtitle": "Forged Media Detection checks images for signs of AI editing and for explicit content, sends anything uncertain to a trained person, and keeps a countdown on every complaint so it's handled in time. Every decision is sealed, so it can be checked later.",
+    "ctaCheck": "Check an image",
+    "ctaReport": "Report an image of you",
+    "ctaTrack": "Already reported? Track your case",
+    "trust": {
+      "noAccount": "No account needed to report",
+      "noStorage": "Images are never stored",
+      "languages": "English and हिन्दी"
+    },
+    "preview": {
+      "label": "What a moderator sees",
+      "item": "Reported image · blurred",
+      "deadline": "Due in 1h 42m",
+      "rule": "India IT Rules 2026 · 2h",
+      "sealed": "Evidence report signed",
+      "human": "A person makes the final call"
+    },
+    "paths": {
+      "title": "Start where you are",
+      "subtitle": "Pick the option that describes you. Each one takes you straight to the right place.",
+      "victim": {
+        "title": "An image of me was shared",
+        "body": "Report it in about two minutes, without an account. You get a case number and PIN to follow up.",
+        "cta": "Report an image",
+        "secondary": "Track my case"
+      },
+      "checker": {
+        "title": "I want to check an image",
+        "body": "See whether a photo shows signs of AI editing, or check it against known abusive images without it leaving your device.",
+        "cta": "Check an image",
+        "secondary": "Check on my device"
+      },
+      "moderator": {
+        "title": "I review content",
+        "body": "Work through a queue sorted by legal deadline, with keyboard shortcuts, undo and one-click evidence reports.",
+        "cta": "Moderator sign in",
+        "ctaSignedIn": "Open the queue"
+      },
+      "platform": {
+        "title": "I run a platform",
+        "body": "Call one API from your upload pipeline to get a decision, scores and a traceable ID for every image.",
+        "cta": "See the API"
+      },
+      "verifier": {
+        "title": "I need to verify something",
+        "body": "Check a labelled image's history, or confirm an evidence report hasn't been changed since it was issued.",
+        "cta": "Verify a file or report"
+      }
+    },
+    "how": {
+      "title": "How it works",
+      "subtitle": "The same five steps for every image, whether it comes from an upload, a platform or a report.",
+      "steps": {
+        "in": {
+          "title": "An image comes in",
+          "body": "Uploaded for a check, sent by a platform through the API, or reported by the person in it."
+        },
+        "check": {
+          "title": "Two independent checks",
+          "body": "One model looks for signs of editing or AI generation. A separate one checks for explicit content. A fingerprint is made so copies can be recognised later."
+        },
+        "route": {
+          "title": "The rulebook picks the route",
+          "body": "Fixed thresholds allow it, send it to a person, or block it. Nothing uncertain is decided by the machine alone."
+        },
+        "act": {
+          "title": "A person acts, against the clock",
+          "body": "Complaints carry the legal deadline for their country. Moderators decide, with 10 seconds to undo, and the reporter is told what happened."
+        },
+        "seal": {
+          "title": "Sealed and traceable",
+          "body": "Each result gets a traceable ID and a labelled copy. Evidence reports are digitally signed, so any later change shows."
+        }
+      }
+    },
+    "why": {
+      "eyebrow": "Why it exists",
+      "title": "Fakes take minutes to make. The harm lasts much longer.",
+      "body1": "A convincing fake image can now be made in minutes. When it's an intimate image of a real person, the harm grows with every hour it stays online.",
+      "body2": "The law now sets the pace: India's IT Rules 2026 require action on these complaints within hours, and the US Take It Down Act within 48 hours. Platforms have to find these images, decide fairly, act on time, and prove what they did.",
+      "points": {
+        "find": "Find fakes, including newer AI-generated ones",
+        "decide": "Decide fairly, with a person in the loop",
+        "act": "Act within each country's legal deadline",
+        "prove": "Prove what was done, with sealed records"
+      }
+    },
+    "different": {
+      "title": "What makes it different",
+      "subtitle": "Most tools do one of these jobs. This platform connects them into one workflow.",
+      "cols": {
+        "feature": "What it can do",
+        "us": "This platform",
+        "detector": "Detection-only tools",
+        "hash": "Hash matching only",
+        "manual": "Manual review only"
+      },
+      "rows": {
+        "newFakes": "Spots new fakes it has never seen before",
+        "known": "Recognises copies of known abusive images",
+        "routing": "Routes every image, with a person for uncertain cases",
+        "deadline": "Tracks legal deadlines per country",
+        "evidence": "Produces tamper-evident evidence",
+        "privacy": "Never stores the image itself",
+        "reporting": "Lets affected people report and track without an account"
+      },
+      "yes": "Yes",
+      "no": "No",
+      "partial": "Partly",
+      "footnote": "Columns describe typical approaches, not specific products."
+    },
+    "numbers": {
+      "title": "Measured on this build",
+      "latency": "median time to check an image",
+      "models": "independent models look at every image",
+      "stored": "images stored, ever",
+      "undo": "seconds to undo any moderator decision",
+      "checked": "images checked on this instance so far",
+      "caveat": "Accuracy figures come from small evaluation runs and are shown with their caveats on the dashboard. Detecting the newest AI-generated images is an active research area, not a solved problem.",
+      "dashboard": "See the evaluation"
+    },
+    "privacy": {
+      "title": "Built to protect the people in the images",
+      "noStore": {
+        "title": "No images kept",
+        "body": "Images are checked and then discarded. Only fingerprints, scores and decisions are stored."
+      },
+      "onDevice": {
+        "title": "On-device check",
+        "body": "\"Check before you post\" makes the fingerprint in your browser. The photo never leaves your device."
+      },
+      "consent": {
+        "title": "Ethical training data",
+        "body": "The models are trained and tested only on research datasets of consenting actors."
+      },
+      "human": {
+        "title": "People decide",
+        "body": "The system acts alone only when it's very sure. Everything else goes to a trained person."
+      }
+    },
+    "final": {
+      "title": "Ready when you are",
+      "body": "No account is needed to check or report an image.",
+      "guide": "Read the plain-English guide"
+    }
+  },
+  "legal": {
+    "eyebrow": "Legal",
+    "effective": "Effective {{date}}",
+    "version": "Version {{version}}",
+    "print": "Print",
+    "contents": "Contents",
+    "seeAlso": "See also:",
+    "templateNotice": "This document describes how this software actually handles data, written for this project's demo deployment. It is not legal advice. Before a real launch, the operator must fill in its own name and contact details and have it reviewed by a lawyer for the countries it serves.",
+    "englishOnly": "This document is available in English only.",
+    "terms": {
+      "title": "Terms and Conditions",
+      "description": "The rules for using the service: what it does, what its results mean, and what you agree not to do."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "description": "What we store, what we never store, who can see it, how long we keep it, and your rights."
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import {
   BellRing,
   CheckCircle2,
+  FileText,
   FileWarning,
   Gavel,
   Repeat2,
@@ -48,6 +49,7 @@ export const EVENT_META = {
   COMPLAINT_OPENED: { label: 'Takedown complaint', icon: FileWarning, tone: 'text-amber-300' },
   SLA_ESCALATED: { label: 'SLA escalation', icon: BellRing, tone: 'text-rose-300' },
   SLA_RESOLVED: { label: 'Complaint resolved', icon: CheckCircle2, tone: 'text-emerald-300' },
+  REPORT_GENERATED: { label: 'Evidentiary report issued', icon: FileText, tone: 'text-cyan-300' },
 }
 
 export function manifestStatus(status) {

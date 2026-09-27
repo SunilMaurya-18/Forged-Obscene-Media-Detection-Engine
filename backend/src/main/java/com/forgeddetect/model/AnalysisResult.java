@@ -72,6 +72,139 @@ public class AnalysisResult {
     @Column(length = 80)
     private String contentHash;
 
+    /**
+     * Coarse numeric forensic signature (JSON: 14x14 Grad-CAM, 16x16 ELA, 32x32 FFT magnitude grids).
+     * Too low-resolution to reconstruct the image; used to draw report panels without keeping media.
+     */
+    @Column(length = 16000)
+    private String forensicSignature;
+
+    /** API client that submitted this via {@code /api/v1/analyze}; null for dashboard and feed uploads. */
+    private Long apiClientId;
+
+    /** gan / diffusion / unknown from the family head; null for rows analysed before Phase 17. */
+    @Column(length = 16)
+    private String generationFamily;
+
+    private Double familyConfidence;
+
+    /** Jurisdiction whose takedown rules apply (request parameter or platform default; never geo-IP). */
+    @Column(length = 16)
+    private String jurisdiction;
+
+    /** Label of the rule that set {@link #slaDeadline}, frozen at complaint time so later rule edits don't rewrite history. */
+    @Column(length = 64)
+    private String slaRuleLabel;
+
+    /** Latest signed evidentiary report (Phase 20). The PDF itself is not stored. */
+    @Column(length = 64)
+    private String reportId;
+
+    private Instant reportSignedAt;
+
+    /** SHA-256 (hex) of {@link #reportCanonical}. */
+    @Column(length = 64)
+    private String reportContentHash;
+
+    /** Base64 Ed25519 signature over the content hash. */
+    @Column(length = 128)
+    private String reportSignature;
+
+    @Column(length = 32)
+    private String reportSigningKeyId;
+
+    /** The exact field snapshot that was signed, so verification can name what changed. */
+    @Column(length = 4000)
+    private String reportCanonical;
+
+    public String getJurisdiction() {
+        return jurisdiction;
+    }
+
+    public void setJurisdiction(String jurisdiction) {
+        this.jurisdiction = jurisdiction;
+    }
+
+    public String getSlaRuleLabel() {
+        return slaRuleLabel;
+    }
+
+    public void setSlaRuleLabel(String slaRuleLabel) {
+        this.slaRuleLabel = slaRuleLabel;
+    }
+
+    public String getReportId() {
+        return reportId;
+    }
+
+    public void setReportId(String reportId) {
+        this.reportId = reportId;
+    }
+
+    public Instant getReportSignedAt() {
+        return reportSignedAt;
+    }
+
+    public void setReportSignedAt(Instant reportSignedAt) {
+        this.reportSignedAt = reportSignedAt;
+    }
+
+    public String getReportContentHash() {
+        return reportContentHash;
+    }
+
+    public void setReportContentHash(String reportContentHash) {
+        this.reportContentHash = reportContentHash;
+    }
+
+    public String getReportSignature() {
+        return reportSignature;
+    }
+
+    public void setReportSignature(String reportSignature) {
+        this.reportSignature = reportSignature;
+    }
+
+    public String getReportSigningKeyId() {
+        return reportSigningKeyId;
+    }
+
+    public void setReportSigningKeyId(String reportSigningKeyId) {
+        this.reportSigningKeyId = reportSigningKeyId;
+    }
+
+    public String getReportCanonical() {
+        return reportCanonical;
+    }
+
+    public void setReportCanonical(String reportCanonical) {
+        this.reportCanonical = reportCanonical;
+    }
+
+    public String getGenerationFamily() {
+        return generationFamily;
+    }
+
+    public void setGenerationFamily(String generationFamily) {
+        this.generationFamily = generationFamily;
+    }
+
+    public Double getFamilyConfidence() {
+        return familyConfidence;
+    }
+
+    public void setFamilyConfidence(Double familyConfidence) {
+        this.familyConfidence = familyConfidence;
+    }
+
+    public Long getApiClientId() {
+        return apiClientId;
+    }
+
+    public void setApiClientId(Long apiClientId) {
+        this.apiClientId = apiClientId;
+    }
+
     public Long getId() {
         return id;
     }
@@ -198,6 +331,14 @@ public class AnalysisResult {
 
     public void setContentHash(String contentHash) {
         this.contentHash = contentHash;
+    }
+
+    public String getForensicSignature() {
+        return forensicSignature;
+    }
+
+    public void setForensicSignature(String forensicSignature) {
+        this.forensicSignature = forensicSignature;
     }
 
     public boolean isComplianceOpen() {

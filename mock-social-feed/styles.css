@@ -1,17 +1,17 @@
 :root {
-  --bg: #07090d;
-  --panel: #0e1218;
-  --panel-2: #131923;
+  --bg: #0a0a0a;
+  --panel: #121212;
+  --panel-2: #1a1a1a;
   --line: rgba(255, 255, 255, 0.07);
   --line-strong: rgba(255, 255, 255, 0.13);
-  --fg: #eef2f8;
-  --muted: #8d99ab;
-  --subtle: #5e6a7c;
-  --brand: #ff5c8a;
-  --brand-2: #ff9a5c;
-  --allow: #34d399;
-  --review: #fbbf24;
-  --flag: #fb7185;
+  --fg: #f5f5f5;
+  --muted: #a3a3a3;
+  --subtle: #737373;
+  --brand: #ef4444;
+  --brand-2: #b91c1c;
+  --allow: #a3a3a3;
+  --review: #f5f5f5;
+  --flag: #ef4444;
   color-scheme: dark;
 }
 
@@ -25,8 +25,8 @@ body {
   font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   color: var(--fg);
   background:
-    radial-gradient(ellipse 60% 40% at 30% -10%, rgba(255, 92, 138, 0.14), transparent),
-    radial-gradient(ellipse 50% 35% at 90% 0%, rgba(255, 154, 92, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 30% -10%, rgba(239, 68, 68, 0.14), transparent),
+    radial-gradient(ellipse 50% 35% at 90% 0%, rgba(185, 28, 28, 0.08), transparent),
     var(--bg);
   -webkit-font-smoothing: antialiased;
 }
@@ -69,7 +69,7 @@ code {
   top: 0;
   z-index: 10;
   border-bottom: 1px solid var(--line);
-  background: rgba(7, 9, 13, 0.72);
+  background: rgba(10, 10, 10, 0.72);
   backdrop-filter: blur(16px);
 }
 
@@ -111,7 +111,7 @@ code {
   height: 34px;
   border-radius: 10px;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  box-shadow: 0 6px 18px -6px rgba(255, 92, 138, 0.6);
+  box-shadow: 0 6px 18px -6px rgba(239, 68, 68, 0.6);
 }
 
 .brand-mark svg {
@@ -145,7 +145,7 @@ code {
 .console-link svg {
   width: 16px;
   height: 16px;
-  color: #8e9cff;
+  color: #f87171;
 }
 
 /* Layout */
@@ -273,7 +273,7 @@ code {
 .picker:hover,
 .picker.dragging {
   border-color: var(--brand);
-  background: rgba(255, 92, 138, 0.05);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .picker input {
@@ -352,7 +352,7 @@ code {
   border: none;
   color: #fff;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  box-shadow: 0 8px 22px -8px rgba(255, 92, 138, 0.65);
+  box-shadow: 0 8px 22px -8px rgba(239, 68, 68, 0.65);
 }
 
 .btn.primary:hover {
@@ -379,8 +379,8 @@ code {
 }
 
 .status.error {
-  color: #fecdd3;
-  background: rgba(251, 113, 133, 0.1);
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Feed */
@@ -432,7 +432,7 @@ code {
   font-weight: 700;
   font-size: 0.9rem;
   color: #fff;
-  background: linear-gradient(135deg, #6366f1, #22d3ee);
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
 }
 
 .avatar.you {
@@ -463,7 +463,7 @@ code {
 
 .post-media {
   position: relative;
-  background: #05070a;
+  background: #0a0a0a;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
@@ -488,7 +488,7 @@ code {
   place-items: center;
   padding: 1rem;
   text-align: center;
-  background: rgba(5, 7, 10, 0.45);
+  background: rgba(10, 10, 10, 0.45);
 }
 
 .withheld-note strong {
@@ -557,8 +557,8 @@ code {
 
 .chip.ALLOW {
   color: var(--allow);
-  border-color: rgba(52, 211, 153, 0.3);
-  background: rgba(52, 211, 153, 0.07);
+  border-color: rgba(163, 163, 163, 0.3);
+  background: rgba(163, 163, 163, 0.07);
 }
 .chip.ALLOW .dot {
   background: var(--allow);
@@ -566,8 +566,8 @@ code {
 
 .chip.REVIEW {
   color: var(--review);
-  border-color: rgba(251, 191, 36, 0.3);
-  background: rgba(251, 191, 36, 0.07);
+  border-color: rgba(245, 245, 245, 0.3);
+  background: rgba(245, 245, 245, 0.07);
 }
 .chip.REVIEW .dot {
   background: var(--review);
@@ -575,8 +575,8 @@ code {
 
 .chip.AUTO_FLAG {
   color: var(--flag);
-  border-color: rgba(251, 113, 133, 0.3);
-  background: rgba(251, 113, 133, 0.07);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.07);
 }
 .chip.AUTO_FLAG .dot {
   background: var(--flag);

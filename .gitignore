@@ -21,6 +21,11 @@ ml/data/frames/
 ml/data/crops/
 ml/data/splits/
 ml/.smoke_data/
+
+# Dev report-signing keys (Phase 20) — never commit private keys
+backend/data/
+data/signing-keys/
+*.key
 sample.jpg
 infer_out.json
 analyze_out.json

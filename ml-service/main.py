@@ -1,4 +1,4 @@
-"""FastAPI ML inference microservice — Phases 4–5, provenance labelling (Phase 14)."""
+"""FastAPI ML inference microservice — Phases 4–5, provenance (14), forensic signatures (15), generation family (17)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
+import forensics
 import provenance
 from hashing import compute_phash
 from inference import (
     get_runtime,
     init_runtime,
+    run_explain,
     run_explicit_check,
+    run_forgery_assessment,
     run_forgery_check,
-    run_heatmap,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +36,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="Forged Media ML Service",
-    version="0.14.0",
+    version="0.17.0",
     lifespan=lifespan,
 )
 
@@ -61,9 +63,10 @@ async def infer(file: UploadFile = File(...)) -> dict:
     """
     raw = await _read_upload(file)
     try:
-        forgery_score = run_forgery_check(raw)
+        assessment = run_forgery_assessment(raw)
         explicit_score = run_explicit_check(raw)
-        heatmap = run_heatmap(raw)
+        heatmap, cam = run_explain(raw)
+        signature = forensics.signature(raw, cam)
         phash = compute_phash(raw)
         content_hash = provenance.content_hash(raw)
         embedded = provenance.verify(raw)
@@ -72,14 +75,36 @@ async def infer(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return {
-        "forgery_score": forgery_score,
+        "forgery_score": assessment["forgery_score"],
+        "generation_family": assessment["generation_family"],
+        "family_confidence": assessment["family_confidence"],
         "explicit_score": explicit_score,
         "heatmap": heatmap,
         "phash": phash,
         "content_hash": content_hash,
         "provenance_id": provenance.new_provenance_id(),
         "provenance": embedded,
+        "forensics": signature,
     }
+
+
+@app.post("/forensics/panels")
+async def forensic_panels(file: UploadFile = File(...)) -> dict:
+    """Full-resolution Grad-CAM / FFT / ELA panels for a report. Nothing is kept."""
+    raw = await _read_upload(file)
+    try:
+        heatmap, _ = run_explain(raw)
+        panels = forensics.render_panels(raw)
+        return {
+            "heatmap": heatmap,
+            "fft": panels["fft"],
+            "ela": panels["ela"],
+            "phash": compute_phash(raw),
+            "content_hash": provenance.content_hash(raw),
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("forensic panels failed")
+        raise HTTPException(status_code=422, detail=f"Could not render panels: {exc}") from exc
 
 
 @app.post("/provenance/embed")

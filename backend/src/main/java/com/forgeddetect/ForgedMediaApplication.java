@@ -1,13 +1,17 @@
 package com.forgeddetect;
 
+import com.forgeddetect.service.CaseProperties;
 import com.forgeddetect.service.ComplianceProperties;
 import com.forgeddetect.service.DecisionThresholdProperties;
+import com.forgeddetect.service.PrescreenProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties({DecisionThresholdProperties.class, ComplianceProperties.class})
+@EnableConfigurationProperties({
+    DecisionThresholdProperties.class, ComplianceProperties.class, PrescreenProperties.class, CaseProperties.class
+})
 public class ForgedMediaApplication {
 
     public static void main(String[] args) {

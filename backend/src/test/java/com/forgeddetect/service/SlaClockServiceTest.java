@@ -7,6 +7,7 @@ import com.forgeddetect.model.AnalysisResult;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.SlaStatus;
 import com.forgeddetect.repository.AnalysisResultRepository;
+import com.forgeddetect.repository.JurisdictionRuleRepository;
 import com.forgeddetect.support.MutableClock;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +31,7 @@ class SlaClockServiceTest {
                 mock(AnalysisResultRepository.class),
                 new ComplianceProperties(),
                 mock(EscalationService.class),
+                mock(JurisdictionRuleRepository.class),
                 clock);
     }
 

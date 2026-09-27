@@ -11,8 +11,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 /**
- * Calls the internal ML microservice: {@code POST /infer}, and the Phase 14 provenance routes
- * {@code POST /provenance/embed} and {@code POST /provenance/read}.
+ * Calls the internal ML microservice: {@code POST /infer}, the Phase 14 provenance routes
+ * {@code POST /provenance/embed} and {@code POST /provenance/read}, and the Phase 15
+ * {@code POST /forensics/panels}.
  */
 @Service
 public class MlClientService {
@@ -37,6 +38,11 @@ public class MlClientService {
     /** Reads back an embedded manifest without running the models. */
     public MlReadResponse readProvenance(byte[] imageBytes, String filename, String contentType) {
         return post("/provenance/read", imageBytes, filename, contentType, Map.of(), MlReadResponse.class);
+    }
+
+    /** Full-resolution Grad-CAM / FFT / ELA panels for a report; nothing is kept by the ML service. */
+    public MlPanelsResponse forensicPanels(byte[] imageBytes, String filename, String contentType) {
+        return post("/forensics/panels", imageBytes, filename, contentType, Map.of(), MlPanelsResponse.class);
     }
 
     private <T> T post(

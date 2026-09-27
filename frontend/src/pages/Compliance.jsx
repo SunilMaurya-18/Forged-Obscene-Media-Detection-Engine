@@ -10,6 +10,7 @@ import {
   ImageUp,
   Landmark,
   RefreshCw,
+  Scale,
   ShieldAlert,
   Siren,
   Timer,
@@ -19,13 +20,18 @@ import {
 import {
   fetchComplianceBreaches,
   fetchComplianceQueue,
+  fetchComplianceRules,
   fetchComplianceSummary,
   fileComplaint,
-  updateQueueDecision,
 } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import FamilyChip from '../components/FamilyChip'
+import JurisdictionBadge from '../components/JurisdictionBadge'
+import ReportButton from '../components/ReportButton'
+import { ErrorState, LoadingState } from '../components/Status'
 import { useToast } from '../components/Toast'
 import { Alert, Button, Card, CardHeader, DecisionBadge, EmptyState, PageHeader, StatTile } from '../components/ui'
+import { useDecisions } from '../context/DecisionContext'
 import { useStats } from '../context/StatsContext'
 import { cn, dateTime, fileSize, score, timeAgo } from '../lib/format'
 import { COMPLAINT_TYPES, SLA_STATUS, countdown, humanDuration, liveStatus } from '../lib/sla'
@@ -52,25 +58,25 @@ function SlaBadge({ status }) {
   )
 }
 
-function TypeChip({ type, minutes }) {
+function TypeChip({ type }) {
   const Icon = type === 'GOVERNMENT_ORDER' ? Landmark : UserRound
   return (
     <span className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white/[0.03] px-2 py-1 text-xs text-muted">
       <Icon className="size-3.5 text-brand" />
       {COMPLAINT_TYPES[type]?.label || type}
-      {minutes != null && <span className="text-subtle">· {humanDuration(minutes * 60)} SLA</span>}
     </span>
   )
 }
 
-function ComplaintRow({ item, remaining, windowMinutes, atRiskMinutes, busy, onAct }) {
+function ComplaintRow({ item, remaining, windowMinutes: fallbackWindow, atRiskMinutes, onAct, onUnauthorized }) {
+  const windowMinutes = item.slaWindowMinutes ?? fallbackWindow
   const status = liveStatus(remaining, atRiskMinutes)
   const meta = SLA_STATUS[status]
   const total = (windowMinutes || 120) * 60
   const elapsedPct = Math.min(100, Math.max(0, ((total - remaining) / total) * 100))
 
   return (
-    <Card className={cn('p-5 transition-all duration-300', status !== 'ON_TRACK' && meta.ring, busy && 'opacity-50')}>
+    <Card className={cn('p-5 transition-all duration-300', status !== 'ON_TRACK' && meta.ring)}>
       {status === 'BREACHED' && (
         <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-[1.1rem] bg-rose-400 animate-pulse-soft" />
       )}
@@ -89,7 +95,9 @@ function ComplaintRow({ item, remaining, windowMinutes, atRiskMinutes, busy, onA
         <div className="flex-1 min-w-0 space-y-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <SlaBadge status={status} />
-            <TypeChip type={item.complaintType} minutes={windowMinutes} />
+            <TypeChip type={item.complaintType} />
+            <JurisdictionBadge jurisdiction={item.jurisdiction} badge={item.slaBadge} />
+            <FamilyChip family={item.generationFamily} />
             {item.escalatedAt && (
               <span className="inline-flex items-center gap-1 text-xs text-amber-200/90" title={dateTime(item.escalatedAt)}>
                 <BellRing className="size-3.5" /> Escalated {timeAgo(item.escalatedAt)}
@@ -118,13 +126,14 @@ function ComplaintRow({ item, remaining, windowMinutes, atRiskMinutes, busy, onA
           </div>
         </div>
 
-        <div className="flex lg:flex-col gap-2 shrink-0">
-          <Button variant="danger" icon={Ban} disabled={busy} onClick={() => onAct(item, 'AUTO_FLAG')} className="flex-1 lg:flex-none lg:w-36">
+        <div className="grid grid-cols-2 lg:flex lg:flex-col gap-2 shrink-0 lg:w-56">
+          <Button variant="danger" icon={Ban} onClick={() => onAct(item, 'AUTO_FLAG')} aria-label={`Take down item ${item.id}`}>
             Take down
           </Button>
-          <Button variant="secondary" icon={CircleCheck} disabled={busy} onClick={() => onAct(item, 'ALLOW')} className="flex-1 lg:flex-none lg:w-36">
+          <Button variant="secondary" icon={CircleCheck} onClick={() => onAct(item, 'ALLOW')} aria-label={`Dismiss complaint for item ${item.id}`}>
             Dismiss
           </Button>
+          <ReportButton item={item} className="col-span-2" onUnauthorized={onUnauthorized} />
         </div>
       </div>
     </Card>
@@ -140,7 +149,7 @@ function BreachLog({ breaches }) {
         <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="text-left text-xs text-subtle border-b border-line">
-              {['Item', 'Type', 'Reference', 'Deadline', 'Missed by', 'State'].map((h) => (
+              {['Item', 'Type', 'Rule', 'Reference', 'Deadline', 'Missed by', 'State'].map((h) => (
                 <th key={h} className="font-medium py-3 pr-4">
                   {h}
                 </th>
@@ -152,6 +161,10 @@ function BreachLog({ breaches }) {
               <tr key={b.id} className="border-b border-line last:border-0">
                 <td className="py-3 pr-4 font-mono">#{b.id}</td>
                 <td className="py-3 pr-4 text-muted">{COMPLAINT_TYPES[b.complaintType]?.label}</td>
+                <td className="py-3 pr-4 text-xs text-muted whitespace-nowrap">
+                  {b.jurisdiction && <span className="font-mono font-semibold text-sky-200 mr-1.5">{b.jurisdiction}</span>}
+                  {b.slaBadge || '—'}
+                </td>
                 <td className="py-3 pr-4 font-mono text-xs text-muted">{b.complaintReference || '—'}</td>
                 <td className="py-3 pr-4 text-xs text-muted">{dateTime(b.slaDeadline)}</td>
                 <td className="py-3 pr-4 font-mono text-xs text-rose-300">{humanDuration(b.remainingSeconds)}</td>
@@ -171,11 +184,70 @@ function BreachLog({ breaches }) {
   )
 }
 
-function FileComplaintDialog({ slaMinutes, onClose, onFiled }) {
+/** Hours for (jurisdiction, type), falling back to GENERIC like the server does. */
+function ruleFor(rules, jurisdiction, type) {
+  const list = rules?.rules || []
+  return (
+    list.find((r) => r.jurisdiction === jurisdiction && r.complaintType === type) ||
+    list.find((r) => r.jurisdiction === 'GENERIC' && r.complaintType === type)
+  )
+}
+
+const JURISDICTION_NAMES = { IN: 'India', US: 'United States', GENERIC: 'Other (generic policy)' }
+
+function RulesCard({ rules }) {
+  if (!rules?.rules?.length) return null
+  return (
+    <Card className="p-6 overflow-hidden">
+      <CardHeader
+        icon={Scale}
+        title="Jurisdiction rules"
+        description={`Deadlines come from this table, not code. Complaints without a jurisdiction use ${rules.defaultJurisdiction}; jurisdictions without their own rule fall back to GENERIC.`}
+      />
+      <div className="overflow-x-auto -mx-6 px-6">
+        <table className="w-full text-sm min-w-[720px]">
+          <thead>
+            <tr className="text-left text-xs text-subtle border-b border-line">
+              {['Jurisdiction', 'Complaint type', 'Deadline', 'Badge', 'Legal reference'].map((h) => (
+                <th key={h} className="font-medium py-3 pr-4">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rules.rules.map((r) => (
+              <tr key={r.id} className="border-b border-line last:border-0 align-top">
+                <td className="py-3 pr-4">
+                  <span className="font-mono font-semibold">{r.jurisdiction}</span>
+                  {r.jurisdiction === rules.defaultJurisdiction && (
+                    <span className="ml-2 rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] text-brand">default</span>
+                  )}
+                </td>
+                <td className="py-3 pr-4 text-muted">{COMPLAINT_TYPES[r.complaintType]?.label || r.complaintType}</td>
+                <td className="py-3 pr-4 font-mono text-xs">{r.deadlineHours}h</td>
+                <td className="py-3 pr-4 whitespace-nowrap">
+                  <JurisdictionBadge badge={r.badge} />
+                </td>
+                <td className="py-3 pr-4 text-xs text-muted leading-relaxed max-w-md">{r.legalReference || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+function FileComplaintDialog({ rules, onClose, onFiled }) {
   const inputRef = useRef(null)
   const [file, setFile] = useState(null)
   const [type, setType] = useState('USER_COMPLAINT')
+  const [jurisdiction, setJurisdiction] = useState(rules?.defaultJurisdiction || 'IN')
   const [reference, setReference] = useState('')
+  const jurisdictions = [...new Set((rules?.rules || []).map((r) => r.jurisdiction))].sort((a, b) =>
+    a === 'GENERIC' ? 1 : b === 'GENERIC' ? -1 : a.localeCompare(b),
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -191,7 +263,7 @@ function FileComplaintDialog({ slaMinutes, onClose, onFiled }) {
     setBusy(true)
     setError('')
     try {
-      onFiled(await fileComplaint(file, type, reference.trim()))
+      onFiled(await fileComplaint(file, type, reference.trim(), jurisdiction))
     } catch (err) {
       setError(err.message || 'Could not file the complaint')
       setBusy(false)
@@ -230,7 +302,9 @@ function FileComplaintDialog({ slaMinutes, onClose, onFiled }) {
                 >
                   <span className="flex items-center justify-between">
                     <Icon className={cn('size-4', active ? 'text-brand' : 'text-muted')} />
-                    <span className="font-mono text-xs text-muted">{humanDuration((slaMinutes?.[key] ?? 0) * 60)}</span>
+                    <span className="font-mono text-xs text-muted">
+                      {ruleFor(rules, jurisdiction, key) ? `${ruleFor(rules, jurisdiction, key).deadlineHours}h` : '—'}
+                    </span>
                   </span>
                   <span className="block text-sm font-medium mt-2">{meta.label}</span>
                   <span className="block text-[11px] text-subtle mt-0.5 leading-snug">{meta.detail}</span>
@@ -238,6 +312,24 @@ function FileComplaintDialog({ slaMinutes, onClose, onFiled }) {
               )
             })}
           </div>
+
+          <label className="block">
+            <span className="block text-[13px] font-medium text-muted mb-1.5">Jurisdiction</span>
+            <select
+              value={jurisdiction}
+              onChange={(e) => setJurisdiction(e.target.value)}
+              className="w-full h-11 rounded-xl border border-line-strong bg-canvas/60 px-3 text-sm focus:outline-none focus:border-brand/60 focus:ring-4 focus:ring-brand/15"
+            >
+              {jurisdictions.map((j) => (
+                <option key={j} value={j}>
+                  {j} · {JURISDICTION_NAMES[j] || j}
+                </option>
+              ))}
+            </select>
+            <span className="block text-[11px] text-subtle mt-1.5">
+              {ruleFor(rules, jurisdiction, type)?.badge || 'No rule'} · chosen explicitly, never inferred from location
+            </span>
+          </label>
 
           <label className="block">
             <span className="block text-[13px] font-medium text-muted mb-1.5">
@@ -302,25 +394,26 @@ export default function Compliance() {
   const now = useNow()
 
   const [data, setData] = useState(null)
-  const [error, setError] = useState('')
+  const { decide, pendingIds, committed } = useDecisions()
+  const [error, setError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [busyId, setBusyId] = useState(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const load = useCallback(
     async ({ silent = false } = {}) => {
       if (!silent) setRefreshing(true)
       try {
-        const [queue, breaches, summary] = await Promise.all([
+        const [queue, breaches, summary, rules] = await Promise.all([
           fetchComplianceQueue(),
           fetchComplianceBreaches(),
           fetchComplianceSummary(),
+          fetchComplianceRules(),
         ])
-        setData({ queue, breaches, summary, fetchedAt: Date.now() })
-        setError('')
+        setData({ queue, breaches, summary, rules, fetchedAt: Date.now() })
+        setError(null)
       } catch (err) {
         if (err.status === 401 || err.status === 403) return logout()
-        setError(err.message || 'Could not load compliance data')
+        setError(err)
       } finally {
         setRefreshing(false)
       }
@@ -335,6 +428,10 @@ export default function Compliance() {
     return () => clearInterval(timer)
   }, [isAuthenticated, load])
 
+  useEffect(() => {
+    if (committed && isAuthenticated) load({ silent: true })
+  }, [committed, isAuthenticated, load])
+
   const closeDialog = useCallback(() => setDialogOpen(false), [])
 
   if (!authLoading && !isAuthenticated) {
@@ -345,27 +442,22 @@ export default function Compliance() {
   const windows = summary?.slaMinutes || {}
   const atRiskMinutes = summary?.atRiskMinutes ?? 30
   const elapsed = data ? Math.floor((now - data.fetchedAt) / 1000) : 0
-  const live = (data?.queue || []).map((item) => ({ item, remaining: item.remainingSeconds - elapsed }))
+  const live = (data?.queue || [])
+    .filter((item) => !pendingIds.has(item.id))
+    .map((item) => ({ item, remaining: item.remainingSeconds - elapsed }))
   const counts = { ON_TRACK: 0, AT_RISK: 0, BREACHED: 0 }
   live.forEach(({ remaining }) => counts[liveStatus(remaining, atRiskMinutes)]++)
 
-  const act = async (item, decision) => {
-    setBusyId(item.id)
-    try {
-      await updateQueueDecision(item.id, decision)
-      toast(decision === 'AUTO_FLAG' ? `#${item.id} taken down, clock stopped` : `#${item.id} dismissed, clock stopped`)
-      await load({ silent: true })
-      refreshStats()
-    } catch (err) {
-      toast(err.message || 'Update failed', { tone: 'error' })
-    } finally {
-      setBusyId(null)
-    }
-  }
+  const act = (item, decision) =>
+    decide({
+      ids: [item.id],
+      decision,
+      label: decision === 'AUTO_FLAG' ? `Taking down #${item.id}; clock stops when saved` : `Dismissing #${item.id}; clock stops when saved`,
+    })
 
   const onFiled = (item) => {
     setDialogOpen(false)
-    toast(`Complaint #${item.id} filed. ${humanDuration((windows[item.complaintType] ?? 0) * 60)} clock started.`)
+    toast(`Complaint #${item.id} filed under ${item.jurisdiction}: ${item.slaBadge || 'SLA'} clock started.`)
     load({ silent: true })
     refreshStats()
   }
@@ -373,9 +465,9 @@ export default function Compliance() {
   return (
     <>
       <PageHeader
-        eyebrow="IT Rules 2026 compliance"
+        eyebrow="Multi-jurisdiction compliance"
         title="Takedown SLA monitor"
-        description={`User deepfake / NCII complaints must be actioned within ${humanDuration((windows.USER_COMPLAINT ?? 120) * 60)} and government orders within ${humanDuration((windows.GOVERNMENT_ORDER ?? 180) * 60)}. Items escalate automatically with ${humanDuration(atRiskMinutes * 60)} left.`}
+        description={`Each complaint runs on its jurisdiction's statutory clock: India IT Rules 2026 (${humanDuration((windows.USER_COMPLAINT ?? 120) * 60)} user complaints, ${humanDuration((windows.GOVERNMENT_ORDER ?? 180) * 60)} government orders), the US Take It Down Act (48h), or the generic policy. Items escalate automatically with ${humanDuration(atRiskMinutes * 60)} left.`}
         actions={
           <>
             <Button
@@ -394,11 +486,7 @@ export default function Compliance() {
         }
       />
 
-      {error && (
-        <div className="mb-6">
-          <Alert>{error}</Alert>
-        </div>
-      )}
+      {error && <ErrorState error={error} title="Couldn't load compliance data" onRetry={() => load()} className="mb-6" />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fade-up">
         <StatTile icon={Timer} label="Open complaints" value={live.length} hint="Clocks currently running" loading={!data} />
@@ -421,19 +509,7 @@ export default function Compliance() {
       </div>
 
       {!data ? (
-        <div className="space-y-4">
-          {[0, 1].map((i) => (
-            <Card key={i} className="p-5">
-              <div className="flex gap-6">
-                <div className="skeleton h-12 w-44" />
-                <div className="flex-1 space-y-2.5">
-                  <div className="skeleton h-5 w-56" />
-                  <div className="skeleton h-3 w-80" />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        error ? null : <LoadingState label="Loading open complaints and their deadlines…" />
       ) : live.length === 0 ? (
         <EmptyState icon={CircleCheck} title="No open complaints" description="Every takedown request has been actioned. File a complaint to start a new SLA clock.">
           <Button icon={FilePlus2} onClick={() => setDialogOpen(true)}>
@@ -449,8 +525,8 @@ export default function Compliance() {
                 remaining={remaining}
                 windowMinutes={windows[item.complaintType]}
                 atRiskMinutes={atRiskMinutes}
-                busy={busyId === item.id}
                 onAct={act}
+                onUnauthorized={logout}
               />
             </div>
           ))}
@@ -463,7 +539,13 @@ export default function Compliance() {
         </div>
       )}
 
-      {dialogOpen && <FileComplaintDialog slaMinutes={windows} onClose={closeDialog} onFiled={onFiled} />}
+      {data?.rules && (
+        <div className="mt-10">
+          <RulesCard rules={data.rules} />
+        </div>
+      )}
+
+      {dialogOpen && <FileComplaintDialog rules={data?.rules} onClose={closeDialog} onFiled={onFiled} />}
     </>
   )
 }

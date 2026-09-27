@@ -1,15 +1,30 @@
 <!doctype html>
-<html lang="en" class="bg-[#05070b]">
+<html lang="en" data-theme="dark" style="background-color: #0a0a0a; color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#05070b" />
+    <meta name="theme-color" content="#0a0a0a" />
     <meta
       name="description"
       content="Detect forged and explicit media with explainable AI, automatic routing, and a human moderation queue."
     />
-    <title>Forged Media Detection · Trust &amp; Safety Console</title>
+    <title>Forged Media Detection ?? Trust &amp; Safety Console</title>
+    <script>
+      (function () {
+        var t
+        try { t = localStorage.getItem('fmd_theme') } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        }
+        var bg = t === 'light' ? '#f5f5f5' : '#0a0a0a'
+        var root = document.documentElement
+        root.dataset.theme = t
+        root.style.colorScheme = t
+        root.style.backgroundColor = bg
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', bg)
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

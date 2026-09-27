@@ -5,7 +5,9 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Takedown SLA windows (IT Rules 2026) and escalation settings, bound from {@code compliance.*}.
+ * Takedown SLA settings, bound from {@code compliance.*}. Since Phase 19 the per-jurisdiction
+ * deadlines live in the {@code jurisdiction_rules} table; {@code sla.user-complaint} /
+ * {@code sla.government-order} seed the IN rules and are the last-resort fallback if no rule matches.
  */
 @ConfigurationProperties(prefix = "compliance")
 public class ComplianceProperties {
@@ -15,6 +17,38 @@ public class ComplianceProperties {
 
     /** Dev/demo only: seed sample complaints at every SLA stage when none exist. */
     private boolean seedDemo = false;
+
+    /** Jurisdiction used when a complaint doesn't name one. Platform configuration, never inferred from IP. */
+    private String defaultJurisdiction = "IN";
+
+    /** Hours for the seeded GENERIC rules, the fallback for jurisdictions without their own rule. */
+    private int genericUserComplaintHours = 24;
+
+    private int genericGovernmentOrderHours = 24;
+
+    public String getDefaultJurisdiction() {
+        return defaultJurisdiction;
+    }
+
+    public void setDefaultJurisdiction(String defaultJurisdiction) {
+        this.defaultJurisdiction = defaultJurisdiction;
+    }
+
+    public int getGenericUserComplaintHours() {
+        return genericUserComplaintHours;
+    }
+
+    public void setGenericUserComplaintHours(int genericUserComplaintHours) {
+        this.genericUserComplaintHours = genericUserComplaintHours;
+    }
+
+    public int getGenericGovernmentOrderHours() {
+        return genericGovernmentOrderHours;
+    }
+
+    public void setGenericGovernmentOrderHours(int genericGovernmentOrderHours) {
+        this.genericGovernmentOrderHours = genericGovernmentOrderHours;
+    }
 
     public Sla getSla() {
         return sla;

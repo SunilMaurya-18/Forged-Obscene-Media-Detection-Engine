@@ -301,7 +301,7 @@ function Intro() {
       title="Check where an image came from"
       description="Every analysed image gets a traceable ID and a signed manifest embedded in its labelled copy. Look one up to see its authenticity and full audit history."
     >
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-brand hover:underline">
+      <Link to="/analyze" className="inline-flex items-center gap-1.5 text-sm text-brand hover:underline">
         <ImageUp className="size-4" /> Analyse an image to get a label
       </Link>
     </EmptyState>

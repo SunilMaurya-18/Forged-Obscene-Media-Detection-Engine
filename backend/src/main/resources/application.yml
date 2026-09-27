@@ -52,6 +52,41 @@ compliance:
   escalation:
     webhook-url: ${COMPLIANCE_ESCALATION_WEBHOOK_URL:}
   seed-demo: ${COMPLIANCE_SEED_DEMO:false}
+  # Phase 19: jurisdiction applied when a complaint doesn't name one (platform config; never geo-IP)
+  default-jurisdiction: ${COMPLIANCE_DEFAULT_JURISDICTION:IN}
+  # Seeded GENERIC rules (fallback for any jurisdiction without its own rule). Edit the DB row afterwards.
+  generic-user-complaint-hours: ${COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS:24}
+  generic-government-order-hours: ${COMPLIANCE_GENERIC_GOVERNMENT_ORDER_HOURS:24}
+
+# Phase 15: evidentiary reports show timestamps in UTC plus this zone
+report:
+  local-zone: ${REPORT_LOCAL_ZONE:Asia/Kolkata}
+  # Phase 20: dev Ed25519 signing key, generated on first start. Production: KMS/HSM, not a file.
+  signing:
+    key-dir: ${REPORT_SIGNING_KEY_DIR:./data/signing-keys}
+
+# Phase 18: on-device hash pre-screening ("check before you post")
+prescreen:
+  phash-max-distance: ${PRESCREEN_PHASH_MAX_DISTANCE:8}
+  pdq-max-distance: ${PRESCREEN_PDQ_MAX_DISTANCE:31}
+  # pHash of frontend/public/prescreen-demo.png (a synthetic test pattern), seeded as INTERNAL_CONFIRMED
+  seed-hashes: ${PRESCREEN_SEED_HASHES:c2423d3d3b783cc6}
+
+# Phase 21: self-service reports (case number + PIN, no account)
+complaints:
+  max-pin-attempts: ${COMPLAINTS_MAX_PIN_ATTEMPTS:5}
+  lockout: ${COMPLAINTS_PIN_LOCKOUT:PT15M}
+  # Optional: JSON POST on every case status change, for an email/SMS gateway (blank = log only)
+  notify-webhook-url: ${COMPLAINTS_NOTIFY_WEBHOOK_URL:}
+
+# Phase 16: third-party API (/api/v1). Requests per minute per key, by plan.
+api:
+  rate-limits:
+    FREE: ${API_RATE_LIMIT_FREE:10}
+    PRO: ${API_RATE_LIMIT_PRO:60}
+    ENTERPRISE: ${API_RATE_LIMIT_ENTERPRISE:600}
+  # Dev only: seeds a FREE "Demo Platform" client with this exact key (must start with fmd_live_)
+  demo-key: ${API_DEMO_KEY:}
 
 # Dev-only seeded moderator (Phase 8). Change in production.
 app:

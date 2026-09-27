@@ -5,7 +5,7 @@ import { cn, score as fmtScore } from '../lib/format'
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-brand-gradient text-[#060a12] font-semibold shadow-[0_8px_24px_-8px_rgb(123_140_255/0.6)] hover:brightness-110',
+    'bg-brand-gradient text-[#fff] font-semibold shadow-[0_8px_24px_-8px_rgb(220_38_38/0.55)] hover:brightness-110',
   secondary: 'border border-line-strong bg-white/[0.04] text-fg hover:bg-white/[0.08] hover:border-white/20',
   ghost: 'text-muted hover:text-fg hover:bg-white/[0.05]',
   success:
@@ -48,16 +48,16 @@ export function Card({ className, children, ...props }) {
 
 export function CardHeader({ icon: Icon, title, description, action }) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-5">
+    <div className="flex items-start justify-between gap-4 mb-5 print:mb-2">
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <span className="grid place-items-center size-9 shrink-0 rounded-xl border border-line bg-white/[0.04] text-brand">
+          <span className="grid place-items-center size-9 shrink-0 rounded-xl border border-line bg-white/[0.04] text-brand print:hidden">
             <Icon className="size-[18px]" />
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
-          {description && <p className="text-sm text-muted mt-0.5">{description}</p>}
+          <h2 className="text-[15px] font-semibold tracking-tight print:text-[12.5px]">{title}</h2>
+          {description && <p className="text-sm text-muted mt-0.5 print:hidden">{description}</p>}
         </div>
       </div>
       {action}
@@ -67,18 +67,18 @@ export function CardHeader({ icon: Icon, title, description, action }) {
 
 export function PageHeader({ eyebrow, title, description, actions }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 animate-fade-up">
-      <div className="max-w-2xl">
+    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 animate-fade-up print:mb-3">
+      <div className="max-w-2xl print:max-w-none">
         {eyebrow && (
-          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand mb-3">
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand mb-3 print:mb-1 print:text-[9px]">
             <span className="size-1.5 rounded-full bg-brand-gradient" />
             {eyebrow}
           </p>
         )}
-        <h1 className="text-3xl md:text-[40px] md:leading-[1.1] font-semibold tracking-[-0.03em] text-gradient">
+        <h1 className="text-3xl md:text-[40px] md:leading-[1.1] font-semibold tracking-[-0.03em] text-gradient print:text-[22px]">
           {title}
         </h1>
-        {description && <p className="text-muted mt-3 text-[15px] leading-relaxed">{description}</p>}
+        {description && <p className="text-muted mt-3 text-[15px] leading-relaxed print:mt-1 print:text-[11px]">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 md:shrink-0">{actions}</div>}
     </div>

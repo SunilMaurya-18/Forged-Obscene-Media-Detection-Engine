@@ -20,7 +20,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 class ForgeryModel(nn.Module):
-    def __init__(self, pretrained: bool = False) -> None:
+    def __init__(self, pretrained: bool = False, family_head: bool = False) -> None:
         super().__init__()
         weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
         backbone = models.efficientnet_b0(weights=weights)
@@ -30,10 +30,17 @@ class ForgeryModel(nn.Module):
             nn.Linear(in_features, 1),
         )
         self.backbone = backbone
+        self.family_head = nn.Linear(in_features, 1) if family_head else None
         self.target_layer = self.backbone.features[-1]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
+
+    def forward_all(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Forgery logits and generation-family logits (sigmoid → P(diffusion); None without the head)."""
+        pooled = torch.flatten(self.backbone.avgpool(self.backbone.features(x)), 1)
+        family = self.family_head(pooled) if self.family_head is not None else None
+        return self.backbone.classifier(pooled), family
 
 
 EVAL_TRANSFORM = transforms.Compose(
@@ -47,8 +54,9 @@ EVAL_TRANSFORM = transforms.Compose(
 
 def load_forgery_model(checkpoint: Path, device: torch.device) -> ForgeryModel:
     payload = torch.load(checkpoint, map_location=device, weights_only=False)
-    model = ForgeryModel(pretrained=False).to(device)
-    model.load_state_dict(payload["model_state_dict"])
+    state = payload["model_state_dict"]
+    model = ForgeryModel(pretrained=False, family_head="family_head.weight" in state).to(device)
+    model.load_state_dict(state)
     model.eval()
     return model
 

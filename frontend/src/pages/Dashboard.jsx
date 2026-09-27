@@ -9,6 +9,7 @@ import {
   LineChart,
   Maximize2,
   ShieldCheck,
+  Sparkles,
   Target,
   Timer,
   X,
@@ -24,8 +25,90 @@ const DATASET_LABELS = { 'faceforensics++': 'FaceForensics++', dfdc: 'DFDC', 'ce
 const CHARTS = [
   { src: '/generalization_chart.png', title: 'Generalization', caption: 'Accuracy, F1 and AUC: trained on FF++, tested on held-out datasets' },
   { src: '/roc_curve.png', title: 'ROC curves', caption: 'True vs false positive rate per dataset' },
-  { src: '/confusion_matrix.png', title: 'Confusion matrices', caption: 'Predictions at a 0.5 forgery threshold' },
+  { src: '/diffusion_robustness.png', title: 'Diffusion-era robustness', caption: 'AUC before and after diffusion-augmented retraining', wide: true },
+  { src: '/confusion_matrix.png', title: 'Confusion matrices', caption: 'Predictions at a 0.5 forgery threshold', wide: true },
 ]
+
+function EraRow({ label, sub, before, after }) {
+  const delta = before?.auc != null && after?.auc != null ? after.auc - before.auc : null
+  return (
+    <tr className="border-b border-line last:border-0">
+      <td className="py-3.5 pr-4">
+        <p className="font-medium">{label}</p>
+        <p className="text-[11px] text-muted mt-0.5">{sub}</p>
+      </td>
+      {['accuracy', 'precision', 'recall', 'auc'].map((k) => (
+        <td key={k} className="py-3.5 px-2 text-right font-mono text-xs tabular-nums">
+          <span className="text-subtle">{score(before?.[k])}</span>
+          <span className="text-subtle mx-1">→</span>
+          <span className="text-fg">{score(after?.[k])}</span>
+        </td>
+      ))}
+      <td
+        className={cn(
+          'py-3.5 pl-2 text-right font-mono text-xs tabular-nums',
+          delta == null ? 'text-subtle' : delta < -0.02 ? 'text-rose-300' : delta > 0.02 ? 'text-emerald-300' : 'text-muted',
+        )}
+      >
+        {delta == null ? '—' : `${delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(3)}`}
+      </td>
+    </tr>
+  )
+}
+
+function DiffusionEra({ gan, diffusion, notes }) {
+  return (
+    <Card className="p-6 overflow-hidden">
+      <CardHeader
+        icon={Sparkles}
+        title="GAN-era vs diffusion-era"
+        description="The Phase 2 checkpoint (baseline) against the diffusion-augmented retrain, on held-out identities."
+        action={
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]',
+              gan.within_margin ? 'border-emerald-400/30 text-emerald-300' : 'border-rose-400/30 text-rose-300',
+            )}
+          >
+            {gan.within_margin ? 'No GAN-era regression' : 'GAN-era regression'} (±{gan.allowed_regression})
+          </span>
+        }
+      />
+      <div className="overflow-x-auto -mx-6 px-6">
+        <table className="w-full text-sm min-w-[640px]">
+          <thead>
+            <tr className="text-left text-xs text-subtle border-b border-line">
+              <th className="font-medium py-3 pr-4">Era</th>
+              {['Accuracy', 'Precision', 'Recall', 'AUC', 'Δ AUC'].map((h) => (
+                <th key={h} className="font-medium py-3 px-2 text-right">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <EraRow
+              label="GAN-era"
+              sub={`FF++ · DFDC · Celeb-DF pooled · n=${gan.retrained?.n ?? '–'}`}
+              before={gan.baseline}
+              after={gan.retrained}
+            />
+            <EraRow
+              label="Diffusion-era"
+              sub={`${diffusion.dataset} · n=${diffusion.retrained?.n ?? '–'}`}
+              before={diffusion.baseline}
+              after={diffusion.retrained}
+            />
+          </tbody>
+        </table>
+      </div>
+      <p className="flex gap-2.5 mt-4 text-xs text-muted leading-relaxed">
+        <Info className="size-4 shrink-0 text-amber-300 mt-px" />
+        {notes}
+      </p>
+    </Card>
+  )
+}
 
 function Lightbox({ chart, onClose }) {
   useEffect(() => {
@@ -51,7 +134,7 @@ function Lightbox({ chart, onClose }) {
         >
           <X className="size-4" />
         </button>
-        <img src={chart.src} alt={chart.title} className="w-full rounded-2xl bg-white p-3" />
+        <img src={chart.src} alt={chart.title} className="w-full rounded-2xl bg-[#fff] p-3" />
         <p className="text-sm text-muted text-center mt-3">{chart.caption}</p>
       </div>
     </div>
@@ -291,6 +374,9 @@ export default function Dashboard() {
       {metrics && (
         <div className="space-y-6 animate-fade-up [animation-delay:120ms]">
           <DatasetTable datasets={datasets} gaps={metrics.generalization_gap} />
+          {metrics.gan_era && metrics.diffusion_era && (
+            <DiffusionEra gan={metrics.gan_era} diffusion={metrics.diffusion_era} notes={metrics.phase17_notes} />
+          )}
 
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -298,21 +384,21 @@ export default function Dashboard() {
               <h2 className="text-[15px] font-semibold tracking-tight">Evaluation charts</h2>
             </div>
             <div className="grid md:grid-cols-2 gap-6">
-              {CHARTS.map((chart, i) => (
+              {CHARTS.map((chart) => (
                 <button
                   key={chart.src}
                   type="button"
                   onClick={() => setZoom(chart)}
-                  className={cn('card group p-4 text-left transition hover:border-line-strong', i === 2 && 'md:col-span-2')}
+                  className={cn('card group p-4 text-left transition hover:border-line-strong', chart.wide && 'md:col-span-2')}
                 >
-                  <div className={cn('relative rounded-xl bg-white p-2 overflow-hidden', i < 2 && 'h-64 md:h-80')}>
+                  <div className={cn('relative rounded-xl bg-[#fff] p-2 overflow-hidden', !chart.wide && 'h-64 md:h-80')}>
                     <img
                       src={chart.src}
                       alt={chart.title}
                       loading="lazy"
-                      className={i < 2 ? 'size-full object-contain' : 'w-full'}
+                      className={chart.wide ? 'w-full' : 'size-full object-contain'}
                     />
-                    <span className="absolute top-3 right-3 grid place-items-center size-8 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
+                    <span className="absolute top-3 right-3 grid place-items-center size-8 rounded-lg bg-black/60 text-[#fff] opacity-0 group-hover:opacity-100 transition">
                       <Maximize2 className="size-4" />
                     </span>
                   </div>

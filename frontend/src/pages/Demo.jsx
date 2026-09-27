@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   ArrowRight,
+  BookOpen,
   Brain,
   Download,
   EyeOff,
+  FilePlus2,
   Fingerprint,
   Flame,
   Gauge,
@@ -21,10 +23,19 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { analyzeImage } from '../api/client'
-import { Alert, Button, Card, CardHeader, CopyButton, Kbd, PageHeader, ScoreMeter, buttonClass } from '../components/ui'
+import { useAuth } from '../auth/AuthContext'
+import FamilyChip from '../components/FamilyChip'
+import PrescreenCard from '../components/PrescreenCard'
+import PrivacyNote from '../components/PrivacyNote'
+import { ErrorState, LoadingLine } from '../components/Status'
+import { VerdictPanel } from '../components/VerdictBadge'
+import { Button, Card, CardHeader, CopyButton, Kbd, PageHeader, ScoreMeter, buttonClass } from '../components/ui'
 import { useStats } from '../context/StatsContext'
 import { decisionMeta } from '../lib/decision'
+import { verdictFor } from '../lib/verdict'
+import { FAMILY } from '../lib/family'
 import { cn, dateTime, fileSize } from '../lib/format'
 import { MATCH_VIA, downloadBase64, labelledFilename, manifestStatus, shortId } from '../lib/provenance'
 
@@ -131,7 +142,7 @@ function Dropzone({ preview, busy, onFile }) {
           {busy && (
             <div className="absolute inset-0 bg-canvas/40">
               <div className="absolute inset-x-0 h-24 -translate-y-full bg-gradient-to-b from-transparent via-brand-2/25 to-transparent animate-scan" />
-              <div className="absolute inset-x-0 h-px bg-brand-2 shadow-[0_0_16px_2px_rgb(45_212_238/0.7)] animate-scan" />
+              <div className="absolute inset-x-0 h-px bg-brand-2 shadow-[0_0_16px_2px_rgb(239_68_68/0.7)] animate-scan" />
               {['top-3 left-3 border-t-2 border-l-2', 'top-3 right-3 border-t-2 border-r-2', 'bottom-3 left-3 border-b-2 border-l-2', 'bottom-3 right-3 border-b-2 border-r-2'].map(
                 (pos) => (
                   <span key={pos} className={cn('absolute size-6 border-brand-2/80 rounded-sm', pos)} />
@@ -169,6 +180,7 @@ function Dropzone({ preview, busy, onFile }) {
 }
 
 function AnalyzingCard() {
+  const { t } = useTranslation()
   const [step, setStep] = useState(0)
   useEffect(() => {
     const timer = setInterval(() => setStep((s) => Math.min(s + 1, PIPELINE.length - 1)), 650)
@@ -178,7 +190,8 @@ function AnalyzingCard() {
   return (
     <Card className="p-6 animate-fade-up">
       <CardHeader icon={Brain} title="Running analysis" description="Models are warm, so this usually takes well under a second." />
-      <ol className="space-y-2.5">
+      <LoadingLine label={t('loading.checking')} className="mb-4" />
+      <ol aria-hidden className="space-y-2.5">
         {PIPELINE.map(({ icon: Icon, label }, i) => {
           const done = i < step
           const active = i === step
@@ -309,76 +322,100 @@ function ProvenanceCard({ result, file }) {
   )
 }
 
+function DetailSection({ icon: Icon, title, description, children }) {
+  return (
+    <section className="rounded-xl border border-line bg-white/[0.015] p-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+        <Icon aria-hidden className="size-4 text-brand" />
+        {title}
+      </h3>
+      {description && <p className="text-xs text-muted mt-1 mb-4">{description}</p>}
+      {children}
+    </section>
+  )
+}
+
 function ResultView({ result, preview, file, thresholds }) {
-  const meta = decisionMeta(result.decision)
-  const Icon = meta.icon
+  const { t } = useTranslation()
+  const { isAuthenticated } = useAuth()
+  const decision = decisionMeta(result.decision)
 
   return (
     <div className="space-y-5">
       {result.embeddedSource && <LineageBanner source={result.embeddedSource} />}
-      <Card className={cn('p-6 overflow-hidden animate-fade-up', meta.ring)}>
-        <div className={cn('absolute inset-x-0 top-0 h-32 bg-gradient-to-b to-transparent pointer-events-none', meta.glow)} />
-        <div className="relative flex items-start gap-4">
-          <span className={cn('grid place-items-center size-12 shrink-0 rounded-2xl border', meta.ring)}>
-            <Icon className={cn('size-6', meta.text)} />
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted">Decision</p>
-            <p className={cn('text-2xl font-semibold tracking-tight mt-0.5', meta.text)}>{meta.label}</p>
-            <p className="text-sm text-muted mt-1.5 leading-relaxed">{meta.description}</p>
-            <p className="text-xs text-subtle mt-3 font-mono">
-              Analysis #{result.id} · {dateTime(result.createdAt)}
-            </p>
+      <VerdictPanel
+        verdict={verdictFor(result.forgeryScore, thresholds)}
+        next={result.decision}
+        meta={`Analysis #${result.id} · ${dateTime(result.createdAt)} · routed to ${decision.label}`}
+      >
+        <DetailSection icon={Gauge} title="Risk scores" description="Two independent models, compared against the live decision thresholds.">
+          <div className="space-y-6">
+            <ScoreMeter
+              label="Forgery"
+              icon={ScanFace}
+              value={result.forgeryScore}
+              review={thresholds.forgeryReview}
+              autoFlag={thresholds.forgeryAutoFlag}
+            />
+            <ScoreMeter
+              label="Explicit content"
+              icon={EyeOff}
+              value={result.explicitScore}
+              review={thresholds.explicitReview}
+              autoFlag={thresholds.explicitAutoFlag}
+            />
           </div>
-        </div>
-        {result.decision === 'REVIEW' && (
-          <Link to="/queue" className={buttonClass('secondary', 'md', 'relative mt-5 w-full')}>
-            Open moderation queue <ArrowRight className="size-4" />
-          </Link>
+          {result.generationFamily && (
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-line bg-white/[0.02] px-3.5 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted">Generation family</p>
+                <p className="text-[13px] text-muted leading-relaxed mt-1">
+                  {FAMILY[result.generationFamily]?.description || FAMILY.unknown.description} Best-effort attribution,
+                  not a verdict.
+                </p>
+              </div>
+              <FamilyChip family={result.generationFamily} confidence={result.familyConfidence} className="shrink-0 mt-0.5" />
+            </div>
+          )}
+        </DetailSection>
+
+        {result.heatmap && (
+          <DetailSection icon={Flame} title="Explainability" description="Grad-CAM highlights the regions that drove the forgery score.">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { src: preview, label: 'Original' },
+                { src: `data:image/png;base64,${result.heatmap}`, label: 'Grad-CAM overlay' },
+              ].map(({ src, label }) => (
+                <figure key={label}>
+                  <div className="aspect-square rounded-xl overflow-hidden border border-line bg-checker">
+                    <img src={src} alt={label} className="size-full object-cover" />
+                  </div>
+                  <figcaption className="text-xs text-muted mt-2 text-center">{label}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 mt-4 text-[11px] text-subtle">
+              <span>Low</span>
+              <span className="h-1.5 flex-1 rounded-full bg-[linear-gradient(90deg,#00008f,#0080ff,#00ffff,#ffff00,#ff8000,#ff0000)] opacity-80" />
+              <span>High attention</span>
+            </div>
+          </DetailSection>
         )}
-      </Card>
+      </VerdictPanel>
 
-      <Card className="p-6 animate-fade-up [animation-delay:60ms]">
-        <CardHeader icon={Gauge} title="Risk scores" description="Two independent models, compared against the live decision thresholds." />
-        <div className="space-y-6">
-          <ScoreMeter
-            label="Forgery"
-            icon={ScanFace}
-            value={result.forgeryScore}
-            review={thresholds.forgeryReview}
-            autoFlag={thresholds.forgeryAutoFlag}
-          />
-          <ScoreMeter
-            label="Explicit content"
-            icon={EyeOff}
-            value={result.explicitScore}
-            review={thresholds.explicitReview}
-            autoFlag={thresholds.explicitAutoFlag}
-          />
-        </div>
-      </Card>
-
-      {result.heatmap && (
-        <Card className="p-6 animate-fade-up [animation-delay:120ms]">
-          <CardHeader icon={Flame} title="Explainability" description="Grad-CAM highlights the regions that drove the forgery score." />
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { src: preview, label: 'Original' },
-              { src: `data:image/png;base64,${result.heatmap}`, label: 'Grad-CAM overlay' },
-            ].map(({ src, label }) => (
-              <figure key={label}>
-                <div className="aspect-square rounded-xl overflow-hidden border border-line bg-checker">
-                  <img src={src} alt={label} className="size-full object-cover" />
-                </div>
-                <figcaption className="text-xs text-muted mt-2 text-center">{label}</figcaption>
-              </figure>
-            ))}
-          </div>
-          <div className="flex items-center gap-3 mt-4 text-[11px] text-subtle">
-            <span>Low</span>
-            <span className="h-1.5 flex-1 rounded-full bg-[linear-gradient(90deg,#00008f,#0080ff,#00ffff,#ffff00,#ff8000,#ff0000)] opacity-80" />
-            <span>High attention</span>
-          </div>
+      {isAuthenticated ? (
+        result.decision === 'REVIEW' && (
+          <Link to="/queue" className={buttonClass('secondary', 'md', 'w-full')}>
+            Open moderation queue <ArrowRight aria-hidden className="size-4" />
+          </Link>
+        )
+      ) : (
+        <Card className="p-4 flex flex-wrap items-center gap-3 animate-fade-up">
+          <FilePlus2 aria-hidden className="size-5 text-rose-300 shrink-0" />
+          <p className="text-sm flex-1 min-w-48">{t('verdict.reportCta')}</p>
+          <Link to="/report" className={buttonClass('secondary', 'sm')}>
+            {t('verdict.reportAction')} <ArrowRight aria-hidden className="size-3.5" />
+          </Link>
         </Card>
       )}
 
@@ -395,8 +432,13 @@ export default function Demo() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const dims = useImageDimensions(preview)
+  const { hash } = useLocation()
 
   useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview])
+
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth' })
+  }, [hash])
 
   const onFile = useCallback((f) => {
     if (!f) return
@@ -439,7 +481,7 @@ export default function Demo() {
       setResult(await analyzeImage(file))
       refreshStats()
     } catch (err) {
-      setError(err.message || 'Analysis failed')
+      setError(err)
     } finally {
       setBusy(false)
     }
@@ -451,6 +493,18 @@ export default function Demo() {
         eyebrow="Media forensics"
         title="Detect forged and explicit media"
         description="Upload an image to score it for face manipulation and explicit content. The decision engine routes it to Allow, Review, or Auto-flag in real time."
+        actions={
+          <>
+            <Link to="/report" className={buttonClass('primary', 'md')}>
+              <FilePlus2 aria-hidden className="size-4" />
+              Report an image of you
+            </Link>
+            <Link to="/explained" className={buttonClass('secondary', 'md')}>
+              <BookOpen aria-hidden className="size-4" />
+              New here? Plain-English guide
+            </Link>
+          </>
+        }
       />
 
       <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-6 items-start">
@@ -460,6 +514,7 @@ export default function Demo() {
             title="Source image"
             description="Use stills from research datasets such as FaceForensics++, DFDC or Celeb-DF."
           />
+          {!file && <PrivacyNote compact className="mb-4" />}
           <Dropzone preview={preview} busy={busy} onFile={onFile} />
 
           {file && (
@@ -495,7 +550,7 @@ export default function Demo() {
         </Card>
 
         <div className="space-y-5">
-          {error && <Alert title="Something went wrong">{error}</Alert>}
+          <ErrorState error={error} onRetry={file && typeof error !== 'string' ? runAnalyze : undefined} />
           {busy ? (
             <AnalyzingCard />
           ) : result ? (
@@ -504,6 +559,10 @@ export default function Demo() {
             <HowItWorks />
           )}
         </div>
+      </div>
+
+      <div id="prescreen" className="mt-8 scroll-mt-24">
+        <PrescreenCard />
       </div>
     </>
   )

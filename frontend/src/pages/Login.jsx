@@ -119,7 +119,7 @@ export default function Login() {
       </Card>
 
       <Link to="/" className="mt-6 flex items-center justify-center gap-1.5 text-sm text-muted hover:text-fg transition">
-        <ArrowLeft className="size-4" /> Back to analysis
+        <ArrowLeft className="size-4" /> Back to home
       </Link>
     </div>
   )

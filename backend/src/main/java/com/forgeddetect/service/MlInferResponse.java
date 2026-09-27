@@ -2,6 +2,7 @@ package com.forgeddetect.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * Response payload from ML service {@code POST /infer}.
@@ -27,6 +28,40 @@ public class MlInferResponse {
 
     /** Manifest already embedded in the upload; null for unlabelled media. */
     private MlProvenanceCheck provenance;
+
+    /** Coarse forensic signature (CAM / ELA / FFT grids) for report panels. */
+    private JsonNode forensics;
+
+    /** gan / diffusion / unknown — best-effort attribution, only set when the image looks forged. */
+    @JsonProperty("generation_family")
+    private String generationFamily;
+
+    @JsonProperty("family_confidence")
+    private Double familyConfidence;
+
+    public String getGenerationFamily() {
+        return generationFamily;
+    }
+
+    public void setGenerationFamily(String generationFamily) {
+        this.generationFamily = generationFamily;
+    }
+
+    public Double getFamilyConfidence() {
+        return familyConfidence;
+    }
+
+    public void setFamilyConfidence(Double familyConfidence) {
+        this.familyConfidence = familyConfidence;
+    }
+
+    public JsonNode getForensics() {
+        return forensics;
+    }
+
+    public void setForensics(JsonNode forensics) {
+        this.forensics = forensics;
+    }
 
     public String getContentHash() {
         return contentHash;

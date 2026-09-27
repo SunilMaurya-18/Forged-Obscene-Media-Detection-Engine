@@ -40,11 +40,18 @@ public class ComplianceService {
         this.clock = clock;
     }
 
-    /** Analyzes the reported media and starts its takedown clock now. */
+    /**
+     * Analyzes the reported media and starts its takedown clock now.
+     *
+     * @param jurisdiction code whose rules apply (IN, US, ...); null for the platform default
+     * @throws IllegalArgumentException for a malformed jurisdiction code (checked before analysis)
+     */
     @Transactional
     public AnalysisService.AnalyzeOutcome fileComplaint(
-            byte[] imageBytes, String filename, String contentType, ComplaintType type, String reference) {
+            byte[] imageBytes, String filename, String contentType, ComplaintType type, String reference, String jurisdiction) {
+        String j = slaClock.normalizeJurisdiction(jurisdiction);
         AnalysisService.AnalyzeOutcome outcome = analysisService.analyze(imageBytes, filename, contentType);
+        outcome.result().setJurisdiction(j);
         AnalysisResult saved = openComplaint(outcome.result(), type, reference, clock.instant());
         return outcome.withResult(saved);
     }
@@ -55,9 +62,9 @@ public class ComplianceService {
      */
     @Transactional
     public AnalysisResult openComplaint(AnalysisResult item, ComplaintType type, String reference, Instant receivedAt) {
-        slaClock.startClock(item, type, reference, receivedAt);
+        SlaClockService.ResolvedRule rule = slaClock.startClock(item, type, reference, receivedAt);
         AnalysisResult saved = repository.save(item);
-        provenance.complaintOpened(saved, type, properties.windowFor(type), receivedAt);
+        provenance.complaintOpened(saved, type, rule.window(), receivedAt, rule.label());
         if (saved.getSlaStatus() != SlaStatus.ON_TRACK) {
             escalationService.escalate(saved, saved.getSlaStatus());
             saved = repository.save(saved);
@@ -87,7 +94,7 @@ public class ComplianceService {
         }
         Map<String, Long> windows = new LinkedHashMap<>();
         for (ComplaintType t : ComplaintType.values()) {
-            windows.put(t.name(), properties.windowFor(t).toMinutes());
+            windows.put(t.name(), slaClock.rule(null, t).window().toMinutes());
         }
 
         Map<String, Object> body = new LinkedHashMap<>();
@@ -95,6 +102,7 @@ public class ComplianceService {
         body.put("byStatus", open);
         body.put("totalBreaches", repository.findBySlaStatusOrderBySlaDeadlineAsc(SlaStatus.BREACHED).size());
         body.put("slaMinutes", windows);
+        body.put("defaultJurisdiction", slaClock.normalizeJurisdiction(null));
         body.put("atRiskMinutes", properties.getSla().getAtRiskThreshold().toMinutes());
         body.put("serverTime", clock.instant().toString());
         return body;

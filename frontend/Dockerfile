@@ -5,6 +5,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+ARG VITE_LEGAL_OPERATOR=""
+ARG VITE_LEGAL_CONTACT_EMAIL=""
+ARG VITE_LEGAL_GRIEVANCE_OFFICER=""
+ARG VITE_LEGAL_GOVERNING_LAW=""
 RUN npm run build
 
 FROM nginx:1.27-alpine

@@ -39,6 +39,8 @@ public class AnalyzeController {
         body.put("phash", result.getPhash());
         body.put("forgeryScore", result.getForgeryScore());
         body.put("explicitScore", result.getExplicitScore());
+        body.put("generationFamily", result.getGenerationFamily());
+        body.put("familyConfidence", result.getFamilyConfidence());
         body.put("decision", result.getDecision().name());
         body.put("createdAt", result.getCreatedAt().toString());
         body.put("heatmap", outcome.heatmap() != null ? outcome.heatmap() : "");

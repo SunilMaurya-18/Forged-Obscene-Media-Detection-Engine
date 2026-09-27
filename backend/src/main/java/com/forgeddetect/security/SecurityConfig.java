@@ -1,10 +1,16 @@
 package com.forgeddetect.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.forgeddetect.service.ApiKeyService;
+import jakarta.servlet.DispatcherType;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,6 +23,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,10 +34,40 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(DevModeratorProperties.class)
+@EnableConfigurationProperties({DevModeratorProperties.class, ApiProperties.class})
 public class SecurityConfig {
 
+    /**
+     * Phase 16: third-party API. Stateless, API key only (no Basic, no session), so a moderator
+     * cookie can never be used against it and a key can never reach moderator endpoints.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain apiV1FilterChain(
+            HttpSecurity http, ApiKeyService keys, RateLimiter rateLimiter, ObjectMapper mapper) throws Exception {
+        http
+                .securityMatcher("/api/v1/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .anonymous(AbstractHttpConfigurer::disable)
+                .requestCache(AbstractHttpConfigurer::disable)
+                .addFilterBefore(new ApiKeyAuthFilter(keys, rateLimiter, mapper), UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((req, res, e) -> {
+                    res.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    res.getWriter().write("{\"error\":\"invalid_api_key\",\"message\":\"API key required.\"}");
+                }))
+                .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .anyRequest().hasRole("API_CLIENT"));
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -39,15 +76,21 @@ public class SecurityConfig {
                 .httpBasic(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/analyze").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/stats").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/verify").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/prescreen").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/verify-report/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/queue/**").hasRole("MODERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/compliance/complaints").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/complaints").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/complaints/*/status").permitAll()
                         .requestMatchers("/api/compliance/**").hasRole("MODERATOR")
+                        .requestMatchers("/api/admin/**").hasRole("MODERATOR")
                         .anyRequest().authenticated()
                 );
         return http.build();

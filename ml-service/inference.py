@@ -7,6 +7,7 @@ import os
 import threading
 from pathlib import Path
 
+import numpy as np
 import torch
 
 from forgery_runtime import (
@@ -76,14 +77,39 @@ def get_runtime() -> InferenceRuntime:
     return _runtime
 
 
+FAMILY_MIN_FORGERY = float(os.getenv("FAMILY_MIN_FORGERY", "0.5"))
+FAMILY_MARGIN = float(os.getenv("FAMILY_MARGIN", "0.15"))
+
+
+def classify_family(forgery_score: float, p_diffusion: float | None) -> tuple[str, float | None]:
+    """Map P(diffusion) to gan / diffusion / unknown.
+
+    ``unknown`` whenever the image isn't judged fake, the checkpoint has no family head, or the
+    head sits within ``FAMILY_MARGIN`` of 0.5 — attribution is only offered when it is meaningful.
+    """
+    if p_diffusion is None or forgery_score < FAMILY_MIN_FORGERY:
+        return "unknown", None
+    confidence = max(p_diffusion, 1.0 - p_diffusion)
+    if abs(p_diffusion - 0.5) < FAMILY_MARGIN:
+        return "unknown", confidence
+    return ("diffusion" if p_diffusion >= 0.5 else "gan"), confidence
+
+
 @torch.no_grad()
+def run_forgery_assessment(image_bytes: bytes) -> dict:
+    """Forgery confidence plus best-effort generation family (gan / diffusion / unknown)."""
+    rt = get_runtime()
+    tensor = rgb_to_tensor(bytes_to_rgb(image_bytes), rt.device)
+    forgery_logits, family_logits = rt.forgery_model.forward_all(tensor)
+    score = float(torch.sigmoid(forgery_logits).item())
+    p_diffusion = float(torch.sigmoid(family_logits).item()) if family_logits is not None else None
+    family, confidence = classify_family(score, p_diffusion)
+    return {"forgery_score": score, "generation_family": family, "family_confidence": confidence}
+
+
 def run_forgery_check(image_bytes: bytes) -> float:
     """Return forgery confidence in [0, 1] using the cold-started model."""
-    rt = get_runtime()
-    rgb = bytes_to_rgb(image_bytes)
-    tensor = rgb_to_tensor(rgb, rt.device)
-    logits = rt.forgery_model(tensor)
-    return float(torch.sigmoid(logits).item())
+    return run_forgery_assessment(image_bytes)["forgery_score"]
 
 
 def run_explicit_check(image_bytes: bytes) -> float:
@@ -93,6 +119,11 @@ def run_explicit_check(image_bytes: bytes) -> float:
 
 def run_heatmap(image_bytes: bytes) -> str:
     """Grad-CAM overlay as base64 PNG (uses forgery backbone only)."""
+    return run_explain(image_bytes)[0]
+
+
+def run_explain(image_bytes: bytes) -> tuple[str, np.ndarray]:
+    """Grad-CAM overlay (base64 PNG) and the raw 224x224 CAM it was drawn from."""
     rt = get_runtime()
     rgb = bytes_to_rgb(image_bytes)
     tensor = rgb_to_tensor(rgb, rt.device)
@@ -106,4 +137,4 @@ def run_heatmap(image_bytes: bytes) -> str:
         finally:
             cam_engine.close()
             rt.forgery_model.train(was_training)
-    return overlay_heatmap_b64(rgb, cam)
+    return overlay_heatmap_b64(rgb, cam), cam

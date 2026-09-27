@@ -139,11 +139,12 @@ public class ProvenanceService {
         record(item.getProvenanceId(), item.getId(), ProvenanceEventType.DECISION_CHANGED, MODERATOR, detail, clock.instant());
     }
 
-    public void complaintOpened(AnalysisResult item, ComplaintType type, Duration window, Instant receivedAt) {
+    public void complaintOpened(AnalysisResult item, ComplaintType type, Duration window, Instant receivedAt, String ruleLabel) {
         String who = type == ComplaintType.GOVERNMENT_ORDER ? "Government takedown order" : "User deepfake / NCII complaint";
+        String basis = ruleLabel != null ? " (" + ruleLabel + ")" : "";
         record(item.getProvenanceId(), item.getId(), ProvenanceEventType.COMPLAINT_OPENED,
                 type == ComplaintType.GOVERNMENT_ORDER ? "government" : "complainant",
-                who + " received; " + human(window) + " takedown deadline", receivedAt);
+                who + " received; " + human(window) + " takedown deadline" + basis, receivedAt);
     }
 
     public void escalated(AnalysisResult item, SlaStatus status, Duration remaining) {
