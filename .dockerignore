@@ -1,0 +1,6 @@
+# Root context is only used by ml-service/Dockerfile
+*
+!ml-service/
+!ml/models/checkpoint.pt
+ml-service/__pycache__/
+ml-service/.pytest_cache/

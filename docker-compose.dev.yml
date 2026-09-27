@@ -1,0 +1,14 @@
+# Dev overlay: exposes internal services and live-mounts ml-service code/checkpoint.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  ml-service:
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml-service:/app
+      - ./ml/models/checkpoint.pt:/models/checkpoint.pt:ro

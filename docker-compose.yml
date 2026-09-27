@@ -1,0 +1,94 @@
+# One-command demo stack:  cp .env.example .env && docker compose up --build
+# Host ports: frontend :3000, mock feed :3001, backend API :8081.
+# postgres and ml-service are internal-only; use docker-compose.dev.yml to expose them.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: forged_media
+      POSTGRES_USER: forged
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forged}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forged -d forged_media"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ml-service:
+    build:
+      context: .
+      dockerfile: ml-service/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      FORGERY_CHECKPOINT: /models/checkpoint.pt
+      NSFW_BACKEND: ${NSFW_BACKEND:-heuristic}
+      PROVENANCE_SIGNING_KEY: ${PROVENANCE_SIGNING_KEY:-dev-only-provenance-signing-key}
+      PROVENANCE_ISSUER: ${PROVENANCE_ISSUER:-forged-media-detection}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      # Host 8081 avoids conflict with Oracle TNSLSNR on 8080
+      - "8081:8080"
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/forged_media}
+      SPRING_DATASOURCE_USERNAME: forged
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-forged}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:8000}
+      DECISION_FORGERY_AUTO_FLAG: ${DECISION_FORGERY_AUTO_FLAG:-0.85}
+      DECISION_EXPLICIT_AUTO_FLAG: ${DECISION_EXPLICIT_AUTO_FLAG:-0.85}
+      DECISION_FORGERY_REVIEW: ${DECISION_FORGERY_REVIEW:-0.50}
+      DECISION_EXPLICIT_REVIEW: ${DECISION_EXPLICIT_REVIEW:-0.50}
+      MODERATOR_USERNAME: ${MODERATOR_USERNAME:-moderator}
+      MODERATOR_PASSWORD: ${MODERATOR_PASSWORD:-moderator}
+      COMPLIANCE_SLA_USER_COMPLAINT: ${COMPLIANCE_SLA_USER_COMPLAINT:-PT2H}
+      COMPLIANCE_SLA_GOVERNMENT_ORDER: ${COMPLIANCE_SLA_GOVERNMENT_ORDER:-PT3H}
+      COMPLIANCE_SLA_AT_RISK: ${COMPLIANCE_SLA_AT_RISK:-PT30M}
+      COMPLIANCE_SLA_CHECK_INTERVAL: ${COMPLIANCE_SLA_CHECK_INTERVAL:-PT15S}
+      COMPLIANCE_ESCALATION_WEBHOOK_URL: ${COMPLIANCE_ESCALATION_WEBHOOK_URL:-}
+      COMPLIANCE_SEED_DEMO: ${COMPLIANCE_SEED_DEMO:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  mock-social-feed:
+    build: ./mock-social-feed
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

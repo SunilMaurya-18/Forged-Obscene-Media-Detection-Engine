@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07090d" />
+    <title>Pulse · Mock social feed</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23ff5c8a'/%3E%3Cpath d='M6 17h5l2.5-6 5 11 2.5-5H26' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="./">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M6 17h5l2.5-6 5 11 2.5-5H26" /></svg>
+          </span>
+          <span>
+            <strong>pulse</strong>
+            <small>Mock social platform</small>
+          </span>
+        </a>
+        <a id="console-link" class="console-link" href="#" target="_blank" rel="noreferrer">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6l-8-3Z" /></svg>
+          Moderation console
+        </a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <section class="card info">
+          <p class="eyebrow">Integration demo</p>
+          <h1>Every post is screened before it goes live</h1>
+          <p class="muted">
+            Uploads call <code>POST /api/analyze</code>. The routing decision is applied to the post
+            instantly:
+          </p>
+          <ul class="legend">
+            <li><span class="dot allow"></span><b>Allow</b> published normally</li>
+            <li><span class="dot review"></span><b>Review</b> hidden until a moderator decides</li>
+            <li><span class="dot flag"></span><b>Auto-flag</b> removed automatically</li>
+          </ul>
+        </section>
+      </aside>
+
+      <section class="feed-column">
+        <section class="card composer" aria-label="Create post">
+          <div class="composer-head">
+            <span class="avatar you" aria-hidden="true">Y</span>
+            <input id="caption" class="caption-input" type="text" maxlength="140" placeholder="What's happening?" />
+          </div>
+
+          <label id="picker" class="picker" for="file">
+            <input id="file" type="file" accept="image/*" />
+            <img id="picker-preview" alt="" hidden />
+            <span id="picker-empty" class="picker-empty">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 16l4.6-4.6a2 2 0 0 1 2.8 0L16 16m-2-2 1.6-1.6a2 2 0 0 1 2.8 0L20 14M14 8h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" />
+              </svg>
+              <span>Add a photo</span>
+            </span>
+            <span id="picker-name" class="picker-name" hidden></span>
+          </label>
+
+          <div class="composer-actions">
+            <button id="post-manipulated" type="button" class="btn ghost">Post manipulated sample</button>
+            <button id="post-file" type="button" class="btn primary">Post</button>
+          </div>
+          <p id="composer-status" class="status" role="status" hidden></p>
+        </section>
+
+        <div class="feed-head">
+          <h2>Latest</h2>
+          <span class="muted small">Screened by Forged Media Detection</span>
+        </div>
+        <div id="feed" class="feed"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

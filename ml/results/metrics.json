@@ -1,0 +1,68 @@
+{
+  "checkpoint": "ml/models/checkpoint.pt",
+  "datasets": {
+    "faceforensics++": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "dfdc": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    },
+    "celeb-df": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "n": 10
+    }
+  },
+  "generalization_gap": {
+    "dfdc": {
+      "accuracy_gap": 0.0,
+      "auc_gap": 0.0,
+      "f1_gap": 0.0
+    },
+    "celeb-df": {
+      "accuracy_gap": 0.0,
+      "auc_gap": 0.0,
+      "f1_gap": 0.0
+    }
+  },
+  "artifacts": {
+    "roc_curve": "ml/results/roc_curve.png",
+    "confusion_matrix": "ml/results/confusion_matrix.png"
+  },
+  "latency": {
+    "n": 5,
+    "warmup": 1,
+    "mean_ms": 134.1,
+    "p50_ms": 131.7,
+    "p95_ms": 188.2,
+    "min_ms": 98.7,
+    "max_ms": 201.5,
+    "endpoint": "POST /api/analyze"
+  },
+  "false_positive_rate": {
+    "n_clean": 15,
+    "threshold": 0.5,
+    "false_positives": 0,
+    "fpr": 0.0,
+    "mean_forgery_score": 0.0101,
+    "notes": "Clean set = synthetic smooth gradients (stand-in for unaltered research stills). Replace with FF++ original crops when licensed data is available."
+  },
+  "failure_gallery": {
+    "dir": "ml/results/failure_gallery",
+    "policy": "Synthetic/research-pipeline crops only (FaceForensics++/DFDC/Celeb-DF style splits). No non-consensual or explicit imagery."
+  },
+  "notes": "Phase 11 smoke evaluation on synthetic cross-dataset splits unless licensed FF++/DFDC/Celeb-DF crops are provided under ml/data/crops."
+}

@@ -1,0 +1,15 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.9
+httpx>=0.27.0
+pytest>=8.0.0
+pillow>=10.0.0
+numpy>=1.26.0,<3
+opencv-python-headless>=4.8.0
+imagehash>=4.3.0
+
+# Install torch/torchvision separately (see Dockerfile):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#
+# Optional Phase-4 pretrained NSFW (Falconsai via HuggingFace):
+#   pip install transformers && NSFW_BACKEND=transformers

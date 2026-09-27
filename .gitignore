@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+dist/
+target/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+.m2/
+*.pt
+*.pth
+*.ckpt
+# Demo checkpoint ships with the repo so `docker compose up` works from a fresh clone
+!ml/models/checkpoint.pt
+
+# Datasets (large / licensed — do not commit)
+ml/data/raw/
+ml/data/frames/
+ml/data/crops/
+ml/data/splits/
+ml/.smoke_data/
+sample.jpg
+infer_out.json
+analyze_out.json
+queue_out.json
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

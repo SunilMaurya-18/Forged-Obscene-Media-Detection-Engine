@@ -1,0 +1,60 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: forged-media
+  main:
+    web-application-type: servlet
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/forged_media}
+    username: ${SPRING_DATASOURCE_USERNAME:forged}
+    password: ${SPRING_DATASOURCE_PASSWORD:forged}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+ml:
+  service:
+    url: ${ML_SERVICE_URL:http://localhost:8000}
+
+decision:
+  forgery-auto-flag: 0.85
+  explicit-auto-flag: 0.85
+  forgery-review: 0.50
+  explicit-review: 0.50
+
+# Phase 13: IT Rules 2026 takedown windows (ISO-8601 durations)
+compliance:
+  sla:
+    user-complaint: ${COMPLIANCE_SLA_USER_COMPLAINT:PT2H}
+    government-order: ${COMPLIANCE_SLA_GOVERNMENT_ORDER:PT3H}
+    at-risk-threshold: ${COMPLIANCE_SLA_AT_RISK:PT30M}
+    check-interval: ${COMPLIANCE_SLA_CHECK_INTERVAL:PT15S}
+  escalation:
+    webhook-url: ${COMPLIANCE_ESCALATION_WEBHOOK_URL:}
+  seed-demo: ${COMPLIANCE_SEED_DEMO:false}
+
+# Dev-only seeded moderator (Phase 8). Change in production.
+app:
+  security:
+    moderator-username: ${MODERATOR_USERNAME:moderator}
+    moderator-password: ${MODERATOR_PASSWORD:moderator}

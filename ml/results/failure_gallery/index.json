@@ -1,0 +1,26 @@
+[
+  {
+    "dataset": "faceforensics++",
+    "kind": "hard_correct",
+    "path": "/app/results/failure_gallery/faceforensics++_hard_6.jpg",
+    "source": "faceforensics++/fake/crop_000027.jpg",
+    "prob": 0.9882842302322388,
+    "label": 1
+  },
+  {
+    "dataset": "faceforensics++",
+    "kind": "hard_correct",
+    "path": "/app/results/failure_gallery/faceforensics++_hard_9.jpg",
+    "source": "faceforensics++/fake/crop_000038.jpg",
+    "prob": 0.9957786798477173,
+    "label": 1
+  },
+  {
+    "dataset": "faceforensics++",
+    "kind": "hard_correct",
+    "path": "/app/results/failure_gallery/faceforensics++_hard_7.jpg",
+    "source": "faceforensics++/fake/crop_000028.jpg",
+    "prob": 0.9965657591819763,
+    "label": 1
+  }
+]
