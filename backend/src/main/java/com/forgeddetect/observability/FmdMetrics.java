@@ -24,6 +24,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
  *   <li>{@code fmd_model_score}: served score distribution per model (drift signal)</li>
  *   <li>{@code fmd_ml_client_errors_total{endpoint, reason}}: failed calls to the ML service</li>
  *   <li>{@code fmd_api_rate_limited_total{plan}}: partner API requests refused with 429</li>
+ *   <li>{@code fmd_sightings_total{source, linked}}: reported sightings, and whether they matched a case</li>
  * </ul>
  */
 @Component
@@ -92,6 +93,14 @@ public class FmdMetrics {
         Counter.builder("fmd.api.rate.limited")
                 .description("Partner API requests refused with 429")
                 .tag("plan", plan == null ? "unknown" : plan)
+                .register(registry).increment();
+    }
+
+    /** {@code linked}: the sighting matched at least one open investigation. */
+    public void sighting(String source, boolean linked) {
+        Counter.builder("fmd.sightings")
+                .description("Sightings reported by partners or moderators")
+                .tags("source", source, "linked", String.valueOf(linked))
                 .register(registry).increment();
     }
 

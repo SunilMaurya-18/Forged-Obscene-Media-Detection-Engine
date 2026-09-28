@@ -1,14 +1,21 @@
 package com.forgeddetect.demo;
 
+import com.forgeddetect.investigation.Investigation;
+import com.forgeddetect.investigation.InvestigationService;
+import com.forgeddetect.investigation.SightingService;
+import com.forgeddetect.investigation.SightingSource;
 import com.forgeddetect.model.AnalysisResult;
+import com.forgeddetect.model.ApiClient;
 import com.forgeddetect.model.Appeal;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.Decision;
 import com.forgeddetect.model.ModerationAction;
 import com.forgeddetect.repository.AnalysisResultRepository;
+import com.forgeddetect.repository.ApiClientRepository;
 import com.forgeddetect.repository.AppealRepository;
 import com.forgeddetect.security.DevModeratorProperties;
 import com.forgeddetect.service.AnalysisService;
+import com.forgeddetect.service.ApiKeyService;
 import com.forgeddetect.service.AppealService;
 import com.forgeddetect.service.CaseService;
 import com.forgeddetect.service.ComplianceProperties;
@@ -85,6 +92,9 @@ public class DemoScenarioService {
     private final AnalysisResultRepository results;
     private final AppealRepository appealRepository;
     private final DevModeratorProperties moderators;
+    private final InvestigationService investigations;
+    private final SightingService sightings;
+    private final ApiClientRepository apiClients;
     private final SharedState state;
     private final TransactionTemplate tx;
     private final Clock clock;
@@ -107,6 +117,9 @@ public class DemoScenarioService {
             AnalysisResultRepository results,
             AppealRepository appealRepository,
             DevModeratorProperties moderators,
+            InvestigationService investigations,
+            SightingService sightings,
+            ApiClientRepository apiClients,
             SharedState state,
             PlatformTransactionManager transactions,
             Clock clock) {
@@ -123,6 +136,9 @@ public class DemoScenarioService {
         this.results = results;
         this.appealRepository = appealRepository;
         this.moderators = moderators;
+        this.investigations = investigations;
+        this.sightings = sightings;
+        this.apiClients = apiClients;
         this.state = state;
         this.tx = new TransactionTemplate(transactions);
         this.clock = clock;
@@ -218,7 +234,46 @@ public class DemoScenarioService {
                 GOVERNMENT_REFERENCE, jurisdiction, now.minus(govWindow).minus(Duration.ofMinutes(12)));
         story.setBreachedId(order.result().getId());
 
+        // 6. Where the media went: partner sightings on fictional platforms under made-up account IDs.
+        //    One copy is reported before anyone opens a case, so opening it picks that sighting up.
+        seedInvestigations(story, flaggedId, filed.item().getId(), moderator, now);
+
         return stories.save(story);
+    }
+
+    static final String DEMO_ACCOUNT = "demo-acct-orchid";
+
+    private void seedInvestigations(DemoStory story, Long flaggedId, Long reportedId, String moderator, Instant now) {
+        AnalysisResult flagged = results.findById(flaggedId).orElseThrow();
+        AnalysisResult reported = results.findById(reportedId).orElseThrow();
+        Long partner = apiClients.findFirstByNameIgnoreCase(ApiKeyService.DEMO_CLIENT).map(ApiClient::getId).orElse(null);
+
+        sighting(flagged, 0, "chirp", "ch-4410982731", "demo-acct-lantern", now.minus(Duration.ofHours(30)), partner, null);
+        Investigation spread = investigations.open(flaggedId, "Demo: composite reposted on partner platforms", moderator);
+        sighting(flagged, 3, "pixelgram", "pg-7Q2X91", DEMO_ACCOUNT, now.minus(Duration.ofHours(20)), partner, null);
+        sighting(flagged, 1, "vidshare", "vs-000318", "demo-acct-heron", now.minus(Duration.ofHours(6)), partner, null);
+        story.setInvestigationNumber(spread.getCaseNumber());
+
+        Investigation victim = investigations.open(reportedId, "Demo: victim report, source account", moderator);
+        sighting(reported, 0, "pixelgram", "pg-8K3M02", DEMO_ACCOUNT, now.minus(Duration.ofHours(2)), null, moderator);
+        investigations.note(victim.getCaseNumber(),
+                "Demo: the reporter named this post. The same pixelgram account also posted the composite in "
+                        + spread.getCaseNumber() + ".", moderator);
+        story.setRelatedInvestigationNumber(victim.getCaseNumber());
+    }
+
+    /** A re-encoded copy: {@code flips} low bits of the hash differ, as they would after recompression. */
+    private void sighting(AnalysisResult item, int flips, String platform, String postRef, String account,
+            Instant observedAt, Long partnerId, String moderator) {
+        String phash = item.getPhash();
+        boolean hashed = phash != null && phash.matches("[0-9a-f]{16}");
+        String hash = hashed ? String.format("%016x", Long.parseUnsignedLong(phash, 16) ^ ((1L << flips) - 1)) : null;
+        if (hash == null && item.getProvenanceId() == null) {
+            return;
+        }
+        sightings.report(
+                new SightingService.Report(hash, hashed ? null : item.getProvenanceId(), platform, postRef, account, observedAt.toString()),
+                moderator != null ? SightingSource.MODERATOR : SightingSource.PARTNER_API, partnerId, moderator);
     }
 
     /** Live view of a story: statuses come from the records now, not from when it was seeded. */
@@ -265,6 +320,12 @@ public class DemoScenarioService {
             });
         }
         results.findById(s.getBreachedId()).ifPresent(item -> out.put("breached", item(item)));
+        if (s.getInvestigationNumber() != null) {
+            investigations.summary(s.getInvestigationNumber()).ifPresent(m -> out.put("investigation", m));
+        }
+        if (s.getRelatedInvestigationNumber() != null) {
+            investigations.summary(s.getRelatedInvestigationNumber()).ifPresent(m -> out.put("relatedInvestigation", m));
+        }
         return out;
     }
 

@@ -28,6 +28,7 @@ import AppealsPanel from '../components/AppealsPanel'
 import { C2paChip } from '../components/ContentCredentials'
 import FamilyChip from '../components/FamilyChip'
 import FrameStrip from '../components/FrameStrip'
+import InvestigateButton from '../components/InvestigateButton'
 import JurisdictionBadge from '../components/JurisdictionBadge'
 import MediaPreview from '../components/MediaPreview'
 import { AssignmentControls, ProposeRestore, SecondReviewPanel } from '../components/ModerationControls'
@@ -232,6 +233,7 @@ function QueueItem({
         {tab === 'flagged' && <ProposeRestore item={item} disabled={disabled} onChanged={onChanged} onError={onError} />}
         {tab === 'second-review' && <SecondReviewPanel item={item} me={me} disabled={disabled} onChanged={onChanged} onError={onError} />}
         <ReportButton item={item} className="w-full" onUnauthorized={onUnauthorized} />
+        <InvestigateButton item={item} className="w-full border border-line" onUnauthorized={onUnauthorized} />
         {!item.hasForensics && <p className="text-[11px] text-subtle text-center">Analysed before signature capture: attach the original for panels.</p>}
       </div>
     </article>

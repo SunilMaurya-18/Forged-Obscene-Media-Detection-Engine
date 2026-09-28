@@ -15,6 +15,8 @@ public interface ApiClientRepository extends JpaRepository<ApiClient, Long> {
 
     boolean existsByNameIgnoreCase(String name);
 
+    Optional<ApiClient> findFirstByNameIgnoreCase(String name);
+
     List<ApiClient> findAllByOrderByCreatedAtDesc();
 
     /** Atomic, so concurrent requests on one key never lose a count. */

@@ -10,6 +10,7 @@ import {
   Gavel,
   Inbox,
   LogIn,
+  Radar,
   RotateCcw,
   ScanSearch,
   ShieldAlert,
@@ -122,7 +123,7 @@ function ReportCheck({ reportId }) {
 function Story({ story, now, isAuthenticated }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language
-  const { flagged, appeal, report, atRisk, breached } = story
+  const { flagged, appeal, report, atRisk, breached, investigation, relatedInvestigation } = story
   const staffLink = (to) => (isAuthenticated ? { to } : { to: '/login', state: { from: to } })
 
   return (
@@ -291,6 +292,36 @@ function Story({ story, now, isAuthenticated }) {
               <SlaChip status={breached.slaStatus} deadline={breached.resolvedAt ? null : breached.slaDeadline} now={now} />
             </Field>
           </div>
+        </Step>
+      )}
+
+      {investigation && (
+        <Step
+          n={6}
+          icon={Radar}
+          accent="border-sky-400/30 bg-sky-400/10 text-sky-300"
+          title={t('demo.steps.investigation.title')}
+          body={t('demo.steps.investigation.body', { sightings: investigation.sightings, platforms: investigation.platforms })}
+          actions={
+            <Link {...staffLink(`/investigations/${investigation.caseNumber}`)} className={buttonClass('secondary', 'sm')}>
+              {t('demo.steps.investigation.open')}
+              <ArrowRight aria-hidden className="size-3.5" />
+            </Link>
+          }
+        >
+          <div className="col-span-2">
+            <Field label={t('demo.steps.investigation.case')} mono>
+              {investigation.caseNumber}
+              <CopyButton value={investigation.caseNumber} />
+            </Field>
+          </div>
+          {relatedInvestigation && (
+            <div className="col-span-2">
+              <Field label={t('demo.steps.investigation.related')} mono>
+                {relatedInvestigation.caseNumber}
+              </Field>
+            </div>
+          )}
         </Step>
       )}
     </ol>

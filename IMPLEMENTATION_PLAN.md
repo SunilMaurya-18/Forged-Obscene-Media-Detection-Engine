@@ -690,3 +690,97 @@ Reviewers, judges and interviewers should understand the system and its reasonin
 - [x] A first-time visitor reaches a populated, meaningful demo in one click. *Landing → **See it live in one click** → `/tour` with all five chapters populated and the report verifying `VALID`; covered by `e2e/tests/tour.spec.js` and `DemoScenarioIntegrationTest`*
 - [x] ADRs and the threat model are linked from the README. *In the header links and a "Design decisions and threat model" section*
 - [x] The launch video plays from the README. *Plays inline wherever the README's HTML is rendered in full (IDE previews, most Markdown viewers). github.com does not reliably play a repo-relative `<video>` source, so the poster and a text link also open the MP4; for guaranteed inline playback there, drag `brag.mp4` into the README editor on GitHub once, and swap the `src` for the `user-attachments` URL it generates*
+
+---
+
+# INVESTIGATION LIFECYCLE EXTENSION (Phases 26–28)
+
+> Extends `IMPLEMENTATION_PLAN.md`. Same locked tech stack, phase-gate rules and data rules apply. Phases 13–25 answer "is this image manipulated, and what evidence supports that?" for one upload. These phases carry a case through the rest of an investigation: **where has this media appeared → which accounts are associated with it → what evidence is preserved → how does an authorised investigator receive and verify it.**
+>
+> Boundaries that hold across all three phases:
+> - **Reported sightings, not web search.** "Where has it appeared" means uploads to this platform plus sightings reported by partner platforms through the authenticated API. No scraping, crawling or reverse-image search of the open web.
+> - **Pseudonymous accounts, not identities.** Account IDs are turned into a keyed HMAC scoped to the platform on arrival and never stored. The system can say "the same account posted 4 of these 6 sightings"; only the partner platform can say who that account is, and only in answer to a legal request.
+> - **Commitments, not media (ADR 0001 stands).** Preservation records hashes, signed analyses and a custody log. The platform hosting the file keeps it under its own legal hold; the committed SHA-256 lets an investigator prove later that the file they receive is the same one.
+
+---
+
+# PHASE 26 — Sightings & Investigation Cases
+
+> Depends on Phases 14 (provenance), 16 (partner API) and 18 (hash matching).
+
+## Why this phase exists
+
+A takedown decision covers one upload. Abusive media rarely appears once: the same image is re-posted across accounts and platforms, and the people handling a case need to see all of those appearances together, linked by hash, in one timeline.
+
+## Tasks
+
+- [x] **Investigation cases** — `Investigation` (case number `INV-XXXX-XXXX`, title, OPEN/CLOSED, opened/closed by), `InvestigationItem` (analyses in the case) and an internal `InvestigationEvent` log (opened, item added, sighting linked, note, closed, reopened) that names moderators and is never public. *Package `backend/.../investigation/`; enum columns are kept in step with PostgreSQL CHECK constraints by `EnumConstraintSync`. A closed case is read-only until reopened*
+- [x] **Partner sightings** — `POST /api/v1/sightings` (API key): `phash` and/or `provenanceId`, `platform`, the partner's opaque `postRef`, optional `accountId` and `observedAt`. Idempotent per platform + post + hash. The response never says whether the sighting matched a case. *`201` new / `200` with `duplicate: true`; `400 invalid_sighting` with a sentence naming the field. Metered like `analyze`. `platform` defaults to the partner's name; a provenance-only sighting takes the pHash of that analysis so it also matches re-encoded copies. `observedAt` more than 5 minutes ahead is refused. Counted in `fmd_sightings_total{source,linked}`*
+- [x] **Account pseudonyms** — `accountId` becomes `HMAC-SHA256(key, platform + accountId)` on arrival and is discarded; `postRef` must be an opaque ID (no URLs, handles or e-mail addresses). The key (`INVESTIGATION_PSEUDONYM_KEY`) is refused at its demo value outside the dev profile. *`AccountPseudonyms`: the input is `platform + "\n" + accountId` so the two parts can't run together; the console shows the first 12 hex characters. `DemoSecretsGuard` also refuses keys under 32 characters*
+- [x] **Hash linking** — sightings link to every open case holding an analysis within the prescreen pHash distance (or carrying the sighting's provenance ID), both when a sighting arrives and when an analysis is added to a case. *Links are stored in `sighting_links` with how they matched (`PROVENANCE` or `PHASH` + distance) and against which item. Reopening a case links the sightings reported while it was closed*
+- [x] **Case view** — `GET /api/investigations/{caseNumber}`: the evidence (analyses, scores, generation family, signed reports), appearances on this platform (pHash and lineage matches), partner sightings, a per-platform summary, an account graph (counts, platforms, first and last seen, other cases the same pseudonym appears in) and one merged timeline. *Appearances are computed on read from a hash index of all analyses, capped at 200. The timeline merges the case log, every item's provenance trail, sightings and pHash re-uploads*
+- [x] **Moderator actions** — open a case from any analysis, add analyses, record a sighting reported to a moderator, add notes, close and reopen. *`/api/investigations/**` is `MODERATOR`-only in `SecurityConfig` and by `@PreAuthorize`. Errors are `{error, message}` like the rest of the moderator API*
+- [x] **Console** — `/investigations` list and case page; "Investigate" on queue items. *`pages/Investigations.jsx` (status filter, case-number jump, open-a-case form; case page with evidence, sightings, platforms, appearances, accounts with links to other cases, timeline grouped by day, notes, record sighting, add evidence, close/reopen), `components/InvestigateButton.jsx` (goes to the item's open case or opens one), "Investigations" in the moderator nav, `lib/investigations.js` mirroring the server's validation*
+- [x] **Demo** — the one-click story opens a case on the flagged item with synthetic sightings from fictional platforms. *Three partner sightings of the composite on `chirp`, `pixelgram` and `vidshare` (one reported before the case is opened, two as re-encoded copies a few bits away). A second case on the victim's report shares a made-up `pixelgram` account with the first. It is shown as chapter 6 of `/tour` (English and Hindi). A reset wipes the new tables*
+
+## Definition of Done
+
+- [x] A partner sighting whose pHash is within the threshold of a case's analysis appears in that case, before or after the case is opened; a distant one does not. *`InvestigationIntegrationTest.sightingsBeforeAndAfterOpeningLinkButDistantOnesDoNot` (2 bits before, 0 after, 64 not linked)*
+- [x] No raw account ID is stored anywhere; the same account on the same platform yields the same pseudonym, on another platform a different one. *Same test reads the `sightings` rows back; `AccountPseudonymsTest`*
+- [x] An account seen in two cases is shown as linked in both. *`anAccountSeenInTwoCasesIsLinkedFromBoth`; also asserted on the demo story in `DemoScenarioIntegrationTest`*
+- [x] Investigations are moderator-only; partner API keys cannot read them. *`onlyModeratorsReadInvestigationsAndOnlyPartnersReport`: anonymous and API-key calls get `401`*
+
+## Files touched
+
+- `backend/.../investigation/` (`Investigation`, `InvestigationItem`, `InvestigationEvent`, `Sighting`, `SightingLink`, their enums and repositories, `InvestigationProperties`, `AccountPseudonyms`, `Hashes`, `InvestigationService`, `SightingService`, `InvestigationController`, `SightingApiController`)
+- `backend/.../config/DemoSecretsGuard`, `EnumConstraintSync`; `security/SecurityConfig`; `service/PrescreenService`, `ApiKeyService`; `repository/AnalysisResultRepository`, `ApiClientRepository`; `observability/FmdMetrics`; `demo/DemoStory`, `DemoScenarioService`, `DemoResetService`; `application.yml`
+- Tests: `InvestigationIntegrationTest`, `AccountPseudonymsTest`, updated `DemoScenarioIntegrationTest`, `DemoSecretsGuardTest`; `frontend/src/lib/investigations.test.js`
+- `frontend/src/pages/Investigations.jsx`, `Tour.jsx`, `ModerationQueue.jsx`; `frontend/src/components/InvestigateButton.jsx`, `Layout.jsx`; `frontend/src/lib/investigations.js`, `frontend/src/api/client.js`, `frontend/src/App.jsx`, `frontend/src/i18n/*.json`
+- `docker-compose.yml`, `.env.example`, `README.md`, `API_DOCS.md`, `docs/PROJECT_DOCUMENTATION.md`
+
+---
+
+# PHASE 27 — Evidence Preservation & Chain of Custody
+
+> Depends on Phase 26 and Phase 20/24 (signed reports, RFC 3161, signing keys).
+
+## Why this phase exists
+
+Evidence is only useful to an investigator if nobody can quietly change it later. Today individual reports are signed, but nothing ties together what a case contained, when it was preserved and who has touched it since.
+
+## Tasks
+
+- [ ] **Hash-chained custody log** — every case event carries `SHA-256(previous hash + canonical event)`; a verifier recomputes the chain and reports the first broken link
+- [ ] **Preservation snapshot** — "Preserve evidence" freezes the case: a canonical manifest of the analyses (content SHA-256, pHash, scores, signed report IDs and hashes), linked sightings and the custody head, signed with the report-signing key and optionally timestamped (RFC 3161)
+- [ ] **Legal hold requests** — per partner platform, recorded as custody events with the post references the hold covers; the platform keeps the media
+- [ ] **ADR 0006** — "Preserve commitments, not media": why the system never escrows the file, and how the committed SHA-256 proves a later copy is the same
+
+## Definition of Done
+
+- [ ] Editing or deleting any custody event is detected by verification
+- [ ] A preserved manifest verifies `VALID`, and `TAMPERED` after any stored field it covers changes
+- [ ] No media bytes are written by preservation
+
+---
+
+# PHASE 28 — Authorised Investigator Handover
+
+> Depends on Phase 27.
+
+## Why this phase exists
+
+The last step is getting evidence to the person entitled to it, in a form they can verify without trusting this system's database, and without the account graph becoming a tool for anyone who can log in.
+
+## Tasks
+
+- [ ] **INVESTIGATOR role** — sees only cases covered by an approved legal request, read-only, every read logged in the custody chain
+- [ ] **Legal requests with four-eyes approval** — authority, order reference, scope (cases), expiry; approved by a senior moderator who did not file it
+- [ ] **Signed evidence package** — ZIP of the preserved manifest, case report (JSON + PDF), sightings, custody log and the signing public key; package manifest signed and timestamped; downloads time-limited and logged
+- [ ] **Offline verifier** — a small script that checks the package signature, every file hash and the custody chain with only the published public key; `/api/verify` accepts packages too
+- [ ] **Threat model** — investigator misuse, account-graph abuse and package leakage, with mitigations and residual risk
+
+## Definition of Done
+
+- [ ] An investigator without an approved, unexpired request gets 403 on every case
+- [ ] A downloaded package verifies offline; changing any byte inside it fails verification
+- [ ] A requester cannot approve their own request

@@ -38,7 +38,7 @@ public class ApiKeyService {
     private static final Logger log = LoggerFactory.getLogger(ApiKeyService.class);
     static final String KEY_PREFIX = "fmd_live_";
     private static final int PREFIX_CHARS = KEY_PREFIX.length() + 6;
-    private static final String DEMO_CLIENT = "Demo Platform";
+    public static final String DEMO_CLIENT = "Demo Platform";
 
     private final ApiClientRepository clients;
     private final AnalysisResultRepository analyses;

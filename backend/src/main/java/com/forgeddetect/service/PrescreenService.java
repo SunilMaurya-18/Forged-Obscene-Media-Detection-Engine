@@ -173,7 +173,7 @@ public class PrescreenService {
         return algo;
     }
 
-    static String normalizeHash(String hash, String algo) {
+    public static String normalizeHash(String hash, String algo) {
         String h = hash == null ? "" : hash.trim().toLowerCase(Locale.ROOT);
         if (!FORMATS.get(algo).matcher(h).matches()) {
             throw new IllegalArgumentException(

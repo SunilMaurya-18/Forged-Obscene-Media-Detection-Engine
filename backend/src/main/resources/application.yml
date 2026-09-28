@@ -144,6 +144,11 @@ prescreen:
   # pHash of frontend/public/prescreen-demo.png (a synthetic test pattern), seeded as INTERNAL_CONFIRMED
   seed-hashes: ${PRESCREEN_SEED_HASHES:c2423d3d3b783cc6}
 
+# Phase 26: partner account IDs are stored only as HMAC-SHA256(key, platform + account). Refused
+# at this demo value outside the dev profile; changing it unlinks every existing pseudonym.
+investigation:
+  pseudonym-key: ${INVESTIGATION_PSEUDONYM_KEY:dev-only-account-pseudonym-key-change-me}
+
 # Phase 21: self-service reports (case number + PIN, no account)
 complaints:
   max-pin-attempts: ${COMPLAINTS_MAX_PIN_ATTEMPTS:5}

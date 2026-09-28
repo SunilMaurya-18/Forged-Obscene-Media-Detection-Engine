@@ -100,6 +100,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/demo", "/api/demo/**").permitAll()
                         .requestMatchers("/api/appeals/**", "/api/moderation/**").hasRole("MODERATOR")
                         .requestMatchers("/api/compliance/**").hasRole("MODERATOR")
+                        .requestMatchers("/api/investigations", "/api/investigations/**").hasRole("MODERATOR")
                         .requestMatchers("/api/admin/signing-keys/**").hasRole("SENIOR_MODERATOR")
                         .requestMatchers("/api/admin/**").hasRole("MODERATOR")
                         .anyRequest().authenticated()

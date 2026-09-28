@@ -39,7 +39,7 @@ class DemoSecretsGuardTest {
     void prodProfileRefusesEveryDemoSecret() {
         MockEnvironment env = defaults();
         env.setActiveProfiles("prod");
-        assertThat(DemoSecretsGuard.problems(env)).hasSize(8);
+        assertThat(DemoSecretsGuard.problems(env)).hasSize(9);
         assertThatThrownBy(() -> guard.postProcessEnvironment(env, new SpringApplication()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Refusing to start with profile(s) [prod]")
@@ -49,6 +49,7 @@ class DemoSecretsGuardTest {
                 .hasMessageContaining("API_DEMO_KEY")
                 .hasMessageContaining("COMPLIANCE_SEED_DEMO")
                 .hasMessageContaining("REPORT_SIGNING_PROVIDER=file")
+                .hasMessageContaining("INVESTIGATION_PSEUDONYM_KEY")
                 .hasMessageContaining("DEMO_ENABLED");
     }
 
@@ -63,6 +64,7 @@ class DemoSecretsGuardTest {
         env.setProperty("api.demo-key", "");
         env.setProperty("compliance.seed-demo", "false");
         env.setProperty("report.signing.provider", "vault");
+        env.setProperty("investigation.pseudonym-key", "a-real-randomly-generated-pseudonym-key-0123456789");
         guard.postProcessEnvironment(env, new SpringApplication());
 
         env.setProperty("report.signing.provider", "file");

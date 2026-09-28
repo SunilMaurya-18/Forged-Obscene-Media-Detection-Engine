@@ -151,6 +151,21 @@ Put the whole chain in one place (detection, routing, legal deadlines, reporting
 | API keys | `fmd_live_…`, shown once, stored as SHA-256; issue, rotate, revoke and re-plan on `/api-access` |
 | Rate limits | Token bucket per key: FREE 10, PRO 60, ENTERPRISE 600 requests per minute, with `X-RateLimit-*` headers and `429` + `Retry-After` |
 | Usage | `GET /api/v1/usage`: plan, quota, request and throttled counts, analyses by decision |
+| Sightings | `POST /api/v1/sightings`: the partner reports where media appeared on its platform, as a hash (or provenance ID), its own opaque post ID and optionally its account ID. The response confirms receipt only |
+
+### 4.7a Investigations
+
+Detection answers *is this manipulated?* An investigation answers the next questions: where has it appeared, which accounts posted it, and how does the evidence fit together?
+
+| Feature | What it does |
+|---|---|
+| Cases (`/investigations`) | `INV-XXXX-XXXX` cases opened from any analysis (or with **Investigate** in the queue). Evidence items, notes, close with a reason, reopen |
+| Sighting links | A sighting joins every open case with an item that has the same provenance ID or a pHash within the match distance (8 bits by default), whether it was reported before or after the case was opened. Closed cases stop linking; reopening catches up |
+| Account pseudonyms | Partner account IDs become `HMAC-SHA256(key, platform + "\n" + id)` on arrival. The raw ID is never stored. The same account on the same platform always gets the same pseudonym, and other platforms get different ones |
+| Cross-case accounts | An account pseudonym seen in more than one case is flagged in each, with links to the others |
+| Appearances here | Other uploads to this platform of the same media: re-uploads traced by provenance, or near-duplicates by pHash |
+| One timeline | Case log, the provenance trail of every item, and sightings, in time order |
+| Boundaries | No web scraping or reverse image search. Only opaque post IDs are accepted, and URLs, usernames and e-mail addresses are refused. Sightings never appear on the public audit trail, and partners can't learn whether they matched anything |
 
 ### 4.8 Experience
 
@@ -496,14 +511,16 @@ flowchart TD
 2. **Queue:** items with the nearest legal deadline come first. Use the keyboard to approve, reject, skip, or select similar items and act on them together. Every decision can be undone for 10 seconds.
 3. **Compliance:** live countdowns for every open complaint, escalation times, jurisdiction badges and the rules card. **Take down** or **Dismiss** stops the clock.
 4. **Evidence:** **Download report** produces the signed PDF; **Verify report integrity** confirms it.
-5. **API:** issue and manage partner keys on `/api-access`.
+5. **Investigate:** **Investigate** on a queue item opens (or goes to) its case on `/investigations`. The case shows partner sightings by platform, the account pseudonyms involved and any other cases they appear in, and one timeline. Moderators can record a sighting someone told them about, add evidence and notes, and close or reopen the case.
+6. **API:** issue and manage partner keys on `/api-access`.
 
 ### 6.4 Partner platform
 
 1. A moderator creates a client on `/api-access` and hands over the key (shown once).
 2. The platform calls `POST /api/v1/analyze` for each upload and acts on `decision`: publish on `ALLOW`, hold on `REVIEW`, block on `AUTO_FLAG`.
 3. It watches `X-RateLimit-*` headers and backs off on `429`, and checks `GET /api/v1/usage` for quota.
-4. The mock social feed on port 3001 shows this integration end to end.
+4. When its own matching finds a copy of flagged media, it reports a sighting (`POST /api/v1/sightings`) with the hash, its post ID and optionally its account ID, which is pseudonymised on arrival.
+5. The mock social feed on port 3001 shows this integration end to end.
 
 ### 6.5 Verifier
 
@@ -658,7 +675,8 @@ Every setting is an environment variable with a safe default. The full table is 
 | Moderation | `GET /api/queue`, `POST /api/queue/{id}/decision`, `POST /api/queue/{id}/report` | Moderator |
 | Compliance | `POST /api/compliance/complaints`, `GET /api/compliance/queue` · `/breaches` · `/summary` · `/rules` | Moderator (filing is public) |
 | Admin | `/api/admin/clients…`, `/api/admin/known-hashes…` | Moderator |
-| Partner | `POST /api/v1/analyze`, `GET /api/v1/usage` | API key |
+| Partner | `POST /api/v1/analyze`, `GET /api/v1/usage`, `POST /api/v1/sightings` | API key |
+| Investigations | `GET`/`POST /api/investigations`, `GET /api/investigations/{caseNumber}`, `POST …/items` · `/sightings` · `/notes` · `/close` · `/reopen` | Moderator |
 | Misc | `GET /api/stats`, `POST /api/auth/login`, `GET /api/auth/me` | Public |
 | Demo | `GET /api/demo`, `POST /api/demo/story`, `POST /api/demo/reset`, `GET /api/demo/samples/{name}`, `GET /api/demo/report.pdf` | Public (reset: senior moderator, or anyone in public mode) |
 
@@ -670,7 +688,7 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 
 | Suite | Command | Covers |
 |---|---|---|
-| Backend (83 tests) | `cd backend && mvn test` | Decision engine, API, auth, SLA and jurisdiction rules, provenance, PDF and signed reports, API keys and rate limits, prescreen, public complaints (case + PIN, lockout, notifications, queue order) |
+| Backend (148 tests) | `cd backend && mvn test` | Decision engine, API, auth, SLA and jurisdiction rules, provenance, PDF and signed reports, API keys and rate limits, prescreen, public complaints (case + PIN, lockout, notifications, queue order), appeals, second review, wellbeing, transparency, demo story, investigations and sightings (linking before and after opening, distance threshold, pseudonyms, cross-case accounts, closed cases, access control) |
 | ML service | `cd ml-service && python -m pytest` | Health, `/infer`, NSFW, provenance manifests, forensic signature, generation family |
 | ML pipeline | `cd ml && python -m pytest tests data/tests` | Data pipeline, model, plots, poster, diffusion split and family head |
 | Frontend | `cd frontend && npm test` | Browser pHash parity with Python, Hindi/English key coverage, case-number and contact validation, queue urgency order, near-duplicates |
@@ -700,6 +718,7 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 - **StopNCII compatibility, not integration.** Matching logic and import are ready; a live integration needs formal participation approval and credentials.
 - **Translation.** The Hindi strings are in-house and should be reviewed by a native speaker.
 - **Legal hours pending review.** EU, UK and AU deadlines and every appeal deadline are platform targets until counsel signs off.
+- **Sightings are only as complete as partners make them.** The platform does not search the web. An investigation shows what partners and moderators reported, and a pHash match within 8 bits means "very likely the same picture", not proof.
 
 ---
 
@@ -797,3 +816,4 @@ Yes, through the partner API with an API key and plan-based rate limits.
 | 21 | User-friendly UX: report wizard, case status, plain verdicts, keyboard queue, undo, accessibility, Hindi |
 | — | Landing page with role-based entry points, and this documentation |
 | — | Dark / light themes, Terms and Conditions, Privacy Policy |
+| 26 | Investigations: partner sightings, account pseudonyms, hash and provenance linking, cross-case accounts, case timeline |

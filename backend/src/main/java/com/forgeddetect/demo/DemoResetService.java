@@ -1,5 +1,10 @@
 package com.forgeddetect.demo;
 
+import com.forgeddetect.investigation.InvestigationEventRepository;
+import com.forgeddetect.investigation.InvestigationItemRepository;
+import com.forgeddetect.investigation.InvestigationRepository;
+import com.forgeddetect.investigation.SightingLinkRepository;
+import com.forgeddetect.investigation.SightingRepository;
 import com.forgeddetect.repository.AnalysisResultRepository;
 import com.forgeddetect.repository.ApiClientRepository;
 import com.forgeddetect.repository.AppealRepository;
@@ -28,7 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Phase 25: puts a demo instance back to its first-visit state. Deletes every item, complaint, appeal,
- * audit event, known hash and partner key, keeps moderator accounts, jurisdiction rules and signing
+ * audit event, investigation, sighting, known hash and partner key, keeps moderator accounts, jurisdiction rules and signing
  * keys, then re-runs the startup seeders and seeds a new story. Only reachable while
  * {@code demo.enabled=true}, which the backend refuses outside the dev profile.
  */
@@ -61,6 +66,11 @@ public class DemoResetService {
     private final ModerationAuditEventRepository auditEvents;
     private final ComplaintRepository complaints;
     private final ProvenanceEventRepository provenanceEvents;
+    private final SightingLinkRepository sightingLinks;
+    private final InvestigationEventRepository investigationEvents;
+    private final InvestigationItemRepository investigationItems;
+    private final SightingRepository sightings;
+    private final InvestigationRepository investigations;
     private final AnalysisResultRepository results;
     private final KnownHashRepository knownHashes;
     private final ApiClientRepository apiClients;
@@ -81,6 +91,11 @@ public class DemoResetService {
             ModerationAuditEventRepository auditEvents,
             ComplaintRepository complaints,
             ProvenanceEventRepository provenanceEvents,
+            SightingLinkRepository sightingLinks,
+            InvestigationEventRepository investigationEvents,
+            InvestigationItemRepository investigationItems,
+            SightingRepository sightings,
+            InvestigationRepository investigations,
             AnalysisResultRepository results,
             KnownHashRepository knownHashes,
             ApiClientRepository apiClients,
@@ -98,6 +113,11 @@ public class DemoResetService {
         this.auditEvents = auditEvents;
         this.complaints = complaints;
         this.provenanceEvents = provenanceEvents;
+        this.sightingLinks = sightingLinks;
+        this.investigationEvents = investigationEvents;
+        this.investigationItems = investigationItems;
+        this.sightings = sightings;
+        this.investigations = investigations;
         this.results = results;
         this.knownHashes = knownHashes;
         this.apiClients = apiClients;
@@ -131,6 +151,11 @@ public class DemoResetService {
                 auditEvents.deleteAllInBatch();
                 complaints.deleteAllInBatch();
                 provenanceEvents.deleteAllInBatch();
+                sightingLinks.deleteAllInBatch();
+                investigationEvents.deleteAllInBatch();
+                investigationItems.deleteAllInBatch();
+                sightings.deleteAllInBatch();
+                investigations.deleteAllInBatch();
                 results.deleteAllInBatch();
                 knownHashes.deleteAllInBatch();
                 apiClients.deleteAllInBatch();

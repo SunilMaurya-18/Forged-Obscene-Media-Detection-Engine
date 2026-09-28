@@ -20,6 +20,7 @@ const Transparency = lazy(() => import('./pages/Transparency'))
 const Compliance = lazy(() => import('./pages/Compliance'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Explained = lazy(() => import('./pages/Explained'))
+const Investigations = lazy(() => import('./pages/Investigations'))
 const ModerationQueue = lazy(() => import('./pages/ModerationQueue'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
@@ -47,6 +48,7 @@ export default function App() {
                       <Route path="support" element={<Support />} />
                       <Route path="queue" element={<ModerationQueue />} />
                       <Route path="compliance" element={<Compliance />} />
+                      <Route path="investigations/:caseNumber?" element={<Investigations />} />
                       <Route path="dashboard" element={<Dashboard />} />
                       <Route path="verify" element={<Verify />} />
                       <Route path="verify/:id" element={<Verify />} />

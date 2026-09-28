@@ -58,6 +58,7 @@ Existing tools each solve one piece. Detectors give a score but no workflow, has
 | **Signed evidentiary reports** | One-click PDF with scores, SLA timestamps, Grad-CAM / FFT / ELA panels and the audit trail, **Ed25519-signed** and publicly verifiable (`VALID` / `TAMPERED` / `NOT_FOUND`) |
 | **Check before you post** | StopNCII-style: the browser computes the perceptual hash and sends **only the hash** (under 50 bytes). Never the image |
 | **Partner API** | `POST /api/v1/analyze` with hashed API keys, FREE / PRO / ENTERPRISE rate limits and usage stats |
+| **Investigations** | Follows media past the verdict. Partners report sightings (`POST /api/v1/sightings`) by hash and opaque post ID. They link to open cases by pHash distance or provenance ID, whether they arrive before or after the case is opened. Accounts are stored only as keyed, per-platform pseudonyms, and one seen in two cases is flagged in both. Everything is shown on one timeline |
 | **Accessible by default** | Skip links, focus management, icon + text on every status, dark / light themes, plain-language errors |
 
 > **Data policy.** Models are trained and evaluated only on consenting-actor research benchmarks (FaceForensics++, DFDC, Celeb-DF). No real non-consensual or explicit imagery is included anywhere in this repo. Only perceptual hashes, scores, and metadata are stored. Raw media is never persisted.
@@ -69,7 +70,7 @@ Existing tools each solve one piece. Detectors give a score but no workflow, has
 | **Person affected** | `/report` | Private, no-account report, case number + PIN, status page with the legal deadline |
 | **Visitor / careful poster** | `/analyze` | Plain verdict (*Likely forged* / *Needs a closer look* / *Looks genuine*) for images and short videos, Content Credentials, and an on-device hash check |
 | **Uploader whose post was removed** | `/appeal` | Appeal with the notice number + PIN; decided by a different moderator within the appeal deadline |
-| **Moderator** | `/queue`, `/compliance`, `/support` | Deadline-first queue with teams, escalation, second review and appeals, SLA countdowns, one-click signed reports, exposure limit and breaks |
+| **Moderator** | `/queue`, `/compliance`, `/investigations`, `/support` | Deadline-first queue with teams, escalation, second review and appeals, SLA countdowns, one-click signed reports, investigations into where media spread, exposure limit and breaks |
 | **Public / regulator** | `/transparency` | Aggregate volumes, decisions, SLA compliance and appeal outcomes per period |
 | **Partner platform** | `/api-access` | REST API with keys, rate limits and usage |
 | **Verifier** (regulator, court, journalist) | `/verify` | Public audit trail, label check and report signature check |
@@ -451,6 +452,10 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `POST` | `/api/verify` | public | Multipart `file`. Reads the embedded manifest (`VERIFIED` / `CONTENT_MODIFIED` / `INVALID_SIGNATURE`) and resolves its trail. Stores nothing |
 | `POST` | `/api/v1/analyze` | API key | Third-party scoring: decision, scores, hashes, `provenanceId`, `reuploadOf`. Optional `include=heatmap,labelled`. Rate limited per key (`429` + `Retry-After`). See [API_DOCS.md](API_DOCS.md) |
 | `GET` | `/api/v1/usage` | API key | Plan, remaining quota, request and throttled counts, analyses by decision (not metered) |
+| `POST` | `/api/v1/sightings` | API key | Where media appeared on the partner's platform: `{"phash" or "provenanceId", "postRef", "platform"?, "accountId"?, "observedAt"?}`. `201` / `200` duplicate. Never reveals matches. `400 invalid_sighting` for a URL or handle as `postRef`, no hash, or a future time |
+| `GET` / `POST` | `/api/investigations` | `MODERATOR` | `?status=open\|closed\|all` or `?analysisId=` / open a case `{"analysisId","title"?}` (links sightings already reported) |
+| `GET` | `/api/investigations/{caseNumber}` | `MODERATOR` | Evidence, sightings, other uploads here, platforms, account pseudonyms with `otherCases`, and the combined timeline |
+| `POST` | `/api/investigations/{caseNumber}/items` \| `/sightings` \| `/notes` \| `/close` \| `/reopen` | `MODERATOR` | Add evidence / record a sighting a moderator was told about / note / close (read-only, stops linking) / reopen (catches up on sightings). `409 case_closed`, `already_in_case`, `already_open` |
 | `GET` / `POST` | `/api/admin/clients` | `MODERATOR` | List clients and plan limits / create a client (`{"name","plan"}`). The key is returned once |
 | `POST` | `/api/admin/clients/{id}/rotate` \| `/revoke` \| `/plan` | `MODERATOR` | New key (old one stops working) / disable the key / change plan |
 | `GET` | `/api/stats` | public | Totals by decision |
@@ -477,7 +482,7 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `GET` | `/api/compliance/breaches` | `MODERATOR` | All items that breached their SLA |
 | `GET` | `/api/compliance/summary` | `MODERATOR` | Open count by status, total breaches, configured SLA windows, and an `appeals` block (open appeals by SLA status, next deadline) |
 | `GET` | `/api/demo` | public | Demo status: `enabled`, `publicMode`, next reset, synthetic `samples`, demo `accounts` (passwords only in public mode) and the current `story`, if any. Never seeds. `{"enabled": false}` when off |
-| `POST` | `/api/demo/story` | public | Seeds the one-click story if there is none (idempotent) and returns it: flagged upload + notice PIN, appeal, signed report, at-risk complaint + case PIN, breached order. `?fresh=true` (moderators) builds a new one. `409 demo_busy` while another request is seeding |
+| `POST` | `/api/demo/story` | public | Seeds the one-click story if there is none (idempotent) and returns it: flagged upload + notice PIN, appeal, signed report, at-risk complaint + case PIN, breached order, and two investigations linked by a shared (synthetic) account. `?fresh=true` (moderators) builds a new one. `409 demo_busy` while another request is seeding |
 | `POST` | `/api/demo/reset` | `SENIOR_MODERATOR` (anyone in public mode) | Wipes all data and seeds a fresh story. Public visitors: once per `DEMO_RESET_COOLDOWN` (`429 demo_reset_cooldown` + `Retry-After`) |
 | `GET` | `/api/demo/samples/{name}` \| `/api/demo/report.pdf` | public | A bundled synthetic sample / the story's signed PDF (`X-Report-Id`, `X-Report-SHA256`) |
 
@@ -512,6 +517,10 @@ curl -u senior:senior -H "Content-Type: application/json" -d '{"confirm":true}' 
 curl "http://localhost:8081/api/transparency?period=2026-Q3"
 curl -X POST http://localhost:8081/api/demo/story                                     # one-click demo story
 curl -u senior:senior -X POST http://localhost:8081/api/demo/reset                     # wipe and reseed
+curl -H "X-API-Key: $API_DEMO_KEY" -H "Content-Type: application/json" \
+  -d '{"phash":"<16 hex>","platform":"pixelgram","postRef":"pg-1001","accountId":"u-42"}' http://localhost:8081/api/v1/sightings
+curl -u moderator:moderator -H "Content-Type: application/json" -d '{"analysisId":<id>}' http://localhost:8081/api/investigations
+curl -u moderator:moderator http://localhost:8081/api/investigations/INV-XXXX-XXXX
 ```
 
 </details>
@@ -557,6 +566,7 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 | `API_DEMO_KEY` | empty (`.env.example`: a demo key) | Dev only: seeds a FREE "Demo Platform" client with this exact key (must start with `fmd_live_`). **Leave empty in production** |
 | `PRESCREEN_PHASH_MAX_DISTANCE` / `PRESCREEN_PDQ_MAX_DISTANCE` | `8` / `31` | Hamming distance (bits) at or below which a prescreen hash counts as a match |
 | `PRESCREEN_SEED_HASHES` | `c2423d3d3b783cc6` | Comma-separated pHashes seeded as `INTERNAL_CONFIRMED` on startup (default: the synthetic demo pattern) |
+| `INVESTIGATION_PSEUDONYM_KEY` | `dev-only-account-pseudonym-key-change-me` | HMAC key that turns partner account IDs into pseudonyms. **Set 32+ random characters outside dev** (`openssl rand -hex 32`); the backend refuses to start outside `dev` with the demo value. Changing it breaks the links between old and new sightings of the same account |
 | `COMPLIANCE_DEFAULT_JURISDICTION` | `IN` | Jurisdiction used when a request doesn't set one |
 | `COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS` / `_GOVERNMENT_ORDER_HOURS` | `24` / `24` | Deadlines seeded for the `GENERIC` fallback rule |
 | `APP_PROFILE` | `dev` | Spring profile for the backend and the ml-service's profile. Anything other than `dev` refuses to start while demo secrets are configured |
@@ -590,10 +600,10 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 # Tests
-cd backend && mvn test                                   # decision engine, API, auth, SLA + jurisdiction rules, provenance, signed PDF reports, API keys, prescreen, public complaints, video routing, C2PA, appeals, teams + second review, wellbeing, transparency
+cd backend && mvn test                                   # decision engine, API, auth, SLA + jurisdiction rules, provenance, signed PDF reports, API keys, prescreen, public complaints, video routing, C2PA, appeals, teams + second review, wellbeing, transparency, investigations + sightings
 cd ml-service && python -m pytest                        # health, /infer, NSFW, provenance manifests, forensic signature, generation family, /infer-video (no disk writes), C2PA read/write
 cd ml && python -m pytest tests data/tests               # pipeline, model, plots, poster, diffusion split + family head
-cd frontend && npm test                                  # on-device pHash parity, Hindi/English key coverage, case-number + contact validation, queue urgency order, near-duplicates, video/C2PA/appeal helpers
+cd frontend && npm test                                  # on-device pHash parity, Hindi/English key coverage, case-number + contact validation, queue urgency order, near-duplicates, video/C2PA/appeal/investigation helpers
 cd e2e && npx playwright test                            # the demo script through the UI, against a running stack with the demo .env
 sh ops/ha-ratelimit-check.sh                             # two backends share one rate limit (with docker-compose.ha.yml)
 ```
@@ -612,8 +622,9 @@ ml-service/         FastAPI inference (forgery, NSFW, Grad-CAM, pHash) + provena
 backend/            Spring Boot API, decision engine, compliance SLA engine, provenance audit trail, PDF reports,
                     API keys + rate limiting (/api/v1), security, JPA
   demo/             one-click demo story, reset, synthetic sample allowlist (Phase 25)
+  investigation/    investigation cases, partner sightings, account pseudonyms, hash linking (Phase 26)
 frontend/           React + Tailwind UI (Landing, Tour, Analyze, Report, Case status, Appeal, Queue, Compliance,
-                    Verify, Dashboard, Transparency, Support, API access, Explained, Login)
+                    Investigations, Verify, Dashboard, Transparency, Support, API access, Explained, Login)
 mock-social-feed/   static "platform" that calls /api/analyze on each post
 docs/               PROJECT_DOCUMENTATION.md: the complete project guide · MODEL_CARD.md: intended use, metrics, limits
   adr/              architecture decision records (no raw media, two models, Ed25519, hash-only prescreen, no geo-IP)

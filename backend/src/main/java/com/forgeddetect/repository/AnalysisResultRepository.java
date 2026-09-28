@@ -39,6 +39,10 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
 
     Optional<AnalysisResult> findByProvenanceId(String provenanceId);
 
+    /** Rows of {@code [id, phash, sourceProvenanceId]}: enough to match by hash or lineage without loading the heavy columns. */
+    @Query("select a.id, a.phash, a.sourceProvenanceId from AnalysisResult a")
+    List<Object[]> hashIndex();
+
     Optional<AnalysisResult> findFirstByContentHashAndProvenanceIdIsNotNullOrderByCreatedAtAsc(String contentHash);
 
     Optional<AnalysisResult> findFirstByPhashAndProvenanceIdIsNotNullOrderByCreatedAtAsc(String phash);

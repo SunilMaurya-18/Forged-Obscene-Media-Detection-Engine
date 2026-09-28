@@ -115,6 +115,19 @@ class DemoScenarioIntegrationTest {
         String reportId = story.get("report").get("reportId").asText();
         assertThat(reportId).startsWith("RPT-" + flagged.get("id").asLong() + "-");
 
+        // Phase 26: where the composite went, and the account it shares with the victim's report
+        JsonNode investigation = story.get("investigation");
+        assertThat(investigation.get("caseNumber").asText()).startsWith("INV-");
+        assertThat(investigation.get("sightings").asInt()).as("one reported before the case was opened").isEqualTo(3);
+        assertThat(investigation.get("platforms").asInt()).isEqualTo(3);
+        JsonNode related = story.get("relatedInvestigation");
+        assertThat(related.get("sightings").asInt()).isEqualTo(1);
+        JsonNode caseView = json(mockMvc.perform(get("/api/investigations/" + investigation.get("caseNumber").asText())
+                        .with(httpBasic("moderator", "moderator")))
+                .andExpect(status().isOk()));
+        assertThat(caseView.get("accounts").findValuesAsText("caseNumber")).contains(related.get("caseNumber").asText());
+        mockMvc.perform(get("/api/investigations/" + investigation.get("caseNumber").asText())).andExpect(status().isUnauthorized());
+
         // Idempotent: a second visitor gets the same story
         JsonNode again = json(mockMvc.perform(post("/api/demo/story")).andExpect(status().isOk())).get("story");
         assertThat(again.get("flagged").get("id").asLong()).isEqualTo(flagged.get("id").asLong());

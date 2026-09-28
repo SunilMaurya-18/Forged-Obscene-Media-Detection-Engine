@@ -60,6 +60,14 @@ public class DemoStory {
 
     private Long breachedId;
 
+    /** Phase 26: investigation into where the flagged upload appeared. */
+    @Column(length = 16)
+    private String investigationNumber;
+
+    /** Phase 26: investigation into the victim's report; shares an account with the first. */
+    @Column(length = 16)
+    private String relatedInvestigationNumber;
+
     public Long getId() {
         return id;
     }
@@ -166,5 +174,21 @@ public class DemoStory {
 
     public void setBreachedId(Long breachedId) {
         this.breachedId = breachedId;
+    }
+
+    public String getInvestigationNumber() {
+        return investigationNumber;
+    }
+
+    public void setInvestigationNumber(String investigationNumber) {
+        this.investigationNumber = investigationNumber;
+    }
+
+    public String getRelatedInvestigationNumber() {
+        return relatedInvestigationNumber;
+    }
+
+    public void setRelatedInvestigationNumber(String relatedInvestigationNumber) {
+        this.relatedInvestigationNumber = relatedInvestigationNumber;
     }
 }

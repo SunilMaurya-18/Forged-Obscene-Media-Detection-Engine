@@ -1,5 +1,6 @@
 package com.forgeddetect.config;
 
+import com.forgeddetect.investigation.InvestigationProperties;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,6 +23,7 @@ public class DemoSecretsGuard implements EnvironmentPostProcessor, Ordered {
 
     static final Set<String> DEV_PROFILES = Set.of("dev", "test");
     static final int MIN_PASSWORD = 12;
+    static final int MIN_PSEUDONYM_KEY = 32;
     private static final Set<String> DEMO_PASSWORDS = Set.of("moderator", "reviewer", "senior", "apac", "forged", "password", "changeme");
 
     @Override
@@ -77,6 +79,11 @@ public class DemoSecretsGuard implements EnvironmentPostProcessor, Ordered {
         if (env.getProperty("demo.enabled", Boolean.class, false)) {
             out.add("DEMO_ENABLED=true exposes the demo story and a reset that deletes all moderation data; "
                     + "a hosted public demo runs with SPRING_PROFILES_ACTIVE=dev on its own throwaway database");
+        }
+        String pseudonymKey = env.getProperty("investigation.pseudonym-key", InvestigationProperties.DEV_PSEUDONYM_KEY);
+        if (pseudonymKey.length() < MIN_PSEUDONYM_KEY || InvestigationProperties.DEV_PSEUDONYM_KEY.equals(pseudonymKey)) {
+            out.add("INVESTIGATION_PSEUDONYM_KEY is the published demo value or shorter than " + MIN_PSEUDONYM_KEY
+                    + " characters; anyone holding it could confirm a guessed account behind a pseudonym");
         }
         if ("file".equalsIgnoreCase(env.getProperty("report.signing.provider", "file"))
                 && !env.getProperty("report.signing.allow-file-keys", Boolean.class, false)) {

@@ -102,6 +102,34 @@ curl -H "X-API-Key: $FMD_API_KEY" http://localhost:8081/api/v1/usage
 
 `requests.total` counts accepted, metered calls. `analyses` counts images that were actually scored.
 
+### `POST /api/v1/sightings`
+
+Tell the service where a piece of media has appeared on your platform, for example when your own hash matching finds a copy of an item you received an `AUTO_FLAG` for. Moderators see sightings in their investigations. You never learn whether a sighting matched anything, and there is no way to query sightings back. It is metered like `analyze`.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/sightings \
+  -H "X-API-Key: $FMD_API_KEY" -H "Content-Type: application/json" \
+  -d '{"phash":"c3a5e1f00f1e5a3c","platform":"acme-social","postRef":"p-88213","accountId":"u-40917","observedAt":"2026-09-28T10:15:00Z"}'
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `phash` | one of `phash` / `provenanceId` | 16 hex characters: the 64-bit pHash of your copy (the same algorithm as `/api/prescreen`) |
+| `provenanceId` | one of `phash` / `provenanceId` | From the manifest of a labelled copy (`include=labelled`) |
+| `platform` | no | 1–48 letters, digits, `.` or `-` (lower-cased; spaces become `-`). Defaults to your client name |
+| `postRef` | yes | **Your own opaque post ID**, 1–128 of `A-Z a-z 0-9 . _ : -`. URLs, usernames and e-mail addresses are refused |
+| `accountId` | no | Your internal account ID for the poster. It is replaced on arrival by `HMAC-SHA256(key, platform + "\n" + accountId)` and never stored or logged. The same account on the same platform always maps to the same pseudonym, while other platforms get different ones |
+| `observedAt` | no | ISO-8601 with an offset. Defaults to now; more than 5 minutes in the future is refused |
+
+`201` for a new sighting, `200` with `"duplicate": true` when the same platform + post + hash was already reported:
+
+```json
+{ "id": 912, "duplicate": false, "platform": "acme-social", "postRef": "p-88213", "accountRecorded": true,
+  "observedAt": "2026-09-28T10:15:00Z", "receivedAt": "2026-09-28T10:15:02.114Z" }
+```
+
+A sighting is linked to every **open** investigation with a case item that has the same provenance ID, or whose pHash is within the deployment's match distance (`PRESCREEN_PHASH_MAX_DISTANCE`, 8 bits by default). That applies whether it arrives before or after the case is opened.
+
 ## 3. Routing the decision
 
 The thresholds are set by the deployment (defaults: review at 0.50, auto-flag at 0.85, for each score separately). The higher of the two decisions wins.
@@ -143,6 +171,7 @@ Every error is JSON with a stable machine-readable `error` code and a human-read
 |---|---|---|---|
 | 400 | `file_required` | No `file` part | Fix the request |
 | 400 | `invalid_include` | Unknown `include` value | Use `heatmap` and/or `labelled` |
+| 400 | `invalid_sighting` | `POST /sightings`: no hash or provenance ID, malformed hash, a URL or handle as `postRef`, bad `platform`, future `observedAt` | Fix the field named in `message`. Don't retry unchanged |
 | 401 | `missing_api_key` | No key header | Send `X-API-Key` |
 | 401 | `invalid_api_key` | Key unknown, rotated, or revoked | Check config. Don't retry |
 | 429 | `rate_limited` | Bucket empty (body also has `retryAfterSeconds`) | Back off for `Retry-After` |
@@ -280,6 +309,7 @@ curl -H "X-Case-Pin: 042917" http://localhost:8081/api/appeals/UPL-7K3Q-9XPA/sta
 
 - **No media is retained.** The service keeps the perceptual hash, pixel hash, scores, decision, provenance ID, a coarse numeric forensic signature (too low-resolution to rebuild the image), the per-frame score timeline for videos, the C2PA manifest summary, and which API client submitted it. Image and video bytes are discarded after scoring (video frames are decoded in memory and never written to disk), and `labelledImage` is returned to you, never stored.
 - The public audit trail (`GET /api/verify/{provenanceId}`) shows decisions and timestamps. It never shows your client name, complaint references, or moderator identities.
+- Sightings keep a hash or provenance ID, the platform name, your opaque post ID, a keyed account pseudonym and two timestamps. They are never added to the public audit trail. The pseudonym key (`INVESTIGATION_PSEUDONYM_KEY`) stays on the server, so neither you nor anyone reading the database can confirm a guessed account ID.
 - The detection models were trained and evaluated only on consenting-actor research benchmarks (FaceForensics++, DFDC, Celeb-DF). Don't send test data that you don't have the right to process.
 
 ## 8. Operator reference (key management)
@@ -297,3 +327,20 @@ These require a moderator login (HTTP Basic or session) and are what the **API a
 Configuration (environment variables): `API_RATE_LIMIT_FREE`, `API_RATE_LIMIT_PRO`, `API_RATE_LIMIT_ENTERPRISE` (requests per minute), and `API_DEMO_KEY`, a dev-only variable that seeds a FREE "Demo Platform" client with that exact key. Leave it empty in production.
 
 > With `STATE_STORE=redis` (the docker-compose default) rate-limit buckets live in Redis, so every backend replica spends one shared per-minute budget per key and buckets survive a backend restart. `STATE_STORE=memory` keeps them per instance and is only suitable for a single replica.
+
+### Investigations (moderators)
+
+A moderator login is required, and API keys get `401`. Case numbers look like `INV-7K3Q-9XPA` and are accepted in any case, with or without dashes. Every mutating call returns the full case view.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| `GET` | `/api/investigations?status=open\|closed\|all` or `?analysisId=` | — | Case summaries: `caseNumber`, `title`, `status`, `items`, `sightings`, `platforms`, `accounts`, `lastActivityAt` |
+| `POST` | `/api/investigations` | `{"analysisId": 42, "title": "…"}` | `201` with the case. Sightings already reported for that media are linked immediately |
+| `GET` | `/api/investigations/{caseNumber}` | — | `evidence` (scores, family, signed report, complaint and appeal state per analysis), `sightings` (platform, post, account pseudonym, how it matched), `appearances` (other uploads to this platform), `platforms`, `accounts` (with `otherCases` the same pseudonym appears in), `timeline`, `counts` |
+| `POST` | `/api/investigations/{caseNumber}/items` | `{"analysisId": 43}` | Adds evidence and links its existing sightings |
+| `POST` | `/api/investigations/{caseNumber}/sightings` | `{"platform","postRef","accountId?","observedAt?","analysisId?"}` | A sighting a moderator was told about, using the hash of a case item (the first by default) |
+| `POST` | `/api/investigations/{caseNumber}/notes` | `{"text": "…"}` | Adds a note to the case log |
+| `POST` | `/api/investigations/{caseNumber}/close` | `{"reason": "…"}` | Closed cases are read-only and link no new sightings |
+| `POST` | `/api/investigations/{caseNumber}/reopen` | — | Reopens the case and links the sightings reported while it was closed |
+
+Errors: `400` `analysis_required`, `note_required`, `invalid_status`, `invalid_sighting`, `not_in_case`; `404` `case_not_found`, `analysis_not_found`; `409` `case_closed`, `already_open`, `already_in_case`.

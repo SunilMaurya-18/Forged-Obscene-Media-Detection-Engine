@@ -674,6 +674,13 @@
         "body": "The clock ran out, so it was escalated automatically and the breach stays on the record.",
         "reference": "Order reference",
         "console": "Open the compliance console"
+      },
+      "investigation": {
+        "title": "Where the composite went next",
+        "body": "Partner platforms reported {{sightings}} copies on {{platforms}} platforms. One account also posted the image from the victim's report, so the two cases are linked. Accounts are stored as pseudonyms and no media is kept.",
+        "case": "Investigation",
+        "related": "Linked case",
+        "open": "Open the investigation"
       }
     },
     "sla": {

@@ -327,6 +327,47 @@ export async function resetDemo() {
   return apiFetch('/api/demo/reset', { method: 'POST' })
 }
 
+// ---------------------------------------------------------------- Phase 26: investigations
+
+/** {@code status}: open | closed | all; {@code analysisId}: only cases containing that analysis. */
+export async function fetchInvestigations({ status = 'open', analysisId } = {}) {
+  const q = analysisId != null ? `analysisId=${encodeURIComponent(analysisId)}` : `status=${encodeURIComponent(status)}`
+  return apiFetch(`/api/investigations?${q}`, { cache: 'no-store' })
+}
+
+export async function fetchInvestigation(caseNumber) {
+  return apiFetch(`/api/investigations/${encodeURIComponent(caseNumber)}`, { cache: 'no-store' })
+}
+
+export async function openInvestigation(analysisId, title) {
+  return postJson('/api/investigations', title ? { analysisId, title } : { analysisId })
+}
+
+function caseAction(caseNumber, action, body) {
+  return postJson(`/api/investigations/${encodeURIComponent(caseNumber)}/${action}`, body)
+}
+
+export async function addInvestigationItem(caseNumber, analysisId) {
+  return caseAction(caseNumber, 'items', { analysisId })
+}
+
+/** A sighting someone told a moderator about; the account ID is pseudonymised by the server. */
+export async function recordSighting(caseNumber, { analysisId, platform, postRef, accountId, observedAt }) {
+  return caseAction(caseNumber, 'sightings', { analysisId, platform, postRef, accountId, observedAt })
+}
+
+export async function addInvestigationNote(caseNumber, text) {
+  return caseAction(caseNumber, 'notes', { text })
+}
+
+export async function closeInvestigation(caseNumber, reason) {
+  return caseAction(caseNumber, 'close', { reason })
+}
+
+export async function reopenInvestigation(caseNumber) {
+  return caseAction(caseNumber, 'reopen')
+}
+
 /** Downloads a bundled synthetic sample as a File, ready for any upload form. */
 export async function fetchSampleFile(sample) {
   const res = await request(sample.url, { credentials: 'omit' })
