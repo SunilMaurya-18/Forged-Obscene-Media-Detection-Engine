@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <bouncycastle.version>1.79</bouncycastle.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
         <!-- 1.21.4+ negotiates the Docker API version; older releases get HTTP 400 from Docker Engine 29 -->
         <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
