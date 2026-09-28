@@ -6,7 +6,7 @@ Pillow>=10.0.0
 pytest>=8.0.0
 torch>=2.2.0
 torchvision>=0.17.0
-tqdm>=4.66.0
+tqdm>=4.70.1
 matplotlib>=3.8.0
 
 # Optional for real face detection (Phase 1 production):
