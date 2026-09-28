@@ -5,6 +5,9 @@
 # Overlays: docker-compose.observability.yml (Prometheus + Grafana), docker-compose.ha.yml (second
 # backend sharing Redis), docker-compose.gpu.yml (CUDA ml-service).
 
+# Fixed so image and network names don't depend on the checkout folder (CI scans images by name).
+name: forgedmediadetection
+
 services:
   redis:
     image: redis:7-alpine
