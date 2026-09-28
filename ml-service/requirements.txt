@@ -6,7 +6,7 @@ pytest>=8.0.0
 pillow>=10.0.0
 numpy>=1.26.0,<3
 opencv-python-headless>=4.8.0
-imagehash>=4.3.0
+imagehash>=4.3.2
 # Phase 23: in-memory video decoding and C2PA Content Credentials (the c2pa API changes between minors)
 av>=14.0.0
 c2pa-python>=0.37,<0.38
