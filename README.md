@@ -17,7 +17,7 @@
 
 [Quick start](#quick-start) · [One-click demo](#one-click-demo) · [Features](#what-it-does) · [Architecture](#architecture) · [Results](#results) · [API](#api-reference) · [Full documentation](docs/PROJECT_DOCUMENTATION.md) · [Partner API guide](API_DOCS.md)
 
-[Design decisions (ADRs)](docs/adr/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Model card](docs/MODEL_CARD.md) · [Host a public demo](docs/PUBLIC_DEMO.md)
+[Research report](docs/RESEARCH_REPORT.md) · [Design decisions (ADRs)](docs/adr/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Model card](docs/MODEL_CARD.md) · [Host a public demo](docs/PUBLIC_DEMO.md)
 
 <br>
 
