@@ -163,7 +163,7 @@ jobs:
         run: docker compose -f docker-compose.yml -f docker-compose.ha.yml logs --no-color --tail=300
 
       - name: Scan images (Trivy, fixable CRITICAL fails the build)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: forgedmediadetection-backend:latest
@@ -171,7 +171,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: table
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: forgedmediadetection-frontend:latest
@@ -179,7 +179,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           skip-setup-trivy: true
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: forgedmediadetection-ml-service:latest
