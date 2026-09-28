@@ -3,11 +3,14 @@ package com.forgeddetect.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.forgeddetect.model.AnalysisResult;
+import com.forgeddetect.model.Appeal;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.Decision;
+import com.forgeddetect.model.ModerationAuditEvent;
 import com.forgeddetect.model.ProvenanceEvent;
 import com.forgeddetect.model.ProvenanceEventType;
 import com.forgeddetect.repository.AnalysisResultRepository;
+import com.forgeddetect.repository.AppealRepository;
 import com.forgeddetect.repository.ProvenanceEventRepository;
 import com.lowagie.text.Chunk;
 import com.lowagie.text.Document;
@@ -70,6 +73,13 @@ public class ReportService {
         }
     }
 
+    /** An original was attached for media whose panels can't be re-rendered from a file (video). */
+    public static class UnsupportedOriginalException extends RuntimeException {
+        public UnsupportedOriginalException(String message) {
+            super(message);
+        }
+    }
+
     private record Panels(
             byte[] heatmap, byte[] fft, byte[] ela, byte[] profile, PanelSource source, String note, JsonNode signature) {}
 
@@ -109,6 +119,8 @@ public class ReportService {
     private final ForensicPanelRenderer renderer;
     private final ObjectMapper mapper;
     private final ReportSigningService signing;
+    private final AppealRepository appeals;
+    private final ModerationAuditService audit;
     private final Clock clock;
     private final ZoneId localZone;
 
@@ -122,8 +134,12 @@ public class ReportService {
             ForensicPanelRenderer renderer,
             ObjectMapper mapper,
             ReportSigningService signing,
+            AppealRepository appeals,
+            ModerationAuditService audit,
             Clock clock,
             @Value("${report.local-zone:Asia/Kolkata}") String localZone) {
+        this.appeals = appeals;
+        this.audit = audit;
         this.results = results;
         this.events = events;
         this.provenance = provenance;
@@ -185,6 +201,10 @@ public class ReportService {
                     + "(14x14 attention, 16x16 error-level and 32x32 spectrum grids). No media was retained.";
         }
 
+        if (original != null && original.length > 0 && item.isVideo()) {
+            throw new UnsupportedOriginalException("Full-resolution panels can only be rendered from an image. For video, "
+                    + "the report uses the peak frame's signature captured at analysis time; generate it without a file.");
+        }
         if (original != null && original.length > 0) {
             MlPanelsResponse full = mlClient.forensicPanels(original, filename, contentType);
             if (full == null) {
@@ -276,7 +296,9 @@ public class ReportService {
             identification(doc, item);
             scores(doc, item);
             compliance(doc, item);
-            forensics(doc, panels);
+            moderationAndAppeal(doc, item);
+            contentCredentials(doc, item);
+            forensics(doc, panels, item);
             auditTrail(doc, item);
             integrity(doc, item, reportId);
             signatureBlock(doc, signed);
@@ -359,6 +381,7 @@ public class ReportService {
         PdfPTable t = kvTable();
         kv(t, "Analysis ID", "#" + item.getId(), false);
         kv(t, "Provenance ID", orDash(item.getProvenanceId()), true);
+        kv(t, "Media type", item.isVideo() ? "Video (scored frame by frame; no frame retained)" : "Image", false);
         kv(t, "Analysed at", timestamp(item.getCreatedAt()), false);
         kv(t, "Re-upload of", item.getSourceProvenanceId() != null
                 ? item.getSourceProvenanceId() : "None (first time this content was seen)", item.getSourceProvenanceId() != null);
@@ -367,7 +390,7 @@ public class ReportService {
         doc.add(t);
     }
 
-    private void scores(Document doc, AnalysisResult item) throws DocumentException {
+    private void scores(Document doc, AnalysisResult item) throws DocumentException, IOException {
         section(doc, "2. Model scores");
         PdfPTable t = new PdfPTable(new float[] {28, 14, 30, 28});
         t.setWidthPercentage(100);
@@ -382,8 +405,178 @@ public class ReportService {
         PdfPTable fam = kvTable();
         kv(fam, "Generation family", familyLabel(item), false);
         doc.add(fam);
+        if (item.isVideo()) {
+            videoTimeline(doc, item);
+        }
         doc.add(note("Thresholds shown are those configured when this report was generated. Scores are model "
                 + "confidences in [0, 1], not probabilities of guilt; they support, and do not replace, human judgement."));
+    }
+
+    private void videoTimeline(Document doc, AnalysisResult item) throws DocumentException, IOException {
+        JsonNode tl = parseSignature(item.getFrameTimeline());
+        if (tl == null) {
+            doc.add(note("Video: no per-frame timeline was recorded."));
+            return;
+        }
+        JsonNode frames = tl.path("frames");
+        double[] forgery = new double[frames.size()];
+        double[] explicit = new double[frames.size()];
+        for (int i = 0; i < frames.size(); i++) {
+            forgery[i] = frames.get(i).path(1).asDouble();
+            explicit[i] = frames.get(i).path(2).asDouble();
+        }
+        PdfPTable t = kvTable();
+        kv(t, "Frames sampled", String.format(Locale.ROOT, "%d at %.2f fps%s%s", frames.size(), tl.path("fps").asDouble(),
+                tl.has("durationSeconds") ? String.format(Locale.ROOT, " over %.1f s", tl.path("durationSeconds").asDouble()) : "",
+                tl.path("truncated").asBoolean() ? " (capped; later frames not scored)" : ""), false);
+        kv(t, "Routed on", "Forgery: " + aggregateLabel(tl, "forgery") + "; explicit: " + aggregateLabel(tl, "explicit"), false);
+        if (tl.has("peak")) {
+            kv(t, "Peak frame", String.format(Locale.ROOT, "#%d at %.2f s (source of the forensic panels)",
+                    tl.path("peak").path("index").asInt(), tl.path("peak").path("t").asDouble()), false);
+        }
+        doc.add(t);
+        if (forgery.length > 0) {
+            Paragraph cap = new Paragraph("Frame-score strip: bars = per-frame forgery score (green / amber / red by band), "
+                    + "line = explicit score, dashed = forgery review and auto-flag thresholds, outlined bar = peak frame", LABEL);
+            cap.setSpacingBefore(8);
+            doc.add(cap);
+            Image strip = Image.getInstance(renderer.frameStrip(forgery, explicit, thresholds.getForgeryReview(),
+                    thresholds.getForgeryAutoFlag(), tl.path("peak").path("index").asInt(-1), 1000, 160));
+            strip.scaleToFit(doc.getPageSize().getWidth() - 80, 90);
+            strip.setSpacingBefore(3);
+            doc.add(strip);
+        }
+    }
+
+    private static String aggregateLabel(JsonNode tl, String score) {
+        String mode = tl.path("routing").path(score).asText("");
+        int k = tl.path("k").asInt(3);
+        String label = "MAX".equals(mode) ? "max over frames" : "mean of top-" + k + " frames";
+        JsonNode agg = tl.path("aggregate").path(score);
+        if (agg.isMissingNode()) {
+            return label;
+        }
+        return label + String.format(Locale.ROOT, " (max %.4f, top-%d mean %.4f)",
+                agg.path("max").asDouble(), k, agg.path("topkMean").asDouble());
+    }
+
+    private void moderationAndAppeal(Document doc, AnalysisResult item) throws DocumentException {
+        section(doc, "4. Moderation and appeal");
+        PdfPTable t = kvTable();
+        kv(t, "Model decision", item.getModelDecision() != null ? item.getModelDecision().name() : item.getDecision().name(), false);
+        kv(t, "Decided by", item.getDecidedBy() != null
+                ? item.getDecidedBy() + (item.getReviewedAt() != null ? ", " + timestamp(item.getReviewedAt()) : "")
+                : "Automated routing only (no moderator decision)", false);
+        kv(t, "Assignment", item.getAssignedTo() != null
+                ? item.getAssignedTo() + (item.getAssignedTeam() != null ? " (team " + item.getAssignedTeam() + ")" : "")
+                : item.getRoutedTeam() != null ? "Routed to team " + item.getRoutedTeam() + " (unclaimed)" : "Unassigned", false);
+        kv(t, "Senior escalation", item.getSeniorEscalatedAt() != null
+                ? timestamp(item.getSeniorEscalatedAt()) + " by " + orDash(item.getSeniorEscalatedBy())
+                        + (item.getSeniorEscalationReason() != null ? ": " + item.getSeniorEscalationReason() : "")
+                        + (item.getSeniorResolvedAt() != null
+                                ? "; resolved by senior " + orDash(item.getSeniorResolvedBy()) + " at " + timestamp(item.getSeniorResolvedAt())
+                                : "; open (senior decision required)")
+                : "Not escalated", false);
+        kv(t, "Second review", item.getPendingDecision() != null
+                ? "Change to " + item.getPendingDecision() + " proposed by " + orDash(item.getPendingProposedBy()) + " at "
+                        + timestamp(item.getPendingProposedAt()) + "; awaiting a second moderator"
+                : "None pending", false);
+        kv(t, "Uploader notice", orDash(item.getNoticeNumber()), true);
+
+        Appeal appeal = appeals.findByAnalysisId(item.getId()).orElse(null);
+        if (appeal == null) {
+            kv(t, "Appeal", "None filed", false);
+        } else {
+            kv(t, "Appeal", appeal.getCaseNumber() + ": " + appeal.getStatus().name()
+                    + (appeal.getReinstatedAt() != null ? " (content reinstated " + timestamp(appeal.getReinstatedAt()) + ")" : ""), false);
+            kv(t, "Appeal filed", timestamp(appeal.getFiledAt()), false);
+            kv(t, "Uploader statement", appeal.getStatement(), false);
+            kv(t, "Contested decision", appeal.getContestedDecision().name() + " by " + appeal.getContestedBy(), false);
+            kv(t, "Appeal deadline", timestamp(appeal.getSlaDeadline())
+                    + (appeal.getSlaRuleLabel() != null ? " (" + appeal.getSlaRuleLabel() + ")" : ""), false);
+            kv(t, "Appeal SLA status", appeal.getSlaStatus().name().replace('_', ' '), false);
+            kv(t, "Appeal decided", appeal.getDecidedAt() != null
+                    ? timestamp(appeal.getDecidedAt()) + " by " + orDash(appeal.getDecidedBy()) : "Not yet decided", false);
+            kv(t, "Statement of reasons", orDash(appeal.getOutcomeReason()), false);
+        }
+        doc.add(t);
+
+        List<ModerationAuditEvent> log = audit.forItem(item.getId());
+        if (!log.isEmpty()) {
+            Paragraph cap = new Paragraph("Moderation log (internal; names the moderator for each action)", LABEL);
+            cap.setSpacingBefore(8);
+            doc.add(cap);
+            PdfPTable l = new PdfPTable(new float[] {21, 16, 21, 42});
+            l.setWidthPercentage(100);
+            for (String h : new String[] {"Time (UTC)", "Moderator", "Action", "Detail"}) {
+                l.addCell(th(h));
+            }
+            for (ModerationAuditEvent e : log) {
+                l.addCell(td(TRAIL_TIME.format(e.getOccurredAt()), MONO));
+                l.addCell(td(e.getActor(), VALUE));
+                l.addCell(td(e.getAction().name().replace('_', ' '), EVENT));
+                l.addCell(td(e.getDetail() != null ? e.getDetail() : "", VALUE));
+            }
+            doc.add(l);
+        }
+        doc.add(note("Changes away from AUTO-FLAGGED need a second moderator; appeals are decided, and their outcome second-reviewed, "
+                + "by moderators other than those who made or upheld the contested decision. The public audit trail (section 7) "
+                + "records these steps without names."));
+    }
+
+    private void contentCredentials(Document doc, AnalysisResult item) throws DocumentException {
+        section(doc, "5. Content credentials (C2PA)");
+        JsonNode c = parseSignature(item.getC2paManifest());
+        PdfPTable t = kvTable();
+        if (c == null) {
+            kv(t, "Manifest", "None. The upload carried no C2PA Content Credentials.", false);
+            doc.add(t);
+            doc.add(note("Absence of credentials is not evidence of manipulation; most capture devices and platforms "
+                    + "do not yet write or preserve them."));
+            return;
+        }
+        String status = c.path("status").asText("UNKNOWN");
+        kv(t, "Validation", switch (status) {
+            case "TRUSTED" -> "TRUSTED: signature valid, signer on the trust list";
+            case "VALID" -> "VALID: signature and content hashes check out";
+            case "VALID_UNTRUSTED" -> "VALID (untrusted signer): hashes check out, signer not on the trust list";
+            case "INVALID" -> "INVALID: the manifest does not match the content or its signature failed";
+            default -> status;
+        }, false);
+        JsonNode signer = c.path("signer");
+        if (!signer.isMissingNode() && !signer.isNull()) {
+            kv(t, "Signer", orDash(signer.path("common_name").asText(null))
+                    + (signer.hasNonNull("issuer") ? " (issued by " + signer.path("issuer").asText() + ")" : ""), false);
+            kv(t, "Signed at", orDash(signer.path("signed_at").asText(null)), false);
+        }
+        kv(t, "Claim generator", orDash(c.path("claim_generator").asText(null)), false);
+        kv(t, "AI-generated per manifest", c.path("ai_generated").asBoolean(false)
+                ? "Yes (digitalSourceType declares trained algorithmic media)" : "Not declared", false);
+        StringBuilder actions = new StringBuilder();
+        for (JsonNode a : c.path("actions")) {
+            if (actions.length() > 0) {
+                actions.append("; ");
+            }
+            actions.append(a.path("action").asText("?").replace("c2pa.", ""));
+            if (a.hasNonNull("software_agent")) {
+                actions.append(" (").append(a.path("software_agent").asText()).append(')');
+            }
+        }
+        kv(t, "Edit actions", actions.length() > 0 ? actions.toString() : "None recorded", false);
+        kv(t, "Manifests in chain", String.valueOf(c.path("manifest_count").asInt(1)), false);
+        if (c.hasNonNull("error")) {
+            kv(t, "Read error", c.path("error").asText(), true);
+        }
+        if (c.path("failures").size() > 0) {
+            StringBuilder f = new StringBuilder();
+            for (JsonNode x : c.path("failures")) {
+                f.append(f.length() > 0 ? "; " : "").append(x.path("code").asText(x.asText()));
+            }
+            kv(t, "Validation failures", f.toString(), true);
+        }
+        doc.add(t);
+        doc.add(note("C2PA manifests are self-declared by whoever signed them; a valid manifest proves who signed which claims, "
+                + "not that the claims are true. Our own labelled copies carry the HMAC-signed XMP label plus a C2PA manifest."));
     }
 
     static String familyLabel(AnalysisResult item) {
@@ -450,9 +643,9 @@ public class ReportService {
         doc.add(t);
     }
 
-    private void forensics(Document doc, Panels panels) throws DocumentException, IOException {
+    private void forensics(Document doc, Panels panels, AnalysisResult item) throws DocumentException, IOException {
         doc.newPage();
-        section(doc, "4. Forensic panels");
+        section(doc, "6. Forensic panels");
         JsonNode sig = panels.signature();
 
         PdfPTable grid = new PdfPTable(3);
@@ -484,7 +677,8 @@ public class ReportService {
             chart.setSpacingBefore(3);
             doc.add(chart);
         }
-        doc.add(note("Panel source: " + panels.source().name().toLowerCase(Locale.ROOT) + ". " + panels.note()));
+        doc.add(note("Panel source: " + panels.source().name().toLowerCase(Locale.ROOT) + ". " + panels.note()
+                + (item.isVideo() ? " For video, the signature is taken from the peak frame (highest forgery score)." : "")));
     }
 
     private PdfPCell panel(byte[] png, String title, String metric, String caption) throws IOException, DocumentException {
@@ -519,7 +713,7 @@ public class ReportService {
     }
 
     private void auditTrail(Document doc, AnalysisResult item) throws DocumentException {
-        section(doc, "5. Audit trail");
+        section(doc, "7. Audit trail");
         List<ProvenanceEvent> trail = item.getProvenanceId() != null
                 ? events.findByProvenanceIdOrderByOccurredAtAscIdAsc(item.getProvenanceId())
                 : List.of();
@@ -545,9 +739,13 @@ public class ReportService {
         String[] points = {
             "Media retention: the analysed media is not stored. The system keeps only hashes, scores, decisions, SLA "
                     + "metadata and the coarse forensic signature used for the panels above.",
-            "Provenance: labelled copies of this media carry a signed manifest with provenance ID "
-                    + orDash(item.getProvenanceId()) + ". Anyone can check it and the audit trail at /verify/"
-                    + orDash(item.getProvenanceId()) + ".",
+            item.isVideo()
+                    ? "Provenance: videos are not relabelled, so no labelled copy exists; this analysis has provenance ID "
+                            + orDash(item.getProvenanceId()) + " and anyone can check its audit trail at /verify/"
+                            + orDash(item.getProvenanceId()) + "."
+                    : "Provenance: labelled copies of this media carry a signed manifest with provenance ID "
+                            + orDash(item.getProvenanceId()) + ". Anyone can check it and the audit trail at /verify/"
+                            + orDash(item.getProvenanceId()) + ".",
             "Chain of custody: the SHA-256 of this PDF is recorded in the item's audit trail as event REPORT GENERATED for "
                     + reportId + ". Recompute the file's SHA-256 and compare it to confirm the report is unaltered.",
             "Datasets: models were trained and evaluated only on consenting-actor research benchmarks "
@@ -557,7 +755,7 @@ public class ReportService {
         block.setWidthPercentage(100);
         block.setSpacingBefore(16);
         block.setKeepTogether(true);
-        PdfPCell title = new PdfPCell(new Phrase("6. Integrity and data handling", H2));
+        PdfPCell title = new PdfPCell(new Phrase("8. Integrity and data handling", H2));
         title.setBorder(Rectangle.NO_BORDER);
         title.setPadding(0);
         title.setPaddingBottom(8);
@@ -582,7 +780,7 @@ public class ReportService {
         block.setWidthPercentage(100);
         block.setSpacingBefore(14);
         block.setKeepTogether(true);
-        PdfPCell title = new PdfPCell(new Phrase("7. Digital signature", H2));
+        PdfPCell title = new PdfPCell(new Phrase("9. Digital signature", H2));
         title.setBorder(Rectangle.NO_BORDER);
         title.setPadding(0);
         title.setPaddingBottom(6);
@@ -591,9 +789,10 @@ public class ReportService {
         PdfPTable t = kvTable();
         kv(t, "Algorithm", ReportSigningService.ALGORITHM + " over the SHA-256 of the signed fields", false);
         kv(t, "Signed at", timestamp(signed.signedAt()), false);
-        kv(t, "Signing key ID", signed.keyId(), true);
+        kv(t, "Signing key ID", signed.keyId() + "  (" + signing.provider().kind() + " key provider)", true);
         kv(t, "Signed content SHA-256", signed.contentHash(), true);
         kv(t, "Signature (base64)", signed.signature(), true);
+        kv(t, "RFC 3161 timestamp", timestampLine(signed.timestamp()), false);
         kv(t, "Verify", "GET /api/verify-report/" + signed.reportId() + "  (VALID / TAMPERED / NOT_FOUND)", true);
         PdfPCell holder = new PdfPCell(t);
         holder.setBorder(Rectangle.NO_BORDER);
@@ -601,13 +800,28 @@ public class ReportService {
         block.addCell(holder);
 
         PdfPCell scope = new PdfPCell(note("Signed fields: report ID and time, analysis and provenance IDs, decision, both scores, "
-                + "generation family, hashes, jurisdiction, complaint and SLA timestamps. Any later change to them makes verification "
-                + "return TAMPERED. Scope: this uses a development key generated by the server. It demonstrates the mechanism; legal "
-                + "admissibility would need the key held in a KMS/HSM and an RFC 3161 timestamp from a trusted third-party authority."));
+                + "generation family, hashes, jurisdiction, complaint and SLA timestamps, and (when present) media type, frames "
+                + "sampled, deciding moderator, appeal outcome and C2PA status. Any later change to them makes verification "
+                + "return TAMPERED. Keys rotate; retired public keys stay published at /api/verify-report/keys so older reports "
+                + "still verify. " + (signing.provider().production()
+                        ? "The signing key is held in a key-management service and never leaves it."
+                        : "Scope: this uses a development key stored by the server. It demonstrates the mechanism; legal "
+                                + "admissibility would need the key held in a KMS/HSM (the Vault Transit provider) and a timestamp "
+                                + "from a trusted third-party authority.")));
         scope.setBorder(Rectangle.NO_BORDER);
         scope.setPadding(0);
         block.addCell(scope);
         doc.add(block);
+    }
+
+    private String timestampLine(ReportSigningService.Timestamp ts) {
+        if (ts == null || "DISABLED".equals(ts.status())) {
+            return "Not requested (no timestamp authority configured); the signing time is this server's clock.";
+        }
+        if ("STAMPED".equals(ts.status())) {
+            return timestamp(ts.time()) + " attested by " + ts.authority();
+        }
+        return "Requested but the timestamp authority was unavailable (" + ts.error() + "); issue the report again to add one.";
     }
 
     // ------------------------------------------------------------------ layout helpers

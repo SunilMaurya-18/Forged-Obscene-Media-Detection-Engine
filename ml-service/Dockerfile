@@ -7,18 +7,30 @@ WORKDIR /app
 # opencv-python-headless usually needs no system OpenGL libs
 COPY ml-service/requirements.txt /app/requirements.txt
 
+# cpu (default) or a CUDA wheel index such as cu124 — see docker-compose.gpu.yml
+ARG TORCH_INDEX=cpu
 RUN pip install --no-cache-dir --default-timeout=300 --retries 10 \
-      torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+      torch torchvision --index-url https://download.pytorch.org/whl/${TORCH_INDEX} \
  && pip install --no-cache-dir --default-timeout=300 --retries 10 \
       --trusted-host pypi.org --trusted-host files.pythonhosted.org \
       -r /app/requirements.txt
 
+# Code and models stay root-owned (read-only to the service); the service runs unprivileged
+RUN groupadd --system --gid 10001 app \
+ && useradd --system --uid 10001 --gid app --home-dir /home/app --create-home app
+
 COPY ml-service/ /app/
-COPY ml/models/checkpoint.pt /models/checkpoint.pt
+# calibration.json is optional (written by `ml/calibration.py --promote`); the bracket glob lets COPY match nothing
+COPY ml/models/checkpoint.pt ml/models/calibration.jso[n] /models/
 
 ENV FORGERY_CHECKPOINT=/models/checkpoint.pt
 ENV NSFW_BACKEND=heuristic
 ENV PYTHONUNBUFFERED=1
+ENV LOG_FORMAT=json
+ENV HOME=/home/app
+ENV HF_HOME=/home/app/.cache/huggingface
+ENV TORCH_HOME=/home/app/.cache/torch
 
+USER 10001:10001
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "/app/start.sh"]

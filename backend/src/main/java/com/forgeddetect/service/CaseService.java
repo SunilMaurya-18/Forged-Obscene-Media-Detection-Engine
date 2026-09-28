@@ -6,13 +6,12 @@ import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.Decision;
 import com.forgeddetect.repository.AnalysisResultRepository;
 import com.forgeddetect.repository.ComplaintRepository;
+import com.forgeddetect.state.SharedState;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,9 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CaseService {
 
-    /** Crockford-style alphabet without 0/O, 1/I/L, so numbers survive being read out or handwritten. */
-    private static final char[] ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ".toCharArray();
-    private static final Pattern CASE_NUMBER = Pattern.compile("^FMD-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$");
+    private static final String PREFIX = "FMD";
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]{1,64}@[^@\\s]+\\.[^@\\s]{2,}$");
     private static final Pattern PHONE = Pattern.compile("^\\+?[0-9]{8,15}$");
     private static final int MAX_DETAILS = 1000;
@@ -48,7 +45,7 @@ public class CaseService {
     private final CaseProperties properties;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
-    private final Map<String, Attempts> attempts = new ConcurrentHashMap<>();
+    private final PinAttemptGuard attempts;
     private final String dummyHash;
 
     public CaseService(
@@ -60,7 +57,8 @@ public class CaseService {
             CaseNotificationService notifications,
             PasswordEncoder encoder,
             CaseProperties properties,
-            Clock clock) {
+            Clock clock,
+            SharedState state) {
         this.compliance = compliance;
         this.slaClock = slaClock;
         this.complaints = complaints;
@@ -71,6 +69,7 @@ public class CaseService {
         this.properties = properties;
         this.clock = clock;
         this.dummyHash = encoder.encode("000000");
+        this.attempts = new PinAttemptGuard(state, "case", properties::getMaxPinAttempts, properties::getLockout);
     }
 
     public record Filing(
@@ -93,16 +92,9 @@ public class CaseService {
         }
     }
 
-    public static class TooManyAttempts extends RuntimeException {
-        private final long retryAfterSeconds;
-
+    public static class TooManyAttempts extends PinAttemptGuard.TooManyAttempts {
         TooManyAttempts(long retryAfterSeconds) {
-            super("Too many attempts");
-            this.retryAfterSeconds = retryAfterSeconds;
-        }
-
-        public long retryAfterSeconds() {
-            return retryAfterSeconds;
+            super(retryAfterSeconds);
         }
     }
 
@@ -122,11 +114,17 @@ public class CaseService {
 
     @Transactional
     public Created file(Filing f) {
+        return file(f, null);
+    }
+
+    /** @param receivedAt when the report reached the platform, if earlier than now; null starts the clock now */
+    @Transactional
+    public Created file(Filing f, Instant receivedAt) {
         validate(f);
         String caseNumber = newCaseNumber();
         String pin = newPin();
         AnalysisService.AnalyzeOutcome outcome = compliance.fileComplaint(
-                f.image(), f.filename(), f.contentType(), ComplaintType.USER_COMPLAINT, caseNumber, f.jurisdiction());
+                f.image(), f.filename(), f.contentType(), ComplaintType.USER_COMPLAINT, caseNumber, f.jurisdiction(), receivedAt);
 
         Complaint c = new Complaint();
         c.setCaseNumber(caseNumber);
@@ -140,7 +138,7 @@ public class CaseService {
             c.setContactChannel(contact.channel().name());
         }
         c.setLocale("hi".equalsIgnoreCase(f.locale()) ? "hi" : "en");
-        c.setCreatedAt(clock.instant());
+        c.setCreatedAt(receivedAt != null ? receivedAt : clock.instant());
         Complaint saved = complaints.save(c);
         notifications.statusChanged(saved, outcome.result(), stage(outcome.result()));
         return new Created(saved, outcome.result(), pin);
@@ -156,34 +154,22 @@ public class CaseService {
     public Optional<Status> status(String rawCaseNumber, String pin) {
         String number = normalizeCaseNumber(rawCaseNumber);
         String key = number != null ? number : String.valueOf(rawCaseNumber).toUpperCase(Locale.ROOT);
-        Instant now = clock.instant();
-        Attempts a = attempts.get(key);
-        if (a != null && a.lockedUntil != null && now.isBefore(a.lockedUntil)) {
-            throw new TooManyAttempts(Math.max(1, a.lockedUntil.getEpochSecond() - now.getEpochSecond()));
+        try {
+            attempts.checkNotLocked(key);
+        } catch (PinAttemptGuard.TooManyAttempts ex) {
+            throw new TooManyAttempts(ex.retryAfterSeconds());
         }
 
         Optional<Complaint> found = number == null ? Optional.empty() : complaints.findByCaseNumber(number);
-        boolean pinOk = pin != null && pin.matches("^[0-9]{6}$")
+        boolean pinOk = CaseNumbers.isPinShaped(pin)
                 && encoder.matches(pin, found.map(Complaint::getPinHash).orElse(dummyHash))
                 && found.isPresent();
         if (!pinOk) {
-            recordFailure(key, now);
+            attempts.failure(key);
             return Optional.empty();
         }
-        attempts.remove(key);
+        attempts.success(key);
         return found.flatMap(c -> results.findById(c.getAnalysisId()).map(item -> new Status(c, item)));
-    }
-
-    private void recordFailure(String key, Instant now) {
-        attempts.compute(key, (k, prev) -> {
-            Attempts next = prev == null || (prev.lockedUntil != null && !now.isBefore(prev.lockedUntil))
-                    ? new Attempts() : prev;
-            next.failures++;
-            if (next.failures >= properties.getMaxPinAttempts()) {
-                next.lockedUntil = now.plus(properties.getLockout());
-            }
-            return next;
-        });
     }
 
     public static Stage stage(AnalysisResult item) {
@@ -203,39 +189,15 @@ public class CaseService {
 
     /** Accepts lower case, spaces and missing dashes ("fmd 7k3q 9xpa"); null if it can't be a case number. */
     public static String normalizeCaseNumber(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        String s = raw.toUpperCase(Locale.ROOT).replaceAll("[^0-9A-Z]", "");
-        if (s.startsWith("FMD")) {
-            s = s.substring(3);
-        }
-        if (s.length() != 8) {
-            return null;
-        }
-        String n = "FMD-" + s.substring(0, 4) + "-" + s.substring(4);
-        return CASE_NUMBER.matcher(n).matches() ? n : null;
+        return CaseNumbers.normalize(PREFIX, raw);
     }
 
     private String newCaseNumber() {
-        for (int i = 0; i < 20; i++) {
-            StringBuilder sb = new StringBuilder("FMD-");
-            for (int j = 0; j < 8; j++) {
-                if (j == 4) {
-                    sb.append('-');
-                }
-                sb.append(ALPHABET[random.nextInt(ALPHABET.length)]);
-            }
-            String n = sb.toString();
-            if (!complaints.existsByCaseNumber(n)) {
-                return n;
-            }
-        }
-        throw new IllegalStateException("Could not allocate a unique case number");
+        return CaseNumbers.generate(PREFIX, random, complaints::existsByCaseNumber);
     }
 
     private String newPin() {
-        return String.format("%06d", random.nextInt(1_000_000));
+        return CaseNumbers.newPin(random);
     }
 
     private static Complaint.Relationship relationship(String raw) {
@@ -268,10 +230,5 @@ public class CaseService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
-    }
-
-    private static final class Attempts {
-        int failures;
-        Instant lockedUntil;
     }
 }

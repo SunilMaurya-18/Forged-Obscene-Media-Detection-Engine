@@ -1,5 +1,8 @@
 const API_ANALYZE = '/api/analyze'
-const CONSOLE_URL = `${location.protocol}//${location.hostname}:3000`
+// Local stack: console on :3000. Hosted demo (docker-compose.demo.yml): feed.<domain> next to <domain>
+const CONSOLE_URL = location.port
+  ? `${location.protocol}//${location.hostname}:3000`
+  : `${location.protocol}//${location.hostname.replace(/^feed\./, '')}`
 
 const DECISION_COPY = {
   ALLOW: { chip: 'Allowed' },
@@ -198,7 +201,7 @@ async function analyzeFile(file) {
     let msg = `Analysis failed (${res.status})`
     try {
       const data = await res.json()
-      msg = data.error || data.message || msg
+      msg = data.message || data.error || msg
     } catch {
       /* non-JSON error body */
     }
@@ -283,10 +286,21 @@ postFileBtn.addEventListener('click', () => {
   withBusy(() => publish({ author: 'You', handle: '@you', caption, file }))
 })
 
+/** The backend's bundled synthetic sample (the only kind a public demo accepts), else a canvas pattern. */
+async function manipulatedSample() {
+  try {
+    const res = await fetch('/api/demo/samples/synthetic-stripes.jpg')
+    if (res.ok) return new File([await res.blob()], 'synthetic-stripes.jpg', { type: 'image/jpeg' })
+  } catch {
+    /* demo off or backend unreachable: fall back to the canvas pattern */
+  }
+  const blob = await makeManipulatedBlob()
+  return new File([blob], 'manipulated-sample.jpg', { type: 'image/jpeg' })
+}
+
 postManipBtn.addEventListener('click', () =>
   withBusy(async () => {
-    const blob = await makeManipulatedBlob()
-    const file = new File([blob], 'manipulated-sample.jpg', { type: 'image/jpeg' })
+    const file = await manipulatedSample()
     await publish({ author: 'Deepfake Bot', handle: '@bot', caption: 'Totally real photo, trust me. (synthetic manipulated sample)', file })
   }),
 )

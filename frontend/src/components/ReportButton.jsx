@@ -46,7 +46,10 @@ function Verdict({ result, onClose }) {
       )}
       {result.signedAt && (
         <p className="text-[10px] mt-1.5 opacity-70 font-mono">
-          {result.algorithm} · key {result.keyId} · signed {dateTime(result.signedAt)}
+          {result.algorithm} · key {result.keyId}
+          {result.keyStatus === 'RETIRED' && ' (retired)'} · signed {dateTime(result.signedAt)}
+          {result.timestamp?.status === 'VERIFIED' &&
+            ` · RFC 3161 ${dateTime(result.timestamp.time)}${result.timestamp.trusted ? '' : ' (untrusted TSA)'}`}
         </p>
       )}
     </div>

@@ -1,0 +1,14 @@
+{
+  "name": "forged-media-detection-e2e",
+  "private": true,
+  "version": "0.24.0",
+  "type": "module",
+  "description": "Playwright suite for the README demo script, run against the docker compose stack",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  }
+}

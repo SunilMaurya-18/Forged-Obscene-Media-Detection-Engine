@@ -1,0 +1,15 @@
+package com.forgeddetect.model;
+
+public enum ModerationAction {
+    ASSIGNED,
+    UNASSIGNED,
+    ESCALATED_TO_SENIOR,
+    DECIDED,
+    OVERRIDE_PROPOSED,
+    SECOND_REVIEW_CONFIRMED,
+    SECOND_REVIEW_REJECTED,
+    MEDIA_REVEALED,
+    APPEAL_DECIDED,
+    BREAK_STARTED,
+    SIGNING_KEY_ROTATED
+}

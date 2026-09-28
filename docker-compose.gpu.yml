@@ -1,0 +1,20 @@
+# CUDA ml-service (needs an NVIDIA GPU and the NVIDIA Container Toolkit).
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# See load/README.md for CPU throughput and when this is worth it.
+
+services:
+  ml-service:
+    build:
+      args:
+        TORCH_INDEX: ${TORCH_INDEX:-cu124}
+    environment:
+      ML_DEVICE: cuda
+      # One process owns the GPU; add workers only if a single one leaves it idle
+      ML_WORKERS: ${ML_WORKERS:-1}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

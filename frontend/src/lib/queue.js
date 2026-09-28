@@ -39,3 +39,8 @@ export function similarIds(item, items, maxDistance = SIMILAR_MAX_DISTANCE) {
     .filter((o) => hammingDistance(item.phash, o.phash) <= maxDistance)
     .map((o) => o.id)
 }
+
+/** Whether {@code me} may take or decide an item: an unclaimed item routed to a team is that team's (or a senior's). */
+export function inTeamPool(item, me) {
+  return !item.routedTeam || Boolean(item.assignedTo) || Boolean(me?.senior) || item.routedTeam === me?.team
+}

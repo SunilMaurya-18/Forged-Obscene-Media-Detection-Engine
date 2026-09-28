@@ -1,0 +1,217 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (mvn test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      # Includes the Testcontainers Redis test: two clients share one rate-limit bucket
+      - run: mvn -B -ntp test
+        working-directory: backend
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-surefire-reports
+          path: backend/target/surefire-reports
+
+  ml-service:
+    name: ml-service (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ml-service/requirements.txt
+      - run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r ml-service/requirements.txt
+      - run: python -m pytest -q -p no:cacheprovider
+        working-directory: ml-service
+
+  ml:
+    name: ml (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ml/requirements.txt
+      - run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r ml/requirements.txt
+      - run: python -m pytest -q -p no:cacheprovider ml/tests
+
+  frontend:
+    name: Frontend (lint, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  stack:
+    name: Compose stack (smoke, Playwright, HA, image scan, SBOM)
+    runs-on: ubuntu-latest
+    needs: [backend, ml-service, frontend]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build images
+        run: |
+          cp .env.example .env
+          docker compose build
+
+      - name: Start the stack
+        run: docker compose up -d --wait --wait-timeout 600
+
+      - name: Smoke test POST /api/analyze
+        run: |
+          # A synthetic pattern drawn inside the ml-service image (no real imagery)
+          docker compose exec -T ml-service python -c "
+          import sys; from PIL import Image
+          im = Image.new('RGB', (224, 224))
+          im.putdata([((x * 13 + y * 7) % 255, (x * 39 + y * 21) % 255, 255 - (x * 13 + y * 7) % 255) for y in range(224) for x in range(224)])
+          im.save(sys.stdout.buffer, 'JPEG')" > sample.jpg
+          code=$(curl -s -o analyze.json -w "%{http_code}" -H "X-Request-ID: ci-smoke" -F "file=@sample.jpg;type=image/jpeg" http://localhost:3000/api/analyze)
+          cat analyze.json | head -c 400; echo
+          test "$code" = "200"
+          grep -q '"decision"' analyze.json
+          docker compose logs ml-service | grep -q '"request_id": "ci-smoke"'
+
+      - name: Metrics are exposed
+        run: |
+          docker compose exec -T backend curl -fsS http://localhost:8090/actuator/prometheus > backend-metrics.txt
+          grep -q '^fmd_decisions_total{' backend-metrics.txt
+          grep -q '^http_server_requests_seconds_bucket{' backend-metrics.txt
+          docker compose exec -T ml-service python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/metrics').read().decode())" | grep -q '^fmd_ml_requests_total{'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Playwright demo script
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+        env:
+          CI: "true"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+
+      - name: Two backend instances share one rate limit (Redis)
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --wait --wait-timeout 300 backend-2
+          sh ops/ha-ratelimit-check.sh
+
+      - name: Backend refuses demo secrets outside dev
+        run: |
+          set +e
+          docker compose run --rm --no-deps -e SPRING_PROFILES_ACTIVE=prod backend > prod-start.log 2>&1
+          status=$?
+          set -e
+          tail -n 20 prod-start.log
+          test "$status" -ne 0
+          grep -q "Refusing to start with profile(s) \[prod\]" prod-start.log
+
+      - name: Compose logs
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.ha.yml logs --no-color --tail=300
+
+      - name: Scan images (Trivy, fixable CRITICAL fails the build)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: forgedmediadetection-backend:latest
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: forgedmediadetection-frontend:latest
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: forgedmediadetection-ml-service:latest
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+          timeout: 15m0s
+
+      - name: SBOM (CycloneDX) per image
+        uses: anchore/sbom-action@v0
+        with:
+          image: forgedmediadetection-backend:latest
+          format: cyclonedx-json
+          output-file: sbom-backend.cdx.json
+          upload-artifact: false
+      - uses: anchore/sbom-action@v0
+        with:
+          image: forgedmediadetection-frontend:latest
+          format: cyclonedx-json
+          output-file: sbom-frontend.cdx.json
+          upload-artifact: false
+      - uses: anchore/sbom-action@v0
+        with:
+          image: forgedmediadetection-ml-service:latest
+          format: cyclonedx-json
+          output-file: sbom-ml-service.cdx.json
+          upload-artifact: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-*.cdx.json
+
+      - if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ha.yml down -v

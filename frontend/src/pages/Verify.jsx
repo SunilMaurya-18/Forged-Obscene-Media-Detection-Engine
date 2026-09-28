@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { fetchProvenance, verifyUpload } from '../api/client'
+import SamplePicker from '../components/SamplePicker'
 import { Alert, Button, Card, CardHeader, CopyButton, DecisionBadge, EmptyState, PageHeader } from '../components/ui'
 import { cn, dateTime, score, timeAgo } from '../lib/format'
 import { EVENT_META, MATCH_VIA, manifestStatus, shortId } from '../lib/provenance'
@@ -130,6 +131,7 @@ function CheckFileCard({ busy, fileName, onFile }) {
         <p className="text-sm font-medium">{busy ? 'Checking…' : dragging ? 'Release to check' : 'Drop a labelled image'}</p>
         <p className="text-xs text-subtle mt-1 truncate">{fileName || 'or click to browse'}</p>
       </button>
+      <SamplePicker kinds={['credentials']} onPick={onFile} disabled={busy} className="mt-3" />
     </Card>
   )
 }

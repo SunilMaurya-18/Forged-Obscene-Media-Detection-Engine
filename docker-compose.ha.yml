@@ -1,0 +1,19 @@
+# Two backend instances sharing Redis (rate limits, PIN lockouts, wellbeing counters, SLA lock),
+# Postgres and the signing keyring volume.
+#   docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --build
+# backend  -> http://localhost:8081   backend-2 -> http://localhost:8082
+# A partner API key's per-minute budget is spent across both: see README "Two instances, one limit".
+
+services:
+  backend-2:
+    extends:
+      file: docker-compose.yml
+      service: backend
+    ports: !override
+      - "8082:8080"
+    depends_on:
+      # Start after the first instance has migrated the schema and seeded accounts
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

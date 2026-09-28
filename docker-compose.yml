@@ -1,8 +1,27 @@
 # One-command demo stack:  cp .env.example .env && docker compose up --build
 # Host ports: frontend :3000, mock feed :3001, backend API :8081.
-# postgres and ml-service are internal-only; use docker-compose.dev.yml to expose them.
+# postgres, redis, ml-service and the backend management port (8090: health, Prometheus) are
+# internal-only; use docker-compose.dev.yml to expose them.
+# Overlays: docker-compose.observability.yml (Prometheus + Grafana), docker-compose.ha.yml (second
+# backend sharing Redis), docker-compose.gpu.yml (CUDA ml-service).
 
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Rate-limit buckets, PIN lockouts, wellbeing counters and the SLA scheduler lock: all short-lived,
+    # so no persistence. Set REDIS_PASSWORD to require AUTH.
+    command: ["sh", "-c", "exec redis-server --save '' --appendonly no $${REDIS_PASSWORD:+--requirepass \"$$REDIS_PASSWORD\"}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli $${REDIS_PASSWORD:+-a \"$$REDIS_PASSWORD\"} --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -30,6 +49,20 @@ services:
       NSFW_BACKEND: ${NSFW_BACKEND:-heuristic}
       PROVENANCE_SIGNING_KEY: ${PROVENANCE_SIGNING_KEY:-dev-only-provenance-signing-key}
       PROVENANCE_ISSUER: ${PROVENANCE_ISSUER:-forged-media-detection}
+      # dev refuses nothing; any other profile refuses to start with the demo PROVENANCE_SIGNING_KEY
+      APP_PROFILE: ${APP_PROFILE:-dev}
+      ML_WORKERS: ${ML_WORKERS:-1}
+      ML_DEVICE: ${ML_DEVICE:-auto}
+      LOG_FORMAT: ${ML_LOG_FORMAT:-json}
+      # Phase 23: video sampling cap and upload limits; C2PA writing (blank cert/key = in-memory dev certificate)
+      VIDEO_MAX_FRAMES: ${VIDEO_MAX_FRAMES:-64}
+      VIDEO_BATCH_SIZE: ${VIDEO_BATCH_SIZE:-8}
+      VIDEO_MAX_BYTES: ${VIDEO_MAX_BYTES:-52428800}
+      IMAGE_MAX_BYTES: ${IMAGE_MAX_BYTES:-26214400}
+      C2PA_WRITE: ${C2PA_WRITE:-1}
+      C2PA_SIGNING_CERT: ${C2PA_SIGNING_CERT:-}
+      C2PA_SIGNING_KEY: ${C2PA_SIGNING_KEY:-}
+      C2PA_TSA_URL: ${C2PA_TSA_URL:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s
@@ -43,11 +76,22 @@ services:
     ports:
       # Host 8081 avoids conflict with Oracle TNSLSNR on 8080
       - "8081:8080"
+    expose:
+      - "8090"
     environment:
+      # dev (default) allows the demo secrets below; prod refuses to start until they are replaced
+      SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-dev}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${BACKEND_LOG_FORMAT:-ecs}
+      MANAGEMENT_SERVER_PORT: "8090"
+      MANAGEMENT_HEALTH_REDIS_ENABLED: ${MANAGEMENT_HEALTH_REDIS_ENABLED:-true}
+      STATE_STORE: ${STATE_STORE:-redis}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/forged_media}
       SPRING_DATASOURCE_USERNAME: forged
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-forged}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:8000}
+      ML_SERVICE_TIMEOUT: ${ML_SERVICE_TIMEOUT:-PT60S}
       DECISION_FORGERY_AUTO_FLAG: ${DECISION_FORGERY_AUTO_FLAG:-0.85}
       DECISION_EXPLICIT_AUTO_FLAG: ${DECISION_EXPLICIT_AUTO_FLAG:-0.85}
       DECISION_FORGERY_REVIEW: ${DECISION_FORGERY_REVIEW:-0.50}
@@ -71,20 +115,50 @@ services:
       COMPLIANCE_DEFAULT_JURISDICTION: ${COMPLIANCE_DEFAULT_JURISDICTION:-IN}
       COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS: ${COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS:-24}
       COMPLIANCE_GENERIC_GOVERNMENT_ORDER_HOURS: ${COMPLIANCE_GENERIC_GOVERNMENT_ORDER_HOURS:-24}
+      COMPLIANCE_GENERIC_APPEAL_HOURS: ${COMPLIANCE_GENERIC_APPEAL_HOURS:-72}
+      VIDEO_FPS: ${VIDEO_FPS:-1.0}
+      VIDEO_TOP_K: ${VIDEO_TOP_K:-3}
+      VIDEO_FORGERY_AGGREGATE: ${VIDEO_FORGERY_AGGREGATE:-TOPK_MEAN}
+      VIDEO_EXPLICIT_AGGREGATE: ${VIDEO_EXPLICIT_AGGREGATE:-MAX}
+      WELLBEING_EXPOSURE_LIMIT: ${WELLBEING_EXPOSURE_LIMIT:-40}
+      WELLBEING_BREAK_DURATION: ${WELLBEING_BREAK_DURATION:-PT15M}
+      WELLBEING_IDLE_RESET: ${WELLBEING_IDLE_RESET:-PT2H}
+      WELLBEING_SUPPORT_URL: ${WELLBEING_SUPPORT_URL:-/support}
+      TRANSPARENCY_MIN_CELL: ${TRANSPARENCY_MIN_CELL:-5}
+      MODERATOR_EXTRA_ACCOUNTS: ${MODERATOR_EXTRA_ACCOUNTS:-reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac}
       REPORT_SIGNING_KEY_DIR: /app/data/signing-keys
+      REPORT_SIGNING_PROVIDER: ${REPORT_SIGNING_PROVIDER:-file}
+      REPORT_SIGNING_ALLOW_FILE_KEYS: ${REPORT_SIGNING_ALLOW_FILE_KEYS:-false}
+      VAULT_ADDR: ${VAULT_ADDR:-}
+      VAULT_TOKEN: ${VAULT_TOKEN:-}
+      VAULT_NAMESPACE: ${VAULT_NAMESPACE:-}
+      VAULT_TRANSIT_MOUNT: ${VAULT_TRANSIT_MOUNT:-transit}
+      VAULT_TRANSIT_KEY: ${VAULT_TRANSIT_KEY:-fmd-report-signing}
+      REPORT_TSA_URL: ${REPORT_TSA_URL:-}
+      REPORT_TSA_TRUSTED_CERTS: ${REPORT_TSA_TRUSTED_CERTS:-}
+      REPORT_TSA_TIMEOUT: ${REPORT_TSA_TIMEOUT:-PT10S}
       COMPLAINTS_MAX_PIN_ATTEMPTS: ${COMPLAINTS_MAX_PIN_ATTEMPTS:-5}
       COMPLAINTS_PIN_LOCKOUT: ${COMPLAINTS_PIN_LOCKOUT:-PT15M}
       COMPLAINTS_NOTIFY_WEBHOOK_URL: ${COMPLAINTS_NOTIFY_WEBHOOK_URL:-}
+      # Phase 25: one-click demo story (/tour). DEMO_PUBLIC is for docker-compose.demo.yml (hosted demo)
+      DEMO_ENABLED: ${DEMO_ENABLED:-true}
+      DEMO_PUBLIC: ${DEMO_PUBLIC:-false}
+      DEMO_RESET_INTERVAL: ${DEMO_RESET_INTERVAL:-PT6H}
+      DEMO_RESET_COOLDOWN: ${DEMO_RESET_COOLDOWN:-PT2M}
+      DEMO_UPLOADS_PER_MINUTE: ${DEMO_UPLOADS_PER_MINUTE:-60}
+      DEMO_JURISDICTION: ${DEMO_JURISDICTION:-IN}
     volumes:
-      # Dev report-signing keypair survives rebuilds; production uses a KMS/HSM instead
+      # Dev report-signing keyring survives rebuilds; production uses REPORT_SIGNING_PROVIDER=vault
       - signing_keys:/app/data/signing-keys
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       ml-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8090/actuator/health"]
       interval: 15s
       timeout: 5s
       retries: 15
@@ -100,19 +174,29 @@ services:
         VITE_LEGAL_GOVERNING_LAW: ${VITE_LEGAL_GOVERNING_LAW:-}
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3000:8080"
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   mock-social-feed:
     build: ./mock-social-feed
     restart: unless-stopped
     ports:
-      - "3001:80"
+      - "3001:8080"
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_data:

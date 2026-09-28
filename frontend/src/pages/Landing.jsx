@@ -22,6 +22,7 @@ import {
   ScanSearch,
   Search,
   ShieldCheck,
+  Sparkles,
   Stamp,
   Undo2,
   UserCheck,
@@ -30,6 +31,7 @@ import {
 import { useAuth } from '../auth/AuthContext'
 import VerdictBadge from '../components/VerdictBadge'
 import { Card, buttonClass } from '../components/ui'
+import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
 import { UNDO_MS } from '../context/DecisionContext'
 import { cn } from '../lib/format'
@@ -177,6 +179,7 @@ function Mark({ value }) {
 export default function Landing() {
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
+  const { enabled: demoEnabled } = useDemo()
   const { stats } = useStats()
   const latency = useLatency()
 
@@ -228,7 +231,13 @@ export default function Landing() {
           </h1>
           <p className="mt-5 text-[16px] md:text-[17px] leading-relaxed text-muted max-w-2xl">{t('landing.subtitle')}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/analyze" className={buttonClass('primary', 'lg')}>
+            {demoEnabled && (
+              <Link to="/tour" className={buttonClass('primary', 'lg')}>
+                <Sparkles aria-hidden className="size-4" />
+                {t('landing.ctaTour')}
+              </Link>
+            )}
+            <Link to="/analyze" className={buttonClass(demoEnabled ? 'secondary' : 'primary', 'lg')}>
               <ScanSearch aria-hidden className="size-4" />
               {t('landing.ctaCheck')}
             </Link>
@@ -237,6 +246,7 @@ export default function Landing() {
               {t('landing.ctaReport')}
             </Link>
           </div>
+          {demoEnabled && <p className="mt-3 text-xs text-subtle">{t('landing.tourHint')}</p>}
           <Link to="/status" className="mt-4 inline-flex items-center gap-1.5 text-sm text-brand hover:underline underline-offset-4">
             <Search aria-hidden className="size-3.5" />
             {t('landing.ctaTrack')}
@@ -421,7 +431,13 @@ export default function Landing() {
           </h2>
           <p className="relative mt-2 text-muted">{t('landing.final.body')}</p>
           <div className="relative mt-7 flex flex-wrap justify-center gap-3">
-            <Link to="/analyze" className={buttonClass('primary', 'lg')}>
+            {demoEnabled && (
+              <Link to="/tour" className={buttonClass('primary', 'lg')}>
+                <Sparkles aria-hidden className="size-4" />
+                {t('landing.ctaTour')}
+              </Link>
+            )}
+            <Link to="/analyze" className={buttonClass(demoEnabled ? 'secondary' : 'primary', 'lg')}>
               <ScanSearch aria-hidden className="size-4" />
               {t('landing.ctaCheck')}
             </Link>

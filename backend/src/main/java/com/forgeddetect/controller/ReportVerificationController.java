@@ -1,7 +1,10 @@
 package com.forgeddetect.controller;
 
 import com.forgeddetect.service.ReportSigningService;
+import com.forgeddetect.signing.ReportTimestampService;
+import com.forgeddetect.signing.SigningKeyProvider;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +27,31 @@ public class ReportVerificationController {
         this.signing = signing;
     }
 
+    /** The active key. Reports signed by retired keys verify against {@code /keys}. */
     @GetMapping(value = "/public-key", produces = MediaType.TEXT_PLAIN_VALUE)
     public String publicKey() {
         return signing.publicKeyPem();
+    }
+
+    /** Phase 24: every key in the keyring (active and retired), so reports can be checked offline after rotation. */
+    @GetMapping("/keys")
+    public Map<String, Object> keys() {
+        SigningKeyProvider provider = signing.provider();
+        List<Map<String, Object>> keys = provider.keys().stream().map(k -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("keyId", k.keyId());
+            m.put("status", k.active() ? "ACTIVE" : "RETIRED");
+            m.put("createdAt", k.createdAt().toString());
+            m.put("algorithm", ReportSigningService.ALGORITHM);
+            m.put("publicKey", k.publicKeyPem());
+            return m;
+        }).toList();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("provider", provider.kind());
+        body.put("activeKeyId", provider.activeKeyId());
+        body.put("keyIdRule", "First 16 hex characters of the SHA-256 of the DER-encoded public key");
+        body.put("keys", keys);
+        return body;
     }
 
     @GetMapping("/{id}")
@@ -40,10 +65,40 @@ public class ReportVerificationController {
         body.put("signedAt", v.signedAt() != null ? v.signedAt().toString() : null);
         body.put("algorithm", ReportSigningService.ALGORITHM);
         body.put("keyId", v.keyId());
+        body.put("keyStatus", v.keyStatus());
+        body.put("keyProvider", signing.provider().kind());
         body.put("contentHash", v.contentHash());
         body.put("changedFields", v.changedFields());
-        body.put("scope", "Development signing key: demonstrates the mechanism. Legal admissibility needs a KMS/HSM-held key "
-                + "and a trusted third-party timestamp authority.");
+        body.put("timestamp", timestamp(v.timestamp()));
+        body.put("scope", scope(v.timestamp()));
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(body);
+    }
+
+    private static Map<String, Object> timestamp(ReportTimestampService.Check ts) {
+        if (ts == null) {
+            return null;
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("status", ts.status().name());
+        m.put("time", ts.time() != null ? ts.time().toString() : null);
+        m.put("authority", ts.authority());
+        m.put("trusted", ts.trusted());
+        m.put("message", ts.message());
+        return m;
+    }
+
+    private String scope(ReportTimestampService.Check ts) {
+        String key = signing.provider().production()
+                ? "Signing key held in " + signing.provider().kind() + " (the private key never leaves it)."
+                : "Development signing key on the server's disk: demonstrates the mechanism only.";
+        String time;
+        if (ts != null && ts.trusted()) {
+            time = " Signing time attested by a trusted RFC 3161 timestamp authority.";
+        } else if (ts != null) {
+            time = " Carries an RFC 3161 timestamp from an authority not on this server's trust list.";
+        } else {
+            time = " No third-party timestamp: the signing time is this server's clock.";
+        }
+        return key + time;
     }
 }

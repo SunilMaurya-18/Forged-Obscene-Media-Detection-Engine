@@ -6,6 +6,8 @@ import {
   BookOpen,
   ExternalLink,
   FilePlus2,
+  Gavel,
+  HeartHandshake,
   Inbox,
   KeyRound,
   Loader2,
@@ -13,14 +15,17 @@ import {
   LogOut,
   ScanSearch,
   Search,
+  Sparkles,
   Stamp,
   Timer,
   WifiOff,
 } from 'lucide-react'
 import { fetchComplianceSummary } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
 import { cn, mockFeedUrl } from '../lib/format'
+import DemoBanner from './DemoBanner'
 import LanguageToggle from './LanguageToggle'
 import { Logo } from './Logo'
 import { LoadingState } from './Status'
@@ -29,9 +34,11 @@ import { buttonClass } from './ui'
 
 /** Signed-out visitors: the end-user flows (report, track), translated. */
 const PUBLIC_NAV = [
+  { to: '/tour', key: 'tour', icon: Sparkles, demoOnly: true },
   { to: '/analyze', key: 'analyze', icon: ScanSearch },
   { to: '/report', key: 'report', icon: FilePlus2 },
   { to: '/status', key: 'status', icon: Search },
+  { to: '/appeal', key: 'appeal', icon: Gavel },
   { to: '/verify', key: 'verify', icon: Stamp },
   { to: '/dashboard', key: 'dashboard', icon: BarChart3 },
   { to: '/explained', key: 'explained', icon: BookOpen, iconOnly: true },
@@ -45,6 +52,7 @@ const MODERATOR_NAV = [
   { to: '/verify', label: 'Verify', icon: Stamp },
   { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { to: '/api-access', label: 'API', icon: KeyRound },
+  { to: '/support', label: 'Wellbeing support', icon: HeartHandshake, iconOnly: true },
   { to: '/explained', label: 'Explained', icon: BookOpen, iconOnly: true },
 ]
 
@@ -140,9 +148,10 @@ export default function Layout() {
       />
     ),
   }
+  const { enabled: demoEnabled } = useDemo()
   const nav = isAuthenticated
     ? MODERATOR_NAV
-    : PUBLIC_NAV.map((item) => ({ ...item, label: t(`common.nav.${item.key}`) }))
+    : PUBLIC_NAV.filter((item) => demoEnabled || !item.demoOnly).map((item) => ({ ...item, label: t(`common.nav.${item.key}`) }))
 
   return (
     <div className="relative min-h-screen flex flex-col">
@@ -158,6 +167,8 @@ export default function Layout() {
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[480px] w-[900px] rounded-full bg-brand/20 blur-[120px]" />
         <div className="absolute top-20 right-[-10%] h-[320px] w-[420px] rounded-full bg-brand-2/10 blur-[120px]" />
       </div>
+
+      <DemoBanner />
 
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/70 backdrop-blur-xl print:hidden">
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
@@ -250,6 +261,9 @@ export default function Layout() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <p>{t('common.footer.benchmarks')}</p>
             <nav aria-label={t('common.footer.legal')} className="flex items-center gap-4">
+              <NavLink to="/transparency" className="hover:text-fg underline-offset-4 hover:underline transition">
+                {t('common.nav.transparency')}
+              </NavLink>
               <NavLink to="/terms" className="hover:text-fg underline-offset-4 hover:underline transition">
                 {t('common.footer.terms')}
               </NavLink>

@@ -35,6 +35,14 @@ public class AnalysisResult {
     @Column(nullable = false, length = 32)
     private Decision decision;
 
+    /** The decision engine's original routing, kept when a moderator changes {@link #decision}. Null for pre-Phase-22 rows. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private Decision modelDecision;
+
+    /** Last time a moderator set the decision; null while only the model has decided. */
+    private Instant reviewedAt;
+
     /** Microsecond precision so the timestamp written into the manifest matches what Postgres stores. */
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
@@ -117,6 +125,270 @@ public class AnalysisResult {
     @Column(length = 4000)
     private String reportCanonical;
 
+    /** Phase 24: base64 RFC 3161 timestamp token over the report signature (null when no TSA is configured). */
+    @Column(length = 16000)
+    private String reportTimestampToken;
+
+    private Instant reportTimestampAt;
+
+    @Column(length = 255)
+    private String reportTimestampAuthority;
+
+    /** IMAGE or VIDEO (Phase 23); null for rows analysed before video support, which are all images. */
+    @Column(length = 8)
+    private String mediaType;
+
+    /**
+     * Video only: per-frame scores and the aggregation used for routing, as compact JSON
+     * ({@code frames: [[t, forgery, explicit], ...]}). Scores only; no frame is kept.
+     */
+    @Column(length = 8000)
+    private String frameTimeline;
+
+    /** Summary of C2PA Content Credentials the upload carried (signer, generator, actions), as JSON. */
+    @Column(length = 4000)
+    private String c2paManifest;
+
+    /** Moderator whose decision is current; null while only the model has decided. */
+    @Column(length = 64)
+    private String decidedBy;
+
+    @Column(length = 64)
+    private String assignedTo;
+
+    @Column(length = 64)
+    private String assignedTeam;
+
+    private Instant assignedAt;
+
+    /** Team a senior routed the item to; only that team (or a senior) can claim or decide it while unclaimed. */
+    @Column(length = 64)
+    private String routedTeam;
+
+    /** Escalated to a senior moderator: only SENIOR_MODERATOR can decide it until then. */
+    private Instant seniorEscalatedAt;
+
+    @Column(length = 64)
+    private String seniorEscalatedBy;
+
+    @Column(length = 500)
+    private String seniorEscalationReason;
+
+    /** A senior acted on the escalation; the item leaves the senior queue but the escalation stays on record. */
+    private Instant seniorResolvedAt;
+
+    @Column(length = 64)
+    private String seniorResolvedBy;
+
+    /** Proposed change away from AUTO_FLAG, waiting for a second moderator to confirm it. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private Decision pendingDecision;
+
+    @Column(length = 64)
+    private String pendingProposedBy;
+
+    private Instant pendingProposedAt;
+
+    @Column(length = 500)
+    private String pendingReason;
+
+    /** Upload case number given to the uploader, used to appeal a takedown. */
+    @Column(unique = true, length = 16)
+    private String noticeNumber;
+
+    @Column(length = 80)
+    private String noticePinHash;
+
+    /** Denormalised from {@link Appeal} for queue views and the signed report: OPEN / UPHELD / GRANTED. */
+    @Column(length = 16)
+    private String appealStatus;
+
+    private Instant appealDecidedAt;
+
+    public boolean isVideo() {
+        return "VIDEO".equals(mediaType);
+    }
+
+    public boolean isSeniorEscalated() {
+        return seniorEscalatedAt != null && seniorResolvedAt == null;
+    }
+
+    public String getRoutedTeam() {
+        return routedTeam;
+    }
+
+    public void setRoutedTeam(String routedTeam) {
+        this.routedTeam = routedTeam;
+    }
+
+    public Instant getSeniorResolvedAt() {
+        return seniorResolvedAt;
+    }
+
+    public void setSeniorResolvedAt(Instant seniorResolvedAt) {
+        this.seniorResolvedAt = seniorResolvedAt;
+    }
+
+    public String getSeniorResolvedBy() {
+        return seniorResolvedBy;
+    }
+
+    public void setSeniorResolvedBy(String seniorResolvedBy) {
+        this.seniorResolvedBy = seniorResolvedBy;
+    }
+
+    public String getMediaType() {
+        return mediaType;
+    }
+
+    public void setMediaType(String mediaType) {
+        this.mediaType = mediaType;
+    }
+
+    public String getFrameTimeline() {
+        return frameTimeline;
+    }
+
+    public void setFrameTimeline(String frameTimeline) {
+        this.frameTimeline = frameTimeline;
+    }
+
+    public String getC2paManifest() {
+        return c2paManifest;
+    }
+
+    public void setC2paManifest(String c2paManifest) {
+        this.c2paManifest = c2paManifest;
+    }
+
+    public String getDecidedBy() {
+        return decidedBy;
+    }
+
+    public void setDecidedBy(String decidedBy) {
+        this.decidedBy = decidedBy;
+    }
+
+    public String getAssignedTo() {
+        return assignedTo;
+    }
+
+    public void setAssignedTo(String assignedTo) {
+        this.assignedTo = assignedTo;
+    }
+
+    public String getAssignedTeam() {
+        return assignedTeam;
+    }
+
+    public void setAssignedTeam(String assignedTeam) {
+        this.assignedTeam = assignedTeam;
+    }
+
+    public Instant getAssignedAt() {
+        return assignedAt;
+    }
+
+    public void setAssignedAt(Instant assignedAt) {
+        this.assignedAt = assignedAt;
+    }
+
+    public Instant getSeniorEscalatedAt() {
+        return seniorEscalatedAt;
+    }
+
+    public void setSeniorEscalatedAt(Instant seniorEscalatedAt) {
+        this.seniorEscalatedAt = seniorEscalatedAt;
+    }
+
+    public String getSeniorEscalatedBy() {
+        return seniorEscalatedBy;
+    }
+
+    public void setSeniorEscalatedBy(String seniorEscalatedBy) {
+        this.seniorEscalatedBy = seniorEscalatedBy;
+    }
+
+    public String getSeniorEscalationReason() {
+        return seniorEscalationReason;
+    }
+
+    public void setSeniorEscalationReason(String seniorEscalationReason) {
+        this.seniorEscalationReason = seniorEscalationReason;
+    }
+
+    public Decision getPendingDecision() {
+        return pendingDecision;
+    }
+
+    public void setPendingDecision(Decision pendingDecision) {
+        this.pendingDecision = pendingDecision;
+    }
+
+    public String getPendingProposedBy() {
+        return pendingProposedBy;
+    }
+
+    public void setPendingProposedBy(String pendingProposedBy) {
+        this.pendingProposedBy = pendingProposedBy;
+    }
+
+    public Instant getPendingProposedAt() {
+        return pendingProposedAt;
+    }
+
+    public void setPendingProposedAt(Instant pendingProposedAt) {
+        this.pendingProposedAt = pendingProposedAt;
+    }
+
+    public String getPendingReason() {
+        return pendingReason;
+    }
+
+    public void setPendingReason(String pendingReason) {
+        this.pendingReason = pendingReason;
+    }
+
+    public void clearPending() {
+        pendingDecision = null;
+        pendingProposedBy = null;
+        pendingProposedAt = null;
+        pendingReason = null;
+    }
+
+    public String getNoticeNumber() {
+        return noticeNumber;
+    }
+
+    public void setNoticeNumber(String noticeNumber) {
+        this.noticeNumber = noticeNumber;
+    }
+
+    public String getNoticePinHash() {
+        return noticePinHash;
+    }
+
+    public void setNoticePinHash(String noticePinHash) {
+        this.noticePinHash = noticePinHash;
+    }
+
+    public String getAppealStatus() {
+        return appealStatus;
+    }
+
+    public void setAppealStatus(String appealStatus) {
+        this.appealStatus = appealStatus;
+    }
+
+    public Instant getAppealDecidedAt() {
+        return appealDecidedAt;
+    }
+
+    public void setAppealDecidedAt(Instant appealDecidedAt) {
+        this.appealDecidedAt = appealDecidedAt;
+    }
+
     public String getJurisdiction() {
         return jurisdiction;
     }
@@ -171,6 +443,30 @@ public class AnalysisResult {
 
     public void setReportSigningKeyId(String reportSigningKeyId) {
         this.reportSigningKeyId = reportSigningKeyId;
+    }
+
+    public String getReportTimestampToken() {
+        return reportTimestampToken;
+    }
+
+    public void setReportTimestampToken(String reportTimestampToken) {
+        this.reportTimestampToken = reportTimestampToken;
+    }
+
+    public Instant getReportTimestampAt() {
+        return reportTimestampAt;
+    }
+
+    public void setReportTimestampAt(Instant reportTimestampAt) {
+        this.reportTimestampAt = reportTimestampAt;
+    }
+
+    public String getReportTimestampAuthority() {
+        return reportTimestampAuthority;
+    }
+
+    public void setReportTimestampAuthority(String reportTimestampAuthority) {
+        this.reportTimestampAuthority = reportTimestampAuthority;
     }
 
     public String getReportCanonical() {
@@ -243,6 +539,22 @@ public class AnalysisResult {
 
     public void setDecision(Decision decision) {
         this.decision = decision;
+    }
+
+    public Decision getModelDecision() {
+        return modelDecision;
+    }
+
+    public void setModelDecision(Decision modelDecision) {
+        this.modelDecision = modelDecision;
+    }
+
+    public Instant getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(Instant reviewedAt) {
+        this.reviewedAt = reviewedAt;
     }
 
     public Instant getCreatedAt() {

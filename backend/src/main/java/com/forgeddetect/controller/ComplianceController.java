@@ -5,6 +5,7 @@ import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.JurisdictionRule;
 import com.forgeddetect.repository.JurisdictionRuleRepository;
 import com.forgeddetect.service.AnalysisService;
+import com.forgeddetect.service.AppealService;
 import com.forgeddetect.service.ComplianceService;
 import com.forgeddetect.service.SlaClockService;
 import java.io.IOException;
@@ -33,11 +34,14 @@ public class ComplianceController {
     private final ComplianceService complianceService;
     private final SlaClockService slaClock;
     private final JurisdictionRuleRepository rules;
+    private final AppealService appeals;
 
-    public ComplianceController(ComplianceService complianceService, SlaClockService slaClock, JurisdictionRuleRepository rules) {
+    public ComplianceController(ComplianceService complianceService, SlaClockService slaClock, JurisdictionRuleRepository rules,
+            AppealService appeals) {
         this.complianceService = complianceService;
         this.slaClock = slaClock;
         this.rules = rules;
+        this.appeals = appeals;
     }
 
     @PostMapping(value = "/complaints", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -54,6 +58,9 @@ public class ComplianceController {
         try {
             type = ComplaintType.valueOf(complaintType.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
+            type = null;
+        }
+        if (type == null || type == ComplaintType.APPEAL) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "complaintType must be USER_COMPLAINT or GOVERNMENT_ORDER"));
         }
@@ -87,9 +94,12 @@ public class ComplianceController {
         return complianceService.breaches().stream().map(this::toView).toList();
     }
 
+    /** Complaint clocks, plus an {@code appeals} block for uploader appeals, which run on their own clock. */
     @GetMapping("/summary")
     public Map<String, Object> summary() {
-        return complianceService.summary();
+        Map<String, Object> body = new LinkedHashMap<>(complianceService.summary());
+        body.put("appeals", appeals.slaSummary());
+        return body;
     }
 
     /** Every jurisdiction rule, straight from the table (rows added in the DB show up here immediately). */

@@ -12,10 +12,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +31,10 @@ public class SlaClockService {
 
     private static final Logger log = LoggerFactory.getLogger(SlaClockService.class);
     private static final Pattern JURISDICTION = Pattern.compile("^[A-Z]{2,16}$");
+    /** ISO 3166-1 codes of the EU-27 (Greece as both GR and the EU's own EL). */
+    static final Set<String> EU_MEMBER_STATES = Set.of(
+            "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "EL", "HU", "IE", "IT",
+            "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE");
 
     /** The rule that governs one complaint. {@code ruleId} is null for the configured last-resort window. */
     public record ResolvedRule(
@@ -60,20 +64,31 @@ public class SlaClockService {
         this.clock = clock;
     }
 
-    /** Upper-cases and validates a jurisdiction code; null/blank means the platform default. */
+    /**
+     * Upper-cases and validates a jurisdiction code; null/blank means the platform default. {@code UK}
+     * is accepted as an alias of the ISO 3166-1 code {@code GB}.
+     */
     public String normalizeJurisdiction(String code) {
         String j = code == null || code.isBlank() ? properties.getDefaultJurisdiction() : code;
         j = j.trim().toUpperCase(Locale.ROOT);
         if (!JURISDICTION.matcher(j).matches()) {
             throw new IllegalArgumentException("jurisdiction must be a country code such as IN or US, or GENERIC");
         }
-        return j;
+        return "UK".equals(j) ? "GB" : j;
     }
 
+    /**
+     * (jurisdiction, type), then {@code EU} for an EU member state without its own row, then
+     * (GENERIC, type), then the configured window. An EU member state resolving to the EU rule is not
+     * a fallback: the DSA applies there directly.
+     */
     public ResolvedRule rule(String jurisdiction, ComplaintType type) {
         String j = normalizeJurisdiction(jurisdiction);
         Optional<JurisdictionRule> hit = rules.findByJurisdictionAndComplaintType(j, type);
         boolean fallback = false;
+        if (hit.isEmpty() && EU_MEMBER_STATES.contains(j)) {
+            hit = rules.findByJurisdictionAndComplaintType("EU", type);
+        }
         if (hit.isEmpty() && !JurisdictionRule.GENERIC.equals(j)) {
             hit = rules.findByJurisdictionAndComplaintType(JurisdictionRule.GENERIC, type);
             fallback = true;
@@ -83,7 +98,7 @@ public class SlaClockService {
             return new ResolvedRule(j, type, Duration.ofHours(r.getDeadlineHours()), r.getLabel(), r.getLegalReference(), r.getId(), fallback);
         }
         return new ResolvedRule(j, type, properties.windowFor(type), "Configured default",
-                "compliance.sla." + (type == ComplaintType.GOVERNMENT_ORDER ? "government-order" : "user-complaint"), null, true);
+                "compliance.sla." + type.name().toLowerCase(Locale.ROOT).replace('_', '-'), null, true);
     }
 
     /** Deadline under the platform's default jurisdiction. */
@@ -151,10 +166,7 @@ public class SlaClockService {
         return label + " \u2014 " + span;
     }
 
-    /** @return number of items whose status changed */
-    @Scheduled(
-            fixedDelayString = "${compliance.sla.check-interval:PT15S}",
-            initialDelayString = "${compliance.sla.check-interval:PT15S}")
+    /** @return number of items whose status changed. Run on a schedule by {@link SlaScheduler}. */
     @Transactional
     public int recalculate() {
         Instant now = clock.instant();

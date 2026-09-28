@@ -31,11 +31,11 @@ Authorization: Bearer fmd_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ### `POST /api/v1/analyze`
 
-Scores one image. It counts against your rate limit.
+Scores one image or short video. It counts against your rate limit.
 
 | Part / param | Where | Required | Description |
 |---|---|---|---|
-| `file` | multipart | yes | The image (JPEG, PNG or WebP, up to 25 MB) |
+| `file` | multipart | yes | The image (JPEG, PNG or WebP, up to 25 MB) or video (MP4, WebM, MOV, MKV or AVI, up to 50 MB). Videos are sampled at the deployment's frame rate (default 1 fps, lowered for long clips so the whole clip is covered within the frame cap) and routed once on an aggregate of the frame scores. Uploads are held in memory, never written to disk |
 | `include` | query | no | Comma-separated extras: `heatmap` (Grad-CAM overlay PNG, base64) and/or `labelled` (your image with a signed provenance manifest embedded, base64). Omitted by default to keep responses small |
 
 ```bash
@@ -58,7 +58,11 @@ curl -H "X-API-Key: $FMD_API_KEY" \
   "provenanceId": "5b138708-f7c9-45f0-8f86-191fea041dd0",
   "verifyUrl": "/api/verify/5b138708-f7c9-45f0-8f86-191fea041dd0",
   "reuploadOf": null,
-  "createdAt": "2026-09-27T05:12:31.434512Z"
+  "createdAt": "2026-09-27T05:12:31.434512Z",
+  "mediaType": "IMAGE",
+  "video": null,
+  "contentCredentials": null,
+  "notice": { "noticeNumber": "UPL-7K3Q-9XPA", "pin": "042917", "appealable": false, "statusUrl": "/api/appeals/UPL-7K3Q-9XPA/status" }
 }
 ```
 
@@ -73,7 +77,11 @@ curl -H "X-API-Key: $FMD_API_KEY" \
 | `provenanceId` | Stable ID for this analysis. **Store it next to your post.** Anyone can look up its audit trail at `verifyUrl` (public) |
 | `reuploadOf` | `null` for new content. If the image matches earlier content, this is an object identifying the original: `via` (`MANIFEST`, `CONTENT_HASH` or `PHASH`), `known`, `provenanceId`, `analyzedAt`, `decision`, and `manifest` (signature and pixel check, when a manifest was embedded) |
 | `heatmap` | Only with `include=heatmap`. Base64 PNG |
-| `labelledImage`, `labelledMimeType` | Only with `include=labelled`. Base64 copy of your image with an HMAC-signed XMP manifest. Pixels are unchanged, so it scores identically. Publish this copy if you want re-uploads traced by manifest |
+| `labelledImage`, `labelledMimeType`, `labelledContentCredentials` | Only with `include=labelled`, images only. Base64 copy of your image with an HMAC-signed XMP manifest and a C2PA manifest, plus the summary of the C2PA manifest written into it (same shape as `contentCredentials`; `null` when C2PA signing is off). Pixels are unchanged, so it scores identically. Publish this copy if you want re-uploads traced by manifest |
+| `mediaType` | `IMAGE` or `VIDEO` |
+| `video` | Videos only. `fps` (the effective rate: lowered for long clips so the samples span the whole clip within the frame cap), `sampled`, `durationSeconds`, `peak` (`index`, `t` of the highest-scoring frame), `routing` (which aggregate each score was routed on: `MAX` or `TOPK_MEAN`), `aggregate` (`max` and `topkMean` per score) and `frames`, a compact timeline of `[seconds, forgeryScore, explicitScore]` triples. Frames themselves are never stored or returned |
+| `contentCredentials` | `null` if the upload has no C2PA manifest. Otherwise `status` (`TRUSTED`, `VALID`, `VALID_UNTRUSTED` or `INVALID`), `signer` (`common_name`, `issuer`, `signed_at`), `claim_generator`, `actions` (`action`, `software_agent`, …), `ai_generated` and `manifest_count`. C2PA proves who signed which claims, not that they are true; route on `decision` |
+| `notice` | A notice number and one-time PIN for the uploader. **Pass both to the uploader** if you use this service's appeals: they can appeal an `AUTO_FLAG` at `/appeal` or through `POST /api/appeals`. The PIN is stored only as a hash and cannot be recovered |
 
 ### `GET /api/v1/usage`
 
@@ -102,7 +110,7 @@ The thresholds are set by the deployment (defaults: review at 0.50, auto-flag at
 |---|---|
 | `ALLOW` | Publish. |
 | `REVIEW` | Hold the post (for example, visible only to the uploader) and send it to your moderation queue with both scores. Don't show it publicly until a human decides. |
-| `AUTO_FLAG` | Don't publish. Tell the uploader, keep `provenanceId` for appeals and legal requests, and treat repeat `reuploadOf` hits as a signal about the account. |
+| `AUTO_FLAG` | Don't publish. Tell the uploader with a statement of reasons and the `notice` number + PIN so they can appeal, keep `provenanceId` for legal requests, and treat repeat `reuploadOf` hits as a signal about the account. |
 
 Scores are model confidences, not proof. Keep a human in the loop for anything consequential.
 
@@ -138,10 +146,15 @@ Every error is JSON with a stable machine-readable `error` code and a human-read
 | 401 | `missing_api_key` | No key header | Send `X-API-Key` |
 | 401 | `invalid_api_key` | Key unknown, rotated, or revoked | Check config. Don't retry |
 | 429 | `rate_limited` | Bucket empty (body also has `retryAfterSeconds`) | Back off for `Retry-After` |
-| 502 | `analysis_unavailable` | Image couldn't be decoded, or the scoring service is down | Check the file. Retry with backoff if it's valid |
-| 413 | — | File over 25 MB | Downscale before sending |
+| 413 | `too_large` | File over the limit (25 MB images, 50 MB videos) | Downscale or trim before sending |
+| 422 | `unreadable_media` | The scoring service rejected the file as not a readable image or video | Don't retry the same file |
+| 502 | `analysis_unavailable` | The scoring service is down or failed unexpectedly | Retry with backoff |
+| 403 | `demo_samples_only` | Hosted public demo only: the file is not one of the demo's synthetic samples | Use a sample from `GET /api/demo`, or run the stack yourself |
+| 429 | `demo_rate_limited` | Hosted public demo only: the instance-wide upload budget is used up | Back off for `Retry-After` |
 
 `401` responses also include `WWW-Authenticate: ApiKey header="X-API-Key"`.
+
+Every response carries an `X-Request-ID`. Send your own (1–64 characters from `A-Z a-z 0-9 . _ : -`) to have it echoed back and written to both services' logs; otherwise one is generated. Quote it when reporting a problem.
 
 ## 6. Integrating into an upload pipeline
 
@@ -158,7 +171,7 @@ user uploads ─▶ your API server ─▶ store in private/quarantine bucket
 ```
 
 - **Call it synchronously** for interactive uploads (p95 is about 190 ms on CPU), or from a queue worker for bulk and backfill jobs. Workers should respect `X-RateLimit-Remaining`.
-- **Fail closed or open deliberately.** On a `502` or timeout, the safe default for user-generated content is to hold the post (treat it as `REVIEW`) and retry later, not to publish unscreened.
+- **Fail closed or open deliberately.** A `422` means the file itself is unreadable. On a `502` or timeout, the safe default for user-generated content is to hold the post (treat it as `REVIEW`) and retry later, not to publish unscreened.
 - **Store `provenanceId`** alongside the post. It links your record to the public audit trail and lets you match future re-uploads.
 - **Timeouts:** 10 s is plenty. The first request after a cold start can take a few seconds.
 
@@ -246,9 +259,26 @@ curl -H "X-Case-Pin: 042917" http://localhost:8081/api/complaints/FMD-7K3Q-9XPA/
 - **Status.** The response contains `stage` (`IN_REVIEW`, `REMOVED`, `NO_ACTION`), `verdict` (`LIKELY_FORGED`, `NEEDS_REVIEW`, `LOOKS_GENUINE`), `receivedAt`, `deadline`, `resolvedAt`, `withinDeadline`, `rule`, `notifyChannel` and `timeline`. It never contains scores, hashes or internal IDs. An unknown case number and a wrong PIN both return `404 case_not_found`. After 5 wrong PINs the case returns `429 too_many_attempts` with `Retry-After` for 15 minutes.
 - **Personal data.** Only the optional contact detail and notes are stored with the case, and they are used only for status notices. The image is discarded after scoring, as everywhere else.
 
+**Uploader appeals: `POST /api/appeals` and `GET /api/appeals/{noticeNumber}/status`.** An uploader whose post was removed automatically can contest it with the `notice` number and PIN from the analysis (EU DSA Art. 20 style). A platform can link to `/appeal?n=UPL-…` instead of building its own form.
+
+```bash
+curl -H "Content-Type: application/json" \
+  -d '{"noticeNumber":"UPL-7K3Q-9XPA","pin":"042917","statement":"This is my own unedited photo."}' \
+  http://localhost:8081/api/appeals
+# 201 {"caseNumber":"UPL-7K3Q-9XPA","status":"OPEN","decisionDueBy":"…","rule":"Platform policy (generic)",…}
+
+curl -H "X-Case-Pin: 042917" http://localhost:8081/api/appeals/UPL-7K3Q-9XPA/status
+# {"decision":"AUTO_FLAG","appealable":false,"appeal":{"status":"GRANTED","reinstated":true,"reason":"…",…},…}
+```
+
+- Only `AUTO_FLAG` decisions can be appealed (`409 not_appealable`), once each (`409 already_appealed`). `statement` is required, at most 1000 characters. A wrong number or PIN is `404 not_found`, and repeated wrong PINs lock the notice (`429` + `Retry-After`).
+- The appeal runs on its own deadline (the jurisdiction's `APPEAL` rule, 72 h by default) and is decided by a moderator other than the one who made the original decision. A granted appeal is reinstated after a second moderator confirms it; `reinstated` turns `true` at that point.
+
+**Transparency report: `GET /api/transparency?period=`.** Aggregate volumes, decisions, complaint SLA compliance, appeal outcomes and moderator overturn rate for `YYYY-MM`, `YYYY-Qn`, `YYYY` or `last-Nd` (default `last-30d`). No item IDs, hashes or moderator names.
+
 ## 7. Data handling
 
-- **No media is retained.** The service keeps the perceptual hash, pixel hash, scores, decision, provenance ID, a coarse numeric forensic signature (too low-resolution to rebuild the image), and which API client submitted it. The image bytes are discarded after scoring, and `labelledImage` is returned to you, never stored.
+- **No media is retained.** The service keeps the perceptual hash, pixel hash, scores, decision, provenance ID, a coarse numeric forensic signature (too low-resolution to rebuild the image), the per-frame score timeline for videos, the C2PA manifest summary, and which API client submitted it. Image and video bytes are discarded after scoring (video frames are decoded in memory and never written to disk), and `labelledImage` is returned to you, never stored.
 - The public audit trail (`GET /api/verify/{provenanceId}`) shows decisions and timestamps. It never shows your client name, complaint references, or moderator identities.
 - The detection models were trained and evaluated only on consenting-actor research benchmarks (FaceForensics++, DFDC, Celeb-DF). Don't send test data that you don't have the right to process.
 
@@ -266,4 +296,4 @@ These require a moderator login (HTTP Basic or session) and are what the **API a
 
 Configuration (environment variables): `API_RATE_LIMIT_FREE`, `API_RATE_LIMIT_PRO`, `API_RATE_LIMIT_ENTERPRISE` (requests per minute), and `API_DEMO_KEY`, a dev-only variable that seeds a FREE "Demo Platform" client with that exact key. Leave it empty in production.
 
-> Rate-limit buckets live in memory on each backend instance and reset on restart. That's fine for a single instance. If you run several replicas, move the buckets to a shared store such as Redis.
+> With `STATE_STORE=redis` (the docker-compose default) rate-limit buckets live in Redis, so every backend replica spends one shared per-minute budget per key and buckets survive a backend restart. `STATE_STORE=memory` keeps them per instance and is only suitable for a single replica.

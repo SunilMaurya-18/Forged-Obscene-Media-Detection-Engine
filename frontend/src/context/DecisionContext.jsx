@@ -35,10 +35,37 @@ export function DecisionProvider({ children }) {
     async (key, { keepalive = false } = {}) => {
       const rec = drop(key)
       if (!rec) return
-      const results = await Promise.allSettled(rec.ids.map((id) => updateQueueDecision(id, rec.decision, { keepalive })))
-      if (keepalive) return
+      if (keepalive) {
+        rec.ids.forEach((id) => updateQueueDecision(id, rec.decision, { keepalive }).catch(() => {}))
+        return
+      }
+      // One at a time: each decision counts toward the exposure limit, and once a break starts the rest would only 423
+      const results = []
+      let breakAt = -1
+      for (const [i, id] of rec.ids.entries()) {
+        try {
+          results.push({ status: 'fulfilled', value: await updateQueueDecision(id, rec.decision) })
+        } catch (error) {
+          results.push({ status: 'rejected', reason: error })
+          if (error?.status === 423) {
+            breakAt = i
+            break
+          }
+        }
+      }
+      const proposed = results.flatMap((r, i) => (r.status === 'fulfilled' && r.value?.pendingSecondReview ? [`#${rec.ids[i]}`] : []))
+      if (proposed.length) {
+        toast(`${proposed.join(', ')} sent for second review: overriding an automatic removal needs a second moderator.`, { duration: 6000 })
+      }
       const failed = results.flatMap((r, i) => (r.status === 'rejected' ? [{ id: rec.ids[i], error: r.reason }] : []))
-      if (failed.length) {
+      if (breakAt >= 0) {
+        const unsaved = rec.ids.slice(breakAt).map((id) => `#${id}`).join(', ')
+        const saved = results.filter((r) => r.status === 'fulfilled').length
+        toast(
+          `Time for a break. ${saved ? `${saved} of ${rec.ids.length} saved; ` : ''}${unsaved} ${rec.ids.length - breakAt === 1 ? 'was' : 'were'} not saved and will stay in the queue.`,
+          { tone: 'error', duration: 8000 },
+        )
+      } else if (failed.length) {
         const ids = failed.map((f) => `#${f.id}`).join(', ')
         toast(`Couldn't save the decision for ${ids}: ${failed[0].error?.message || 'please try again.'}`, { tone: 'error', duration: 6000 })
       }

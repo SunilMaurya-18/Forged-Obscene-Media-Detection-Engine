@@ -5,11 +5,15 @@ import {
   BookOpen,
   Brain,
   Download,
+  Eye,
   EyeOff,
+  FileBadge,
   FilePlus2,
+  Film,
   Fingerprint,
   Flame,
   Gauge,
+  Gavel,
   History,
   ImageUp,
   Loader2,
@@ -23,12 +27,15 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { analyzeImage } from '../api/client'
+import { Trans, useTranslation } from 'react-i18next'
+import { analyzeMedia } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import ContentCredentials from '../components/ContentCredentials'
 import FamilyChip from '../components/FamilyChip'
+import FrameStrip from '../components/FrameStrip'
 import PrescreenCard from '../components/PrescreenCard'
 import PrivacyNote from '../components/PrivacyNote'
+import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingLine } from '../components/Status'
 import { VerdictPanel } from '../components/VerdictBadge'
 import { Button, Card, CardHeader, CopyButton, Kbd, PageHeader, ScoreMeter, buttonClass } from '../components/ui'
@@ -37,9 +44,8 @@ import { decisionMeta } from '../lib/decision'
 import { verdictFor } from '../lib/verdict'
 import { FAMILY } from '../lib/family'
 import { cn, dateTime, fileSize } from '../lib/format'
+import { aggregateLabel, isVideoFile, mediaProblem } from '../lib/media'
 import { MATCH_VIA, downloadBase64, labelledFilename, manifestStatus, shortId } from '../lib/provenance'
-
-const MAX_BYTES = 25 * 1024 * 1024
 
 const PIPELINE = [
   { icon: UploadCloud, label: 'Uploading to the analysis API' },
@@ -71,9 +77,19 @@ const HOW_IT_WORKS = [
     body: 'Each result gets a traceable ID and a signed manifest embedded in a labelled copy. Anyone can verify it later.',
   },
   {
+    icon: Film,
+    title: 'Video, frame by frame',
+    body: 'Clips are sampled at a fixed rate (lowered for long clips so the samples span the whole clip) and every frame is scored in memory. The clip is routed once, on the top-frame average for forgery and the maximum for explicit content.',
+  },
+  {
+    icon: FileBadge,
+    title: 'Content Credentials',
+    body: 'If the upload carries a C2PA manifest, its signer, generator and edit history are shown next to the scores.',
+  },
+  {
     icon: Lock,
     title: 'Privacy by design',
-    body: 'Only hashes, the scores, and the decision are stored. The image itself is discarded.',
+    body: 'Only hashes, the scores, and the decision are stored. The image or video itself is discarded.',
   },
 ]
 
@@ -88,7 +104,25 @@ function useImageDimensions(src) {
   return dims?.src === src ? dims : null
 }
 
-function Dropzone({ preview, busy, onFile }) {
+const VEIL = 'grayscale blur-xl scale-110'
+
+/** Blurred and greyscale until the viewer chooses to see it: the upload may be explicit or an image of them. */
+function ShowToggle({ shown, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={shown}
+      aria-label="Show the media in colour"
+      className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-lg bg-canvas/80 px-2.5 py-1 text-xs backdrop-blur hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+    >
+      {shown ? <EyeOff aria-hidden className="size-3.5" /> : <Eye aria-hidden className="size-3.5" />}
+      {shown ? 'Blur' : 'Show'}
+    </button>
+  )
+}
+
+function Dropzone({ preview, video, busy, shown, onFile }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
 
@@ -98,7 +132,7 @@ function Dropzone({ preview, busy, onFile }) {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Upload an image"
+      aria-label="Upload an image or video"
       onClick={open}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -128,7 +162,7 @@ function Dropzone({ preview, busy, onFile }) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/webm,video/quicktime,video/x-matroska,.mp4,.webm,.mov,.mkv,.m4v,.avi"
         className="hidden"
         onChange={(e) => {
           onFile(e.target.files?.[0])
@@ -138,7 +172,19 @@ function Dropzone({ preview, busy, onFile }) {
 
       {preview ? (
         <>
-          <img src={preview} alt="Selected upload" className="absolute inset-0 size-full object-contain p-3" />
+          {video ? (
+            <video
+              src={preview}
+              muted
+              playsInline
+              controls={!busy}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Selected video"
+              className={cn('absolute inset-0 size-full object-contain p-3 transition', !shown && VEIL)}
+            />
+          ) : (
+            <img src={preview} alt="Selected upload" className={cn('absolute inset-0 size-full object-contain p-3 transition', !shown && VEIL)} />
+          )}
           {busy && (
             <div className="absolute inset-0 bg-canvas/40">
               <div className="absolute inset-x-0 h-24 -translate-y-full bg-gradient-to-b from-transparent via-brand-2/25 to-transparent animate-scan" />
@@ -153,7 +199,7 @@ function Dropzone({ preview, busy, onFile }) {
           {!busy && (
             <div className="absolute inset-0 grid place-items-center bg-canvas/70 opacity-0 group-hover:opacity-100 transition-opacity">
               <span className="inline-flex items-center gap-2 text-sm font-medium">
-                <ImageUp className="size-4" /> Replace image
+                <ImageUp className="size-4" /> Replace file
               </span>
             </div>
           )}
@@ -167,11 +213,11 @@ function Dropzone({ preview, busy, onFile }) {
                 <UploadCloud className="size-7 text-brand" />
               </div>
             </div>
-            <p className="font-medium">{dragging ? 'Release to upload' : 'Drop an image here'}</p>
+            <p className="font-medium">{dragging ? 'Release to upload' : 'Drop an image or video here'}</p>
             <p className="text-sm text-muted mt-1.5">
               or <span className="text-brand">browse files</span> · paste with <Kbd>Ctrl</Kbd> <Kbd>V</Kbd>
             </p>
-            <p className="text-xs text-subtle mt-4">JPG, PNG or WEBP · up to 25 MB</p>
+            <p className="text-xs text-subtle mt-4">JPG, PNG or WEBP up to 25 MB · MP4, WEBM or MOV up to 50 MB</p>
           </div>
         </div>
       )}
@@ -287,12 +333,16 @@ function ProvenanceCard({ result, file }) {
       <CardHeader
         icon={Stamp}
         title="Provenance label"
-        description="A signed manifest carrying this ID is embedded in a copy of your image. The copy is returned to you and never stored."
+        description={
+          result.labelledImage
+            ? 'A signed manifest carrying this ID is embedded in a copy of your image. The copy is returned to you and never stored.'
+            : 'This ID and the perceptual hash identify the upload in the public audit trail. The upload itself is never stored.'
+        }
       />
       <dl className="space-y-2.5">
         {[
           { icon: Stamp, label: 'Provenance ID', value: result.provenanceId },
-          { icon: Fingerprint, label: 'Perceptual hash (stored instead of the image)', value: result.phash },
+          { icon: Fingerprint, label: `Perceptual hash (stored instead of the ${result.mediaType === 'VIDEO' ? 'video' : 'image'})`, value: result.phash },
         ].map(({ icon: RowIcon, label, value }) => (
           <div key={label} className="flex items-center gap-3 rounded-xl border border-line bg-white/[0.02] px-3.5 py-2.5">
             <RowIcon className="size-4 text-muted shrink-0" />
@@ -304,13 +354,26 @@ function ProvenanceCard({ result, file }) {
           </div>
         ))}
       </dl>
+      {result.labelledImage && (
+        <p className="mt-3 text-xs text-muted">
+          {result.labelledContentCredentials
+            ? `The copy also carries a C2PA manifest signed by ${
+                result.labelledContentCredentials.signer?.common_name || 'this service'
+              }${result.labelledContentCredentials.status === 'TRUSTED' ? '' : ' (a development certificate, not on any trust list)'}.`
+            : 'The copy carries the signed XMP label only; C2PA signing is not configured.'}
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap gap-2">
         {result.labelledImage ? (
           <Button icon={Download} onClick={download} className="flex-1">
             Download labelled image
           </Button>
         ) : (
-          <p className="flex-1 self-center text-xs text-subtle">Labelling was unavailable for this image.</p>
+          <p className="flex-1 self-center text-xs text-subtle">
+            {result.mediaType === 'VIDEO'
+              ? 'Labelled copies are produced for images only; the video was scored and discarded.'
+              : 'Labelling was unavailable for this image.'}
+          </p>
         )}
         {result.provenanceId && (
           <Link to={`/verify/${result.provenanceId}`} className={buttonClass('secondary', 'md', 'flex-1')}>
@@ -335,10 +398,43 @@ function DetailSection({ icon: Icon, title, description, children }) {
   )
 }
 
-function ResultView({ result, preview, file, thresholds }) {
+/** Phase 23: the uploader's statement of reasons reference (EU DSA Art. 17/20 style). The PIN is shown once. */
+function NoticeCard({ notice, decision }) {
+  const { t } = useTranslation()
+  return (
+    <Card className="p-6 animate-fade-up [animation-delay:120ms]">
+      <CardHeader icon={Gavel} title={t('notice.title')} description={t(notice.appealable ? 'notice.appealable' : 'notice.notAppealable')} />
+      <dl className="grid sm:grid-cols-2 gap-2.5">
+        {[
+          { label: t('notice.number'), value: notice.noticeNumber },
+          { label: t('notice.pin'), value: notice.pin },
+        ].map(({ label, value }) => (
+          <div key={label} className="flex items-center gap-3 rounded-xl border border-line bg-white/[0.02] px-3.5 py-2.5">
+            <div className="min-w-0 flex-1">
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="font-mono text-sm truncate">{value}</dd>
+            </div>
+            <CopyButton value={value} />
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-subtle mt-3">
+        <Trans i18nKey="notice.keep" components={{ b: <strong className="text-muted font-semibold" /> }} />
+      </p>
+      {notice.appealable && decision === 'AUTO_FLAG' && (
+        <Link to={`/appeal?n=${encodeURIComponent(notice.noticeNumber)}`} className={buttonClass('secondary', 'md', 'w-full mt-4')}>
+          <Gavel aria-hidden className="size-4" /> {t('notice.appeal')}
+        </Link>
+      )}
+    </Card>
+  )
+}
+
+function ResultView({ result, preview, file, thresholds, shown }) {
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
   const decision = decisionMeta(result.decision)
+  const video = result.mediaType === 'VIDEO' ? result.video : null
 
   return (
     <div className="space-y-5">
@@ -379,16 +475,44 @@ function ResultView({ result, preview, file, thresholds }) {
           )}
         </DetailSection>
 
+        {video && (
+          <DetailSection
+            icon={Film}
+            title="Frame timeline"
+            description={`${video.sampled} frames sampled at ${video.fps} fps${
+              video.durationSeconds ? ` from a ${video.durationSeconds.toFixed(1)} s clip` : ''
+            }${video.truncated ? ' (clip longer than the sampling cap; later frames were not scored)' : ''}. Each frame was scored in memory and discarded.`}
+          >
+            <FrameStrip video={video} thresholds={thresholds} />
+            <p className="text-xs text-muted mt-3">
+              Routed on forgery = {aggregateLabel(video.routing?.forgery, video.k)}, explicit ={' '}
+              {aggregateLabel(video.routing?.explicit, video.k)}.
+              {video.peak && ` Peak frame #${video.peak.index} at ${video.peak.t}s.`}
+            </p>
+          </DetailSection>
+        )}
+
         {result.heatmap && (
-          <DetailSection icon={Flame} title="Explainability" description="Grad-CAM highlights the regions that drove the forgery score.">
-            <div className="grid grid-cols-2 gap-3">
+          <DetailSection
+            icon={Flame}
+            title="Explainability"
+            description={
+              video
+                ? 'Grad-CAM on the peak frame highlights the regions that drove its forgery score.'
+                : 'Grad-CAM highlights the regions that drove the forgery score.'
+            }
+          >
+            <div className={cn('grid gap-3', video ? 'grid-cols-1 max-w-xs mx-auto' : 'grid-cols-2')}>
               {[
-                { src: preview, label: 'Original' },
-                { src: `data:image/png;base64,${result.heatmap}`, label: 'Grad-CAM overlay' },
+                ...(video ? [] : [{ src: preview, label: 'Original' }]),
+                {
+                  src: `data:image/png;base64,${result.heatmap}`,
+                  label: video ? `Grad-CAM, peak frame${video.peak ? ` (${video.peak.t}s)` : ''}` : 'Grad-CAM overlay',
+                },
               ].map(({ src, label }) => (
                 <figure key={label}>
                   <div className="aspect-square rounded-xl overflow-hidden border border-line bg-checker">
-                    <img src={src} alt={label} className="size-full object-cover" />
+                    <img src={src} alt={label} className={cn('size-full object-cover transition', !shown && VEIL)} />
                   </div>
                   <figcaption className="text-xs text-muted mt-2 text-center">{label}</figcaption>
                 </figure>
@@ -401,7 +525,13 @@ function ResultView({ result, preview, file, thresholds }) {
             </div>
           </DetailSection>
         )}
+
+        <DetailSection icon={FileBadge} title="Content Credentials (C2PA)" description="Read from the upload's embedded C2PA manifest, if any.">
+          <ContentCredentials credentials={result.contentCredentials} />
+        </DetailSection>
       </VerdictPanel>
+
+      {result.notice && <NoticeCard notice={result.notice} decision={result.decision} />}
 
       {isAuthenticated ? (
         result.decision === 'REVIEW' && (
@@ -431,7 +561,9 @@ export default function Demo() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const dims = useImageDimensions(preview)
+  const [shown, setShown] = useState(false)
+  const video = isVideoFile(file)
+  const dims = useImageDimensions(video ? null : preview)
   const { hash } = useLocation()
 
   useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview])
@@ -442,16 +574,14 @@ export default function Demo() {
 
   const onFile = useCallback((f) => {
     if (!f) return
-    if (!f.type.startsWith('image/')) {
-      setError('That file is not an image. Choose a JPG, PNG or WEBP.')
-      return
-    }
-    if (f.size > MAX_BYTES) {
-      setError(`That image is ${fileSize(f.size)}. The limit is 25 MB.`)
+    const problem = mediaProblem(f, fileSize)
+    if (problem) {
+      setError(problem)
       return
     }
     setError('')
     setResult(null)
+    setShown(false)
     setFile(f)
     setPreview(URL.createObjectURL(f))
   }, [])
@@ -478,7 +608,7 @@ export default function Demo() {
     setError('')
     setResult(null)
     try {
-      setResult(await analyzeImage(file))
+      setResult(await analyzeMedia(file))
       refreshStats()
     } catch (err) {
       setError(err)
@@ -492,7 +622,7 @@ export default function Demo() {
       <PageHeader
         eyebrow="Media forensics"
         title="Detect forged and explicit media"
-        description="Upload an image to score it for face manipulation and explicit content. The decision engine routes it to Allow, Review, or Auto-flag in real time."
+        description="Upload an image or short video to score it for face manipulation and explicit content. The decision engine routes it to Allow, Review, or Auto-flag in real time."
         actions={
           <>
             <Link to="/report" className={buttonClass('primary', 'md')}>
@@ -511,15 +641,31 @@ export default function Demo() {
         <Card className="p-5 md:p-6 animate-fade-up lg:sticky lg:top-24">
           <CardHeader
             icon={ImageUp}
-            title="Source image"
-            description="Use stills from research datasets such as FaceForensics++, DFDC or Celeb-DF."
+            title="Source media"
+            description={
+              <>
+                Use stills or clips from research datasets such as FaceForensics++, DFDC or Celeb-DF, or the synthetic{' '}
+                <a href="/sample-clip.mp4" download className="text-brand hover:underline">
+                  sample clip
+                </a>{' '}
+                and{' '}
+                <a href="/c2pa-sample.jpg" download className="text-brand hover:underline">
+                  C2PA-signed sample
+                </a>
+                .
+              </>
+            }
           />
           {!file && <PrivacyNote compact className="mb-4" />}
-          <Dropzone preview={preview} busy={busy} onFile={onFile} />
+          <div className="relative">
+            <Dropzone preview={preview} video={video} busy={busy} shown={shown} onFile={onFile} />
+            {preview && !busy && <ShowToggle shown={shown} onToggle={() => setShown((s) => !s)} />}
+          </div>
+          {!file && <SamplePicker onPick={onFile} className="mt-4" />}
 
           {file && (
             <div className="mt-4 flex items-center gap-3 rounded-xl border border-line bg-white/[0.02] px-3.5 py-2.5 animate-fade-up">
-              <ImageUp className="size-4 text-muted shrink-0" />
+              {video ? <Film className="size-4 text-muted shrink-0" /> : <ImageUp className="size-4 text-muted shrink-0" />}
               <div className="min-w-0 flex-1">
                 <p className="text-sm truncate">{file.name}</p>
                 <p className="text-xs text-subtle">
@@ -531,7 +677,7 @@ export default function Demo() {
                 type="button"
                 onClick={clear}
                 disabled={busy}
-                aria-label="Remove image"
+                aria-label="Remove file"
                 className="grid place-items-center size-7 rounded-lg text-muted hover:text-fg hover:bg-white/[0.06] disabled:opacity-40 transition"
               >
                 <X className="size-4" />
@@ -554,7 +700,7 @@ export default function Demo() {
           {busy ? (
             <AnalyzingCard />
           ) : result ? (
-            <ResultView result={result} preview={preview} file={file} thresholds={thresholds} />
+            <ResultView result={result} preview={preview} file={file} thresholds={thresholds} shown={shown} />
           ) : (
             <HowItWorks />
           )}

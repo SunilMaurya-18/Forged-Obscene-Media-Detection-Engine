@@ -1,6 +1,9 @@
 package com.forgeddetect.service;
 
+import com.forgeddetect.observability.FmdMetrics;
+import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
@@ -19,15 +22,27 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 public class MlClientService {
 
     private final WebClient webClient;
+    private final FmdMetrics metrics;
+    private final Duration timeout;
 
     public MlClientService(
             WebClient.Builder webClientBuilder,
-            @Value("${ml.service.url}") String mlServiceUrl) {
+            @Value("${ml.service.url}") String mlServiceUrl,
+            @Value("${ml.service.timeout:PT60S}") Duration timeout,
+            FmdMetrics metrics) {
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
+        this.timeout = timeout;
+        this.metrics = metrics;
     }
 
     public MlInferResponse infer(byte[] imageBytes, String filename, String contentType) {
         return post("/infer", imageBytes, filename, contentType, Map.of(), MlInferResponse.class);
+    }
+
+    /** Phase 23: frame-by-frame scoring; the ML service decodes in memory and keeps no frames. */
+    public MlInferResponse inferVideo(byte[] videoBytes, String filename, String contentType, double fps, int topK) {
+        return post("/infer-video", videoBytes, filename, contentType,
+                Map.of("fps", String.valueOf(fps), "top_k", String.valueOf(topK)), MlInferResponse.class);
     }
 
     /** Returns a copy of the image with a signed provenance manifest embedded. */
@@ -82,12 +97,28 @@ public class MlClientService {
                     .body(BodyInserters.fromMultipartData(builder.build()))
                     .retrieve()
                     .bodyToMono(responseType)
+                    .timeout(timeout)
                     .block();
         } catch (WebClientResponseException ex) {
-            throw new IllegalStateException(
-                    "ML service " + path + " failed: HTTP " + ex.getStatusCode().value(), ex);
+            String message = "ML service " + path + " failed: HTTP " + ex.getStatusCode().value();
+            if (ex.getStatusCode().is4xxClientError()) {
+                metrics.mlError(path, "http_4xx");
+                throw new MlRejectedException(message, ex);
+            }
+            metrics.mlError(path, "http_5xx");
+            throw new IllegalStateException(message, ex);
         } catch (Exception ex) {
+            metrics.mlError(path, hasCause(ex, TimeoutException.class) ? "timeout" : "unavailable");
             throw new IllegalStateException("ML service " + path + " call failed: " + ex.getMessage(), ex);
         }
+    }
+
+    private static boolean hasCause(Throwable ex, Class<? extends Throwable> type) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (type.isInstance(t)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

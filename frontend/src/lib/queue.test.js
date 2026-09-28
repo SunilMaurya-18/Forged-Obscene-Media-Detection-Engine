@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { byUrgency, deadlineInfo, similarIds } from './queue.js'
+import { byUrgency, deadlineInfo, inTeamPool, similarIds } from './queue.js'
 
 const at = (min) => new Date(Date.UTC(2026, 0, 1, 12, min)).toISOString()
 
@@ -33,4 +33,13 @@ test('near-duplicates are found by perceptual hash distance', () => {
   ]
   assert.deepEqual(similarIds(base, items), [2, 3])
   assert.deepEqual(similarIds(base, items, 2), [2])
+})
+
+test('an unclaimed item routed to a team belongs to that team and seniors', () => {
+  const routed = { routedTeam: 'apac', assignedTo: null }
+  assert.equal(inTeamPool(routed, { team: 'apac' }), true)
+  assert.equal(inTeamPool(routed, { team: 'core' }), false)
+  assert.equal(inTeamPool(routed, { team: 'core', senior: true }), true)
+  assert.equal(inTeamPool({ ...routed, assignedTo: 'alex' }, { team: 'core' }), true)
+  assert.equal(inTeamPool({ routedTeam: null }, { team: 'core' }), true)
 })

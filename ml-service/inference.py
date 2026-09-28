@@ -1,8 +1,10 @@
-"""Inference runtime — models loaded once at startup (Phase 5)."""
+"""Inference runtime — models loaded once at startup (Phase 5), optional calibration (Phase 22)."""
 
 from __future__ import annotations
 
+import json
 import logging
+import math
 import os
 import threading
 from pathlib import Path
@@ -29,12 +31,39 @@ DEFAULT_CHECKPOINT = Path(
 )
 
 
+def load_temperature(path: Path) -> float | None:
+    """Temperature from a ``calibration.json`` written by ``ml/calibration.py --promote``; None if absent or invalid."""
+    if not path.exists():
+        return None
+    try:
+        t = float(json.loads(path.read_text(encoding="utf-8"))["temperature"])
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        logger.warning("Ignoring unreadable calibration file %s: %s", path, exc)
+        return None
+    if not math.isfinite(t) or not 0.05 <= t <= 20.0:
+        logger.warning("Ignoring calibration temperature %s outside [0.05, 20]", t)
+        return None
+    return t
+
+
 class InferenceRuntime:
     """Holds cold-started forgery + NSFW models for the process lifetime."""
 
-    def __init__(self, checkpoint: Path | None = None, device: str | None = None) -> None:
-        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    def __init__(
+        self,
+        checkpoint: Path | None = None,
+        device: str | None = None,
+        calibration: Path | None = None,
+    ) -> None:
+        requested = device or os.getenv("ML_DEVICE", "auto").strip().lower()
+        if requested in ("", "auto"):
+            requested = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = torch.device(requested)
         self.checkpoint = Path(checkpoint or DEFAULT_CHECKPOINT)
+        self.calibration_path = Path(
+            calibration or os.getenv("FORGERY_CALIBRATION") or self.checkpoint.parent / "calibration.json"
+        )
+        self.temperature = load_temperature(self.calibration_path)
         self.forgery_model = None
         self.nsfw = NSFWClassifier()
         self._lock = threading.Lock()
@@ -49,10 +78,11 @@ class InferenceRuntime:
         self.forgery_model = load_forgery_model(self.checkpoint, self.device)
         self._load_count += 1
         logger.info(
-            "Runtime ready (device=%s, nsfw_mode=%s, forgery_loads=%s)",
+            "Runtime ready (device=%s, nsfw_mode=%s, forgery_loads=%s, temperature=%s)",
             self.device,
             self.nsfw.mode,
             self._load_count,
+            self.temperature,
         )
 
     @property
@@ -64,10 +94,10 @@ _runtime: InferenceRuntime | None = None
 
 
 def init_runtime(
-    checkpoint: Path | None = None, device: str | None = None
+    checkpoint: Path | None = None, device: str | None = None, calibration: Path | None = None
 ) -> InferenceRuntime:
     global _runtime
-    _runtime = InferenceRuntime(checkpoint=checkpoint, device=device)
+    _runtime = InferenceRuntime(checkpoint=checkpoint, device=device, calibration=calibration)
     return _runtime
 
 
@@ -101,10 +131,31 @@ def run_forgery_assessment(image_bytes: bytes) -> dict:
     rt = get_runtime()
     tensor = rgb_to_tensor(bytes_to_rgb(image_bytes), rt.device)
     forgery_logits, family_logits = rt.forgery_model.forward_all(tensor)
+    if rt.temperature is not None:
+        forgery_logits = forgery_logits / rt.temperature
     score = float(torch.sigmoid(forgery_logits).item())
     p_diffusion = float(torch.sigmoid(family_logits).item()) if family_logits is not None else None
     family, confidence = classify_family(score, p_diffusion)
     return {"forgery_score": score, "generation_family": family, "family_confidence": confidence}
+
+
+@torch.no_grad()
+def run_forgery_assessments(images: list[bytes]) -> list[dict]:
+    """``run_forgery_assessment`` for several images in one forward pass (video frames)."""
+    if not images:
+        return []
+    rt = get_runtime()
+    batch = torch.cat([rgb_to_tensor(bytes_to_rgb(b), rt.device) for b in images])
+    forgery_logits, family_logits = rt.forgery_model.forward_all(batch)
+    if rt.temperature is not None:
+        forgery_logits = forgery_logits / rt.temperature
+    scores = torch.sigmoid(forgery_logits).reshape(-1).tolist()
+    diffusion = torch.sigmoid(family_logits).reshape(-1).tolist() if family_logits is not None else [None] * len(scores)
+    out = []
+    for score, p_diffusion in zip(scores, diffusion, strict=True):
+        family, confidence = classify_family(score, p_diffusion)
+        out.append({"forgery_score": score, "generation_family": family, "family_confidence": confidence})
+    return out
 
 
 def run_forgery_check(image_bytes: bytes) -> float:

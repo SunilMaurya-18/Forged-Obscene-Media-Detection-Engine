@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bell, BellOff, CircleCheck, CircleSlash, Eye, EyeOff, FilePlus2, Hourglass, RefreshCw, Search, Timer, TriangleAlert } from 'lucide-react'
 import { fetchCaseStatus } from '../api/client'
@@ -18,10 +18,10 @@ const STAGES = {
 
 const INPUT = 'w-full rounded-xl border border-line bg-white/[0.03] px-3.5 py-2.5 text-sm placeholder:text-subtle focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
 
-function LookupForm({ initialCase, onFound }) {
+function LookupForm({ initialCase, initialPin, onFound }) {
   const { t } = useTranslation()
   const [caseNumber, setCaseNumber] = useState(initialCase || '')
-  const [pin, setPin] = useState('')
+  const [pin, setPin] = useState(initialPin || '')
   const [showPin, setShowPin] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState(null)
@@ -248,6 +248,8 @@ export default function CaseStatus() {
   const { t } = useTranslation()
   const { caseNumber: param } = useParams()
   const navigate = useNavigate()
+  // The demo tour passes the PIN in router state, never in the URL
+  const location = useLocation()
   const [found, setFound] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState(null)
@@ -287,7 +289,7 @@ export default function CaseStatus() {
         {found ? (
           <CaseView view={found.view} onRefresh={refresh} refreshing={refreshing} refreshError={refreshError} onAnother={another} />
         ) : (
-          <LookupForm key={param || ''} initialCase={normalizeCaseNumber(param) || ''} onFound={onFound} />
+          <LookupForm key={param || ''} initialCase={normalizeCaseNumber(param) || ''} initialPin={location.state?.pin} onFound={onFound} />
         )}
       </div>
     </>

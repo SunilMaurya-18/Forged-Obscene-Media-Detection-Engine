@@ -107,7 +107,7 @@ class ProvenanceIntegrationTest {
         String original = uid();
         String reupload = uid();
         when(mlClientService.label(any(), anyString(), any(), anyMap()))
-                .thenReturn(new MlLabelResponse("bGFiZWxsZWQ=", "image/jpeg", null));
+                .thenReturn(new MlLabelResponse("bGFiZWxsZWQ=", "image/jpeg", null, null));
 
         JsonNode first = analyze(inference(original, "sha256:" + uid(), "1111aaaa2222bbbb", null));
         assertThat(first.get("provenanceId").asText()).isEqualTo(original);
@@ -203,7 +203,7 @@ class ProvenanceIntegrationTest {
         analyze(inference(pid, contentHash, "7777aaaa8888bbbb", null));
 
         when(mlClientService.readProvenance(any(), anyString(), any()))
-                .thenReturn(new MlReadResponse("7777aaaa8888bbbb", contentHash, manifest(pid, "VERIFIED")));
+                .thenReturn(new MlReadResponse("7777aaaa8888bbbb", contentHash, manifest(pid, "VERIFIED"), null));
         mockMvc.perform(multipart("/api/verify").file(UPLOAD))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.match").value("MANIFEST"))
@@ -211,7 +211,7 @@ class ProvenanceIntegrationTest {
                 .andExpect(jsonPath("$.record.provenanceId").value(pid));
 
         when(mlClientService.readProvenance(any(), anyString(), any()))
-                .thenReturn(new MlReadResponse("0000000011111111", contentHash, null));
+                .thenReturn(new MlReadResponse("0000000011111111", contentHash, null, null));
         mockMvc.perform(multipart("/api/verify").file(UPLOAD))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.match").value("CONTENT_HASH"))
@@ -219,7 +219,7 @@ class ProvenanceIntegrationTest {
                 .andExpect(jsonPath("$.record.provenanceId").value(pid));
 
         when(mlClientService.readProvenance(any(), anyString(), any()))
-                .thenReturn(new MlReadResponse("fedcba9876543210", "sha256:" + uid(), null));
+                .thenReturn(new MlReadResponse("fedcba9876543210", "sha256:" + uid(), null, null));
         mockMvc.perform(multipart("/api/verify").file(UPLOAD))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.match").value("NONE"))

@@ -23,6 +23,11 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
     @Query("select avg(a.explicitScore) from AnalysisResult a")
     Double averageExplicitScore();
 
+    /** Rows of {@code [modelDecision, decision, count]} for items a moderator has decided. */
+    @Query("select a.modelDecision, a.decision, count(a) from AnalysisResult a "
+            + "where a.reviewedAt is not null and a.modelDecision is not null group by a.modelDecision, a.decision")
+    List<Object[]> countReviewedByModelAndHumanDecision();
+
     /** Open complaints, most urgent (nearest deadline) first. */
     List<AnalysisResult> findByComplaintTypeIsNotNullAndResolvedAtIsNullOrderBySlaDeadlineAsc();
 
@@ -49,4 +54,18 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
     long countByApiClientIdAndDecision(Long apiClientId, Decision decision);
 
     long countByApiClientIdAndCreatedAtAfter(Long apiClientId, Instant after);
+
+    Optional<AnalysisResult> findByNoticeNumber(String noticeNumber);
+
+    boolean existsByNoticeNumber(String noticeNumber);
+
+    /** Proposed AUTO_FLAG overrides waiting for a second moderator, oldest first. */
+    List<AnalysisResult> findByPendingDecisionIsNotNullOrderByPendingProposedAtAsc();
+
+    /** Open senior escalations (any decision, including takedowns), oldest escalation first. */
+    List<AnalysisResult> findBySeniorEscalatedAtIsNotNullAndSeniorResolvedAtIsNullAndPendingDecisionIsNullOrderBySeniorEscalatedAtAsc();
+
+    List<AnalysisResult> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant from, Instant to);
+
+    List<AnalysisResult> findByComplaintReceivedAtGreaterThanEqualAndComplaintReceivedAtLessThan(Instant from, Instant to);
 }

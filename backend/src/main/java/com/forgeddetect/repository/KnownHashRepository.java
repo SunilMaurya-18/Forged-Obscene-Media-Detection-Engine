@@ -11,5 +11,7 @@ public interface KnownHashRepository extends JpaRepository<KnownHash, Long> {
 
     List<KnownHash> findByAlgorithm(String algorithm);
 
+    List<KnownHash> findByAlgorithmAndHashAndSourceAndNote(String algorithm, String hash, KnownHashSource source, String note);
+
     long countBySource(KnownHashSource source);
 }

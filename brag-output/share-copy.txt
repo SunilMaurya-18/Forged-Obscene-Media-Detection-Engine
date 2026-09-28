@@ -1,0 +1,1 @@
+Forged Media Detection scores every image twice (forgery and explicit content), routes it to ALLOW, REVIEW or AUTO_FLAG, runs the legal takedown clock, and signs the evidence with Ed25519, all without storing the image. One command to run it: docker compose up --build -d

@@ -30,7 +30,10 @@
       "status": "Track case",
       "verify": "Verify",
       "dashboard": "Dashboard",
-      "explained": "Explained"
+      "explained": "Explained",
+      "appeal": "Appeal",
+      "transparency": "Transparency",
+      "tour": "Live demo"
     }
   },
   "loading": {
@@ -48,8 +51,8 @@
     "forbidden": "You don't have access to this.",
     "notFound": "We couldn't find that.",
     "conflict": "That already exists.",
-    "tooLarge": "That file is too large. The limit is 25 MB.",
-    "unsupported": "That file type isn't supported. Use a JPG, PNG or WEBP image.",
+    "tooLarge": "That file is too large. The limit is 25 MB for images and 50 MB for videos.",
+    "unsupported": "That file type isn't supported. Use a JPG, PNG or WEBP image, or an MP4, WEBM or MOV video.",
     "unprocessable": "We couldn't process that file. Try a different image.",
     "tooMany": "Too many attempts. Please wait a few minutes and try again.",
     "server": "Something went wrong on our side. Please try again in a moment.",
@@ -65,8 +68,98 @@
       "case_not_found": "We couldn't find a case with that number and PIN. Check both and try again.",
       "too_many_attempts": "Too many wrong PINs for this case. Please wait a few minutes and try again.",
       "only_hash_accepted": "Only the image fingerprint can be sent for this check.",
-      "invalid_hash": "That fingerprint isn't valid. Try choosing the image again."
+      "invalid_hash": "That fingerprint isn't valid. Try choosing the image again.",
+      "already_appealed": "This decision has already been appealed. Check the status below instead.",
+      "not_appealable": "Only an automatic removal can be appealed, and this upload wasn't removed.",
+      "change_pending": "A change to this decision is already being reviewed. Check back soon.",
+      "statement_required": "Tell us why you think the decision is wrong.",
+      "statement_too_long": "Your explanation must be at most 1000 characters.",
+      "invalid_period": "That report period isn't recognised.",
+      "demo_samples_only": "This public demo accepts only its built-in synthetic samples. Choose one under \"Use a sample\", or run the project locally to try your own files.",
+      "demo_reset_cooldown": "The demo was reset moments ago. Try again in a minute or two.",
+      "demo_busy": "The demo story is being prepared. Try again in a few seconds.",
+      "demo_rate_limited": "The public demo is busy right now. Please try again in a moment."
     }
+  },
+  "notice": {
+    "title": "Your notice number",
+    "appealable": "This upload was removed automatically. Keep the notice number and PIN: you can use them to appeal and a different moderator will look at it.",
+    "notAppealable": "Keep the notice number and PIN. If this upload is removed later, you can use them to appeal.",
+    "number": "Notice number",
+    "pin": "PIN",
+    "keep": "<b>The PIN is shown only once.</b> We store only a scrambled version, so we can't recover it for you.",
+    "appeal": "Appeal this decision"
+  },
+  "appeal": {
+    "eyebrow": "Appeal",
+    "title": "Appeal an automatic removal",
+    "description": "If your upload was removed automatically, you can ask for a person to review it. A moderator who didn't make the original decision will decide.",
+    "noticeNumber": "Notice number",
+    "noticeHint": "Looks like UPL-7K3Q-9XPA. You got it with the result.",
+    "pin": "PIN",
+    "pinHint": "6 digits",
+    "lookUp": "Continue",
+    "notFound": "We couldn't find an upload with that notice number and PIN. Check both and try again.",
+    "decision": {
+      "ALLOW": "Allowed",
+      "REVIEW": "Waiting for human review",
+      "AUTO_FLAG": "Removed automatically"
+    },
+    "analyzedAt": "Checked {{time}}",
+    "statement": "Why is the decision wrong?",
+    "statementHint": "Explain in your own words, for example that the image is not edited or not explicit. Don't include personal contact details.",
+    "chars": "{{count}} / {{max}}",
+    "submit": "Send appeal",
+    "notAppealable": "Only an automatic removal can be appealed. This upload is not currently removed.",
+    "changePending": "A moderator has proposed changing this decision. It takes effect once a second moderator confirms it, so there is nothing to appeal right now.",
+    "sor": {
+      "title": "Why it was removed",
+      "grounds": "What we found",
+      "ground": {
+        "MANIPULATED_MEDIA": "Signs that the media was edited or made with AI",
+        "EXPLICIT_CONTENT": "Explicit content",
+        "POLICY_VIOLATION": "A breach of our content policy"
+      },
+      "basis": "Basis",
+      "basisPolicy": "Our platform policy on manipulated and explicit media",
+      "basisLegal": "A legal complaint",
+      "basisLegalRef": "A legal complaint under {{reference}}",
+      "how": "How it was decided",
+      "howAutomatic": "Found and removed by an automated check. No person has reviewed it yet.",
+      "howConfirmed": "Found by an automated check and confirmed by a moderator.",
+      "howModerator": "Removed by a moderator.",
+      "redress": "Your options",
+      "redressOption": {
+        "INTERNAL_APPEAL": "Appeal here. A moderator who didn't make the decision will review it.",
+        "OUT_OF_COURT_SETTLEMENT": "Ask a certified out-of-court dispute settlement body to review it.",
+        "JUDICIAL_REDRESS": "Go to court. Appealing here doesn't affect that right."
+      }
+    },
+    "stages": {
+      "OPEN": {
+        "title": "Appeal received",
+        "body": "A moderator who didn't make the original decision will review it."
+      },
+      "GRANTED_PENDING": {
+        "title": "Appeal accepted",
+        "body": "Your upload will be restored once a second moderator confirms the change."
+      },
+      "GRANTED": {
+        "title": "Upload restored",
+        "body": "Your appeal was accepted and the removal was reversed."
+      },
+      "UPHELD": {
+        "title": "Removal kept",
+        "body": "A moderator reviewed your appeal and kept the original decision."
+      }
+    },
+    "caseNumber": "Appeal number: {{number}}",
+    "dueBy": "Under {{rule}}, a decision is due by {{time}}.",
+    "decidedAt": "Decided {{time}}",
+    "reason": "Reason given",
+    "refresh": "Refresh",
+    "another": "Look up another notice",
+    "privacy": "Your notice number and PIN are sent only to check this appeal. The upload itself was never stored."
   },
   "verdict": {
     "automatedCheck": "Automated check",
@@ -150,6 +243,9 @@
       "regions": {
         "IN": "India",
         "US": "United States",
+        "EU": "European Union",
+        "GB": "United Kingdom",
+        "AU": "Australia",
         "OTHER": "Somewhere else"
       },
       "remaining": "{{count}} characters left"
@@ -404,7 +500,9 @@
       "title": "Ready when you are",
       "body": "No account is needed to check or report an image.",
       "guide": "Read the plain-English guide"
-    }
+    },
+    "ctaTour": "See it live in one click",
+    "tourHint": "Opens a ready-made story: a takedown, an appeal, a signed report and two legal deadlines. All synthetic."
   },
   "legal": {
     "eyebrow": "Legal",
@@ -422,6 +520,214 @@
     "privacy": {
       "title": "Privacy Policy",
       "description": "What we store, what we never store, who can see it, how long we keep it, and your rights."
+    }
+  },
+  "transparency": {
+    "eyebrow": "Transparency",
+    "title": "Transparency report",
+    "description": "How much was checked, what was decided, how fast complaints and appeals were handled, and how often people overturned the model. Aggregates only.",
+    "period": "Report period",
+    "periods": {
+      "last30": "Last 30 days",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "thisQuarter": "This quarter",
+      "thisYear": "This year"
+    },
+    "print": "Print",
+    "loading": "Building the report from live data…",
+    "range": "{{from}} to {{to}} (UTC) · generated {{generated}}",
+    "withheld": "Withheld: fewer than {{min}}",
+    "volumes": {
+      "title": "Volumes",
+      "description": "Everything received in the period.",
+      "uploads": "Uploads checked",
+      "uploadsHint": "{{images}} images · {{videos}} videos",
+      "api": "Via partner API",
+      "complaints": "Complaints received",
+      "complaintsHint": "{{user}} user complaints · {{gov}} government orders",
+      "appeals": "Appeals filed"
+    },
+    "decisions": {
+      "title": "Decisions",
+      "description": "What the automated system decided, and where each upload stands now after human review.",
+      "caption": "Decisions by outcome",
+      "outcome": "Outcome",
+      "automated": "Automated",
+      "current": "Current",
+      "ALLOW": "Allowed",
+      "REVIEW": "Sent to human review",
+      "AUTO_FLAG": "Removed automatically",
+      "footer": "{{reviewed}} reviewed by a person · {{pending}} changes awaiting a second moderator"
+    },
+    "sla": {
+      "title": "Complaint deadlines",
+      "description": "Complaints resolved within the deadline for the complainant's jurisdiction.",
+      "received": "Received",
+      "resolved": "Resolved",
+      "open": "Still open",
+      "within": "Within deadline",
+      "withinHint": "{{within}} of {{resolved}} resolved",
+      "caption": "Complaint deadlines by jurisdiction",
+      "jurisdiction": "Jurisdiction",
+      "rate": "Rate"
+    },
+    "appeals": {
+      "title": "Appeals",
+      "description": "Uploaders contesting an automatic removal. Each appeal is decided by a moderator who didn't make or keep the removal.",
+      "filed": "Filed",
+      "filedHint": "{{open}} still open",
+      "granted": "Granted",
+      "grantedHint": "{{reinstated}} reinstated after second review",
+      "upheld": "Upheld",
+      "grantRate": "Grant rate",
+      "withinSla": "Decided within deadline",
+      "withinSlaHint": "{{count}} appeals",
+      "median": "Median time to decision",
+      "hours": "{{hours}} h"
+    },
+    "oversight": {
+      "title": "Human oversight",
+      "description": "How often a person changed what the model decided, and how often appeals overturned a moderator.",
+      "reviewed": "Reviewed by a person",
+      "overturnRate": "Model decisions overturned",
+      "overturnHint": "{{overturned}} of {{reviewed}} allow/remove decisions a person reviewed",
+      "autoFlagReviewed": "Automatic removals reviewed",
+      "autoFlagOverturned": "Automatic removals overturned",
+      "autoFlagHint": "{{count}} restored",
+      "moderatorOverturned": "Moderator removals overturned on appeal",
+      "moderatorHint": "{{overturned}} of {{appealed}} decided appeals"
+    },
+    "notes": {
+      "title": "Notes",
+      "aggregates": "Aggregates only: no item IDs, hashes, moderator names or complaint references are published.",
+      "counting": "Uploads and decisions are counted by upload time; complaints by receipt time; appeals by filing time (UTC).",
+      "suppression": "Counts from 1 to {{max}}, and rates computed from so few items, are withheld (shown as <{{min}} or n/a) so that no single upload or decision can be picked out.",
+      "pending": "Legal references for {{codes}} are pending legal review."
+    }
+  },
+  "demo": {
+    "eyebrow": "Live demo",
+    "title": "The whole platform in one story",
+    "subtitle": "Five real events just ran through the live system: a takedown, the uploader's appeal, a signed evidence report, a victim's report close to its legal deadline and a government order that missed it. Open any of them.",
+    "synthetic": "Every image in this story was drawn from shapes on the server. No real person appears anywhere in the demo.",
+    "seeding": "Setting the scene: analysing three synthetic images, taking one down, filing an appeal and signing a report…",
+    "failed": "The demo story couldn't be prepared",
+    "seededAt": "Story created {{time}}",
+    "reset": "Reset the demo",
+    "resetting": "Resetting…",
+    "disabled": {
+      "title": "The demo isn't switched on here",
+      "body": "This server runs without demo data (DEMO_ENABLED=false). You can still analyse synthetic media yourself.",
+      "cta": "Analyse media"
+    },
+    "appealStatus": {
+      "OPEN": "Waiting for a decision",
+      "UPHELD": "Takedown upheld",
+      "GRANTED": "Appeal granted"
+    },
+    "steps": {
+      "flagged": {
+        "title": "An edited image was taken down",
+        "body": "Both models scored the upload, then moderator {{moderator}} removed it and recorded why. No media was kept.",
+        "model": "Models suggested",
+        "final": "Final decision",
+        "forgery": "Forgery score",
+        "explicit": "Explicit score",
+        "reason": "Reason given to the uploader",
+        "trail": "See its audit trail",
+        "queue": "Open the moderation queue"
+      },
+      "appeal": {
+        "title": "The uploader appealed",
+        "body": "Everyone whose upload is removed gets a notice number and PIN, and can appeal without an account. Someone other than the original moderator must decide.",
+        "notice": "Notice number",
+        "pin": "PIN",
+        "status": "Status",
+        "due": "Decision due",
+        "open": "Open the uploader's appeal page",
+        "decide": "Decide it as a senior moderator"
+      },
+      "report": {
+        "title": "A signed evidence report was issued",
+        "body": "A PDF for courts and regulators, signed with Ed25519. Anyone holding the report ID can check it still matches the record.",
+        "id": "Report ID",
+        "open": "Open the PDF",
+        "check": "Check the signature",
+        "checking": "Checking…",
+        "key": "key {{key}}",
+        "result": {
+          "VALID": "Signature valid: the report matches the record.",
+          "TAMPERED": "The record changed after this report was signed.",
+          "NOT_FOUND": "No report with this ID exists here."
+        }
+      },
+      "atRisk": {
+        "title": "A victim's report is close to its deadline",
+        "body": "Filed through the public form. The legal clock started when it arrived, and the compliance console warns before it runs out.",
+        "case": "Case number",
+        "clock": "Legal clock",
+        "track": "Track it as the reporter"
+      },
+      "breached": {
+        "title": "A government order missed its deadline",
+        "body": "The clock ran out, so it was escalated automatically and the breach stays on the record.",
+        "reference": "Order reference",
+        "console": "Open the compliance console"
+      }
+    },
+    "sla": {
+      "ON_TRACK": "On track",
+      "AT_RISK": "At risk",
+      "BREACHED": "Deadline missed",
+      "dueIn": "due in {{time}}",
+      "overdue": "{{time}} overdue"
+    },
+    "moderator": {
+      "title": "Continue as a moderator",
+      "body": "Sign in to act on the story: the queue, the appeal (senior moderators), the compliance console and reports.",
+      "publicBody": "Shared demo accounts. Anything you do is wiped at the next reset.",
+      "passwordHint": "Passwords come from your .env (MODERATOR_PASSWORD and MODERATOR_EXTRA_ACCOUNTS).",
+      "signInAs": "Sign in as {{user}}",
+      "signIn": "Go to sign in",
+      "roles": {
+        "MODERATOR": "Moderator",
+        "SENIOR_MODERATOR": "Senior moderator"
+      }
+    },
+    "tryIt": {
+      "title": "Try it yourself",
+      "body": "Analyse one of the bundled synthetic samples, file a report with one, or check a labelled copy.",
+      "cta": "Analyse a sample"
+    },
+    "samples": {
+      "hint": "No file to hand? Use a synthetic sample:",
+      "publicHint": "This public demo accepts only these synthetic samples:",
+      "kinds": {
+        "review": {
+          "label": "Striped pattern",
+          "body": "Synthetic test pattern; usually lands in the review queue."
+        },
+        "known": {
+          "label": "Known-hash pattern",
+          "body": "Its perceptual hash is on the known-content list, so the pre-screen matches it."
+        },
+        "credentials": {
+          "label": "C2PA-signed image",
+          "body": "Carries Content Credentials declaring AI generation."
+        },
+        "video": {
+          "label": "Short clip",
+          "body": "A few seconds of synthetic video, scored frame by frame."
+        }
+      }
+    },
+    "banner": {
+      "label": "Public demo notice",
+      "text": "Public demo: synthetic samples only, and all data is reset regularly.",
+      "next": "Next reset in {{time}}.",
+      "tour": "Take the tour",
+      "reset": "Reset now"
     }
   }
 }

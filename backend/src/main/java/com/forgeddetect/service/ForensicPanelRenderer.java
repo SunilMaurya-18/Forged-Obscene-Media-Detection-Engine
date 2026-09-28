@@ -168,6 +168,66 @@ public class ForensicPanelRenderer {
         return png(img);
     }
 
+    /**
+     * Phase 23 video frame strip: one bar per sampled frame (forgery score, coloured by band), explicit
+     * score as a dark line, dashed review / auto-flag guides, and the peak frame outlined.
+     */
+    public byte[] frameStrip(
+            double[] forgery, double[] explicit, double review, double autoFlag, int peakIndex, int width, int height) {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, width, height);
+            int pad = 6;
+            int plot = height - 2 * pad;
+            int n = Math.max(1, forgery.length);
+            double slot = (double) width / n;
+            int gap = slot > 6 ? 2 : 0;
+
+            g.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1, new float[] {6, 4}, 0));
+            for (double[] guide : new double[][] {{review, 0xF59E0B}, {autoFlag, 0xE11D48}}) {
+                int y = (int) Math.round(height - pad - guide[0] * plot);
+                g.setColor(new Color((int) guide[1]));
+                g.drawLine(0, y, width, y);
+            }
+
+            for (int i = 0; i < forgery.length; i++) {
+                double v = clamp(forgery[i], 0, 1);
+                int x = (int) Math.round(i * slot) + gap / 2;
+                int w = Math.max(1, (int) Math.round(slot) - gap);
+                int h = Math.max(1, (int) Math.round(v * plot));
+                g.setColor(v >= autoFlag ? new Color(0xE11D48) : v >= review ? new Color(0xF59E0B) : new Color(0x10B981));
+                g.fillRect(x, height - pad - h, w, h);
+                if (i == peakIndex) {
+                    g.setColor(new Color(0x111827));
+                    g.setStroke(new BasicStroke(2f));
+                    g.drawRect(x, pad, w, plot);
+                }
+            }
+
+            if (explicit != null && explicit.length > 1) {
+                Path2D.Double line = new Path2D.Double();
+                for (int i = 0; i < explicit.length; i++) {
+                    double x = i * slot + slot / 2;
+                    double y = height - pad - clamp(explicit[i], 0, 1) * plot;
+                    if (i == 0) {
+                        line.moveTo(x, y);
+                    } else {
+                        line.lineTo(x, y);
+                    }
+                }
+                g.setColor(new Color(0x4F46E5));
+                g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.draw(line);
+            }
+        } finally {
+            g.dispose();
+        }
+        return png(img);
+    }
+
     private static double clamp(double v, double lo, double hi) {
         return Math.max(lo, Math.min(hi, v));
     }

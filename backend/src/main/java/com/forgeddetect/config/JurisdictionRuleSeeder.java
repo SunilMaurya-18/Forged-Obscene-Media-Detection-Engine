@@ -59,6 +59,10 @@ public class JurisdictionRuleSeeder implements ApplicationRunner {
         added += seed(JurisdictionRule.GENERIC, ComplaintType.GOVERNMENT_ORDER, properties.getGenericGovernmentOrderHours(),
                 "Platform policy (generic)",
                 "Configurable fallback for jurisdictions without a specific statutory deadline");
+        added += seed(JurisdictionRule.GENERIC, ComplaintType.APPEAL, properties.getGenericAppealHours(),
+                "Platform policy (generic)",
+                "Configurable deadline for deciding an uploader's appeal against a takedown (internal complaint handling)");
+        added += seedPhase23Jurisdictions();
         if (added > 0) {
             log.info("Seeded {} jurisdiction rule(s)", added);
         }
@@ -83,6 +87,59 @@ public class JurisdictionRuleSeeder implements ApplicationRunner {
             results.saveAll(legacy);
             log.info("Labelled {} complaint(s) filed before jurisdiction rules existed", legacy.size());
         }
+    }
+
+    /**
+     * Phase 23: EU, UK and Australia. None of these laws sets a fixed hour limit for every notice, so
+     * the hours are platform targets and every label says "pending legal review" until counsel signs off.
+     */
+    private int seedPhase23Jurisdictions() {
+        int added = 0;
+        added += seed("EU", ComplaintType.USER_COMPLAINT, 24, "EU DSA (pending legal review)",
+                "Regulation (EU) 2022/2065 (Digital Services Act) Art. 16: act on notices in a timely, diligent, "
+                        + "non-arbitrary manner. No fixed statutory hours; 24h is a platform target.");
+        added += seed("EU", ComplaintType.GOVERNMENT_ORDER, 24, "EU DSA (pending legal review)",
+                "Digital Services Act Art. 9: order from a national judicial or administrative authority to act "
+                        + "against illegal content; report the effect given without undue delay. 24h platform target.");
+        added += seed("GB", ComplaintType.USER_COMPLAINT, 24, "UK Online Safety Act (pending legal review)",
+                "Online Safety Act 2023: swiftly take down illegal content, including intimate image abuse, once "
+                        + "alerted to it. No fixed statutory hours; 24h is a platform target.");
+        added += seed("GB", ComplaintType.GOVERNMENT_ORDER, 24, "UK Online Safety Act (pending legal review)",
+                "Online Safety Act 2023: requirements from Ofcom as the online safety regulator. No fixed "
+                        + "statutory hours for takedown; 24h is a platform target.");
+        added += seed("AU", ComplaintType.USER_COMPLAINT, 24, "Australia eSafety (pending legal review)",
+                "Online Safety Act 2021 (Cth) image-based abuse scheme: reports can be escalated to the eSafety "
+                        + "Commissioner. 24h platform target.");
+        added += seed("AU", ComplaintType.GOVERNMENT_ORDER, 24, "Australia eSafety (pending legal review)",
+                "Online Safety Act 2021 (Cth): removal notice from the eSafety Commissioner for intimate images, "
+                        + "to be complied with within 24 hours.");
+        added += seedAppealRules();
+        return added;
+    }
+
+    /**
+     * Appeal (internal complaint) windows per jurisdiction. Most of these laws require complaints to be
+     * handled promptly or "without undue delay" rather than in fixed hours, so the hours are platform
+     * targets and every label says "pending legal review".
+     */
+    private int seedAppealRules() {
+        int added = 0;
+        added += seed("EU", ComplaintType.APPEAL, 72, "EU DSA Art. 20 (pending legal review)",
+                "Digital Services Act Art. 20: internal complaint-handling decided in a timely, non-discriminatory, "
+                        + "diligent and non-arbitrary manner, not solely by automated means. 72h platform target.");
+        added += seed("GB", ComplaintType.APPEAL, 72, "UK Online Safety Act (pending legal review)",
+                "Online Safety Act 2023: complaints procedures, including appeals by users whose content was taken "
+                        + "down, must provide for appropriate action. 72h platform target.");
+        added += seed("AU", ComplaintType.APPEAL, 72, "Australia eSafety (pending legal review)",
+                "Online Safety Act 2021 (Cth) and Basic Online Safety Expectations: complaints mechanism for removal "
+                        + "decisions. 72h platform target.");
+        added += seed("IN", ComplaintType.APPEAL, 72, "India IT Rules 2026 (pending legal review)",
+                "IT Rules 2021 as amended, Rule 3(2): grievance officer acknowledges within 24h and disposes of "
+                        + "complaints within 15 days; 72h platform target for takedown appeals.");
+        added += seed("US", ComplaintType.APPEAL, 72, "US platform policy (pending legal review)",
+                "No federal statutory deadline for uploader appeals; the TAKE IT DOWN Act covers removal only. "
+                        + "72h platform target.");
+        return added;
     }
 
     private int seed(String jurisdiction, ComplaintType type, int hours, String label, String reference) {

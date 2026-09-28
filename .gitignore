@@ -31,6 +31,18 @@ infer_out.json
 analyze_out.json
 queue_out.json
 
+# Playwright / k6 output (Phase 24)
+e2e/test-results/
+e2e/playwright-report/
+load/results/
+
+# Launch video build cache (Phase 25): brag.mp4 and brag.jpg are the published outputs
+brag-output/composition/renders/
+brag-output/composition/snapshots/
+brag-output/composition/.hyperframes/
+brag-output/composition/.thumbnails/
+brag-output/composition/.waveform-cache/
+
 # IDE / OS
 .idea/
 .vscode/

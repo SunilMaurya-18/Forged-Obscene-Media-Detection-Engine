@@ -1,0 +1,25 @@
+# Hosted public demo (docker-compose.demo.yml). Caddy obtains and renews certificates for both hosts.
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Robots-Tag "noindex"
+		-Server
+	}
+	request_body {
+		max_size 60MB
+	}
+}
+
+{$DEMO_DOMAIN} {
+	import common
+	reverse_proxy frontend:8080
+}
+
+feed.{$DEMO_DOMAIN} {
+	import common
+	reverse_proxy mock-social-feed:8080
+}

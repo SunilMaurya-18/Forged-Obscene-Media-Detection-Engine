@@ -44,8 +44,11 @@ _FIELDS = {
 }
 
 
+DEFAULT_SIGNING_KEY = "dev-only-provenance-signing-key"
+
+
 def _signing_key() -> bytes:
-    return os.getenv("PROVENANCE_SIGNING_KEY", "dev-only-provenance-signing-key").encode()
+    return os.getenv("PROVENANCE_SIGNING_KEY", DEFAULT_SIGNING_KEY).encode()
 
 
 def _issuer() -> str:

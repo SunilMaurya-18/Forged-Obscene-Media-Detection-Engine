@@ -1,0 +1,7 @@
+# Shell scripts run inside Linux containers; CRLF breaks them
+*.sh text eol=lf
+
+# Launch video and sample media are binary; never diff or normalise them
+*.mp4 binary
+*.jpg binary
+*.png binary

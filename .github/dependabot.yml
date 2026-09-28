@@ -1,0 +1,40 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      spring:
+        patterns: ["org.springframework*", "io.micrometer*"]
+
+  - package-ecosystem: pip
+    directory: /ml-service
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      # The c2pa API changes between minors; bump deliberately with test_content_credentials.py
+      - dependency-name: c2pa-python
+        update-types: ["version-update:semver-minor"]
+
+  - package-ecosystem: pip
+    directory: /ml
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule: { interval: monthly }
+
+  - package-ecosystem: docker
+    directories: ["/backend", "/frontend", "/ml-service", "/mock-social-feed"]
+    schedule: { interval: weekly }
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

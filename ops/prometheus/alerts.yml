@@ -1,0 +1,51 @@
+groups:
+  - name: forged-media-detection
+    rules:
+      - alert: TakedownSlaBreached
+        expr: increase(fmd_sla_breaches_total[15m]) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: "A takedown deadline passed while the complaint was open ({{ $labels.jurisdiction }} {{ $labels.type }})"
+
+      - alert: ComplaintsAtRisk
+        expr: max(fmd_sla_open{status="AT_RISK"}) > 0
+        for: 5m
+        labels:
+          severity: warn
+        annotations:
+          summary: "{{ $value }} complaint(s) are close to their legal deadline"
+
+      - alert: MlServiceErrors
+        # http_4xx is a bad upload (the caller gets a 400), not an ML outage
+        expr: sum(rate(fmd_ml_client_errors_total{reason!="http_4xx"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Backend calls to the ML service are failing ({{ $value | humanize }}/s)"
+
+      - alert: AnalyzeLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{uri="/api/analyze"}[5m]))) > 5
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "p95 /api/analyze latency is {{ $value | humanizeDuration }}; see load/README.md for the saturation point"
+
+      - alert: ReviewQueueBacklog
+        expr: max(fmd_review_queue) > 200
+        for: 30m
+        labels:
+          severity: warn
+        annotations:
+          summary: "{{ $value }} items waiting for a moderator"
+
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.job }} {{ $labels.instance }} is not answering scrapes"

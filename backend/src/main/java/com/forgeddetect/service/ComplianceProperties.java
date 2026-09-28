@@ -26,6 +26,17 @@ public class ComplianceProperties {
 
     private int genericGovernmentOrderHours = 24;
 
+    /** Hours for the seeded GENERIC appeal rule (Phase 23). */
+    private int genericAppealHours = 72;
+
+    public int getGenericAppealHours() {
+        return genericAppealHours;
+    }
+
+    public void setGenericAppealHours(int genericAppealHours) {
+        this.genericAppealHours = genericAppealHours;
+    }
+
     public String getDefaultJurisdiction() {
         return defaultJurisdiction;
     }
@@ -70,6 +81,7 @@ public class ComplianceProperties {
         return switch (type) {
             case USER_COMPLAINT -> sla.userComplaint;
             case GOVERNMENT_ORDER -> sla.governmentOrder;
+            case APPEAL -> sla.appeal;
         };
     }
 
@@ -77,6 +89,17 @@ public class ComplianceProperties {
 
         private Duration userComplaint = Duration.ofHours(2);
         private Duration governmentOrder = Duration.ofHours(3);
+
+        /** Last-resort appeal window if no (jurisdiction, APPEAL) or GENERIC rule exists. */
+        private Duration appeal = Duration.ofHours(72);
+
+        public Duration getAppeal() {
+            return appeal;
+        }
+
+        public void setAppeal(Duration appeal) {
+            this.appeal = appeal;
+        }
 
         /** Remaining time at or below which an open item becomes AT_RISK. */
         private Duration atRiskThreshold = Duration.ofMinutes(30);

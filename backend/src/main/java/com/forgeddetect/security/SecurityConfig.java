@@ -1,6 +1,8 @@
 package com.forgeddetect.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.forgeddetect.observability.FmdMetrics;
+import com.forgeddetect.repository.ModeratorAccountRepository;
 import com.forgeddetect.service.ApiKeyService;
 import jakarta.servlet.DispatcherType;
 import java.util.List;
@@ -17,11 +19,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -44,7 +44,8 @@ public class SecurityConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain apiV1FilterChain(
-            HttpSecurity http, ApiKeyService keys, RateLimiter rateLimiter, ObjectMapper mapper) throws Exception {
+            HttpSecurity http, ApiKeyService keys, RateLimiter rateLimiter, ObjectMapper mapper, FmdMetrics metrics)
+            throws Exception {
         http
                 .securityMatcher("/api/v1/**")
                 .csrf(AbstractHttpConfigurer::disable)
@@ -54,7 +55,7 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .anonymous(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
-                .addFilterBefore(new ApiKeyAuthFilter(keys, rateLimiter, mapper), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new ApiKeyAuthFilter(keys, rateLimiter, mapper, metrics), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((req, res, e) -> {
                     res.setStatus(HttpStatus.UNAUTHORIZED.value());
                     res.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -78,6 +79,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // Aggregate counters and latencies only. Compose serves actuator on an unpublished
+                        // management port (MANAGEMENT_SERVER_PORT) so only Prometheus on the internal network reaches it.
+                        .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/analyze").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/stats").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/verify/**").permitAll()
@@ -89,7 +93,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/compliance/complaints").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/complaints").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/complaints/*/status").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/appeals").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/appeals/*/status").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/transparency").permitAll()
+                        // Phase 25: 404 unless demo.enabled; privileged demo actions check roles in DemoController
+                        .requestMatchers("/api/demo", "/api/demo/**").permitAll()
+                        .requestMatchers("/api/appeals/**", "/api/moderation/**").hasRole("MODERATOR")
                         .requestMatchers("/api/compliance/**").hasRole("MODERATOR")
+                        .requestMatchers("/api/admin/signing-keys/**").hasRole("SENIOR_MODERATOR")
                         .requestMatchers("/api/admin/**").hasRole("MODERATOR")
                         .anyRequest().authenticated()
                 );
@@ -119,15 +130,9 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Seeds one in-memory moderator for local/demo use only. */
+    /** Moderators and their roles come from {@code moderator_accounts}, seeded by {@code ModeratorAccountSeeder}. */
     @Bean
-    public UserDetailsService userDetailsService(
-            DevModeratorProperties props, PasswordEncoder passwordEncoder) {
-        return new InMemoryUserDetailsManager(
-                User.builder()
-                        .username(props.getModeratorUsername())
-                        .password(passwordEncoder.encode(props.getModeratorPassword()))
-                        .roles("MODERATOR")
-                        .build());
+    public UserDetailsService userDetailsService(ModeratorAccountRepository accounts) {
+        return new ModeratorUserDetailsService(accounts);
     }
 }

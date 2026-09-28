@@ -41,7 +41,9 @@
   "artifacts": {
     "roc_curve": "ml/results/roc_curve.png",
     "confusion_matrix": "ml/results/confusion_matrix.png",
-    "diffusion_robustness": "ml/results/diffusion_robustness.png"
+    "diffusion_robustness": "ml/results/diffusion_robustness.png",
+    "reliability_diagram": "ml/results/reliability_diagram.png",
+    "robustness_chart": "ml/results/robustness_chart.png"
   },
   "latency": {
     "n": 5,
@@ -192,5 +194,265 @@
       "n": 15
     }
   },
-  "phase17_notes": "Diffusion-era detection is an active research area, not a solved problem. These numbers come from a synthetic diffusion-inpainting stand-in over synthetic crops, so they show the retraining mechanism, not real-world coverage. Re-run with --source import on diffusion fakes generated from licensed FF++ originals for report-quality figures."
+  "phase17_notes": "Diffusion-era detection is an active research area, not a solved problem. These numbers come from a synthetic diffusion-inpainting stand-in over synthetic crops, so they show the retraining mechanism, not real-world coverage. Re-run with --source import on diffusion fakes generated from licensed FF++ originals for report-quality figures.",
+  "calibration": {
+    "method": "temperature scaling (NLL on validation split)",
+    "temperature": 1.0,
+    "fitted_temperature": null,
+    "degenerate": true,
+    "degenerate_reason": "Fit set is perfectly separable (or the optimum hits a bound), so no finite temperature minimises NLL. Calibration needs a validation set with overlapping scores, e.g. licensed FF++/DFDC/Celeb-DF crops.",
+    "n_fit": 12,
+    "n_eval": 24,
+    "n_bins": 10,
+    "ece_before": 0.0022,
+    "ece_after": 0.0022,
+    "brier_before": 0.0,
+    "brier_after": 0.0,
+    "reliability_before": [
+      {
+        "lo": 0.0,
+        "hi": 0.1,
+        "n": 12,
+        "mean_prob": 8.20121108842562e-06,
+        "frac_fake": 0.0
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.30000000000000004,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.30000000000000004,
+        "hi": 0.4,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6000000000000001,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.6000000000000001,
+        "hi": 0.7000000000000001,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.7000000000000001,
+        "hi": 0.8,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1.0,
+        "n": 12,
+        "mean_prob": 0.995532033475098,
+        "frac_fake": 1.0
+      }
+    ],
+    "reliability_after": [
+      {
+        "lo": 0.0,
+        "hi": 0.1,
+        "n": 12,
+        "mean_prob": 8.20121108842562e-06,
+        "frac_fake": 0.0
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.30000000000000004,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.30000000000000004,
+        "hi": 0.4,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6000000000000001,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.6000000000000001,
+        "hi": 0.7000000000000001,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.7000000000000001,
+        "hi": 0.8,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 0,
+        "mean_prob": null,
+        "frac_fake": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1.0,
+        "n": 12,
+        "mean_prob": 0.995532033475098,
+        "frac_fake": 1.0
+      }
+    ],
+    "fit_split": "val.csv",
+    "promoted": false,
+    "data": "synthetic",
+    "notes": "Synthetic smoke splits and the demo checkpoint: these blocks show the evaluation tooling works end to end, not real-world calibration or robustness. Re-run with --crops/--splits on licensed FF++/DFDC/Celeb-DF crops for report-quality figures."
+  },
+  "robustness": {
+    "threshold": 0.5,
+    "n": 36,
+    "baseline": {
+      "auc": 1.0,
+      "accuracy": 1.0
+    },
+    "transforms": {
+      "jpeg_q90": {
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.0016289383419803016,
+        "flip_rate": 0.0,
+        "mean_shift_real": 7.771059839948673e-05,
+        "mean_shift_fake": -0.001316156652238634
+      },
+      "jpeg_q70": {
+        "auc": 0.11111111111111116,
+        "accuracy": 0.5555555555555556,
+        "auc_drop": 0.8888888888888888,
+        "mean_abs_shift": 0.44686593162825416,
+        "flip_rate": 0.4444444444444444,
+        "mean_shift_real": 0.8888815047212404,
+        "mean_shift_fake": -0.0027743279933929443
+      },
+      "jpeg_q50": {
+        "auc": 0.0,
+        "accuracy": 0.5,
+        "auc_drop": 1.0,
+        "mean_abs_shift": 0.5118122816781718,
+        "flip_rate": 0.5,
+        "mean_shift_real": 0.9999926032027638,
+        "mean_shift_fake": -0.023631960153579712
+      },
+      "rescale_0.5": {
+        "auc": 0.0,
+        "accuracy": 0.5,
+        "auc_drop": 1.0,
+        "mean_abs_shift": 0.601760710679874,
+        "flip_rate": 0.5,
+        "mean_shift_real": 0.9999926032027638,
+        "mean_shift_fake": -0.20352881815698412
+      },
+      "center_crop_0.8": {
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.08060224161509193,
+        "flip_rate": 0.0,
+        "mean_shift_real": 0.04948700413366522,
+        "mean_shift_fake": -0.11171747909651862
+      },
+      "blur_r1.5": {
+        "auc": 0.0,
+        "accuracy": 0.5,
+        "auc_drop": 1.0,
+        "mean_abs_shift": 0.6139139255583801,
+        "flip_rate": 0.5,
+        "mean_shift_real": 0.9999926032027638,
+        "mean_shift_fake": -0.22783524791399637
+      },
+      "screenshot": {
+        "auc": 1.0,
+        "accuracy": 0.8611111111111112,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.27633122891523954,
+        "flip_rate": 0.1388888888888889,
+        "mean_shift_real": 0.49322910024732713,
+        "mean_shift_fake": -0.05943335758315192
+      },
+      "social_transcode": {
+        "auc": 0.0,
+        "accuracy": 0.5,
+        "auc_drop": 1.0,
+        "mean_abs_shift": 0.5947084844808299,
+        "flip_rate": 0.5,
+        "mean_shift_real": 0.9999926032027638,
+        "mean_shift_fake": -0.18942436575889587
+      }
+    },
+    "worst_transform": "jpeg_q50",
+    "data": "synthetic",
+    "notes": "Synthetic smoke splits and the demo checkpoint: these blocks show the evaluation tooling works end to end, not real-world calibration or robustness. Re-run with --crops/--splits on licensed FF++/DFDC/Celeb-DF crops for report-quality figures."
+  },
+  "fairness": {
+    "threshold": 0.5,
+    "min_group_size": 30,
+    "attributes_requested": [
+      "skin_tone",
+      "age_band",
+      "gender_presentation"
+    ],
+    "status": "not_run",
+    "reason": "The evaluation split has no demographic annotations (columns: skin_tone, age_band, gender_presentation). Add them to the split CSVs from an annotated research set; no groups are inferred.",
+    "data": "synthetic",
+    "notes": "Synthetic smoke splits and the demo checkpoint: these blocks show the evaluation tooling works end to end, not real-world calibration or robustness. Re-run with --crops/--splits on licensed FF++/DFDC/Celeb-DF crops for report-quality figures."
+  }
 }

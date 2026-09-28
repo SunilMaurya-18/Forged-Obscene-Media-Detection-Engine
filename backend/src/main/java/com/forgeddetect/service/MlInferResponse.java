@@ -39,6 +39,77 @@ public class MlInferResponse {
     @JsonProperty("family_confidence")
     private Double familyConfidence;
 
+    /** "image" or "video" (Phase 23). */
+    @JsonProperty("media_type")
+    private String mediaType;
+
+    /** Video only: [{index, t, forgery_score, explicit_score}, ...]. */
+    private JsonNode timeline;
+
+    /** Video only: {forgery: {max, topk_mean, k}, explicit: {...}, k}. */
+    private JsonNode aggregate;
+
+    /** Video only: sampling details (sampled, fps, truncated, duration_seconds, codec, ...). */
+    private JsonNode frames;
+
+    /** Video only: {index, t} of the highest-forgery frame. */
+    private JsonNode peak;
+
+    /** C2PA Content Credentials summary, or null if the upload had none. */
+    private JsonNode c2pa;
+
+    public boolean isVideo() {
+        return "video".equalsIgnoreCase(mediaType);
+    }
+
+    public String getMediaType() {
+        return mediaType;
+    }
+
+    public void setMediaType(String mediaType) {
+        this.mediaType = mediaType;
+    }
+
+    public JsonNode getTimeline() {
+        return timeline;
+    }
+
+    public void setTimeline(JsonNode timeline) {
+        this.timeline = timeline;
+    }
+
+    public JsonNode getAggregate() {
+        return aggregate;
+    }
+
+    public void setAggregate(JsonNode aggregate) {
+        this.aggregate = aggregate;
+    }
+
+    public JsonNode getFrames() {
+        return frames;
+    }
+
+    public void setFrames(JsonNode frames) {
+        this.frames = frames;
+    }
+
+    public JsonNode getPeak() {
+        return peak;
+    }
+
+    public void setPeak(JsonNode peak) {
+        this.peak = peak;
+    }
+
+    public JsonNode getC2pa() {
+        return c2pa;
+    }
+
+    public void setC2pa(JsonNode c2pa) {
+        this.c2pa = c2pa;
+    }
+
     public String getGenerationFamily() {
         return generationFamily;
     }

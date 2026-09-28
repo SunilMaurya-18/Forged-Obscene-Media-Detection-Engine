@@ -4,6 +4,8 @@ import com.forgeddetect.model.AnalysisResult;
 import com.forgeddetect.security.ApiClientPrincipal;
 import com.forgeddetect.service.AnalysisService;
 import com.forgeddetect.service.ApiKeyService;
+import com.forgeddetect.service.MediaTooLargeException;
+import com.forgeddetect.service.MlRejectedException;
 import com.forgeddetect.service.ProvenanceService;
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,7 +44,7 @@ public class ApiV1Controller {
     }
 
     /**
-     * Scores one image and returns the routing decision. Base64 payloads are opt-in via
+     * Scores one image or video and returns the routing decision. Base64 payloads are opt-in via
      * {@code include=heatmap,labelled} to keep the default response small.
      */
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -66,10 +68,15 @@ public class ApiV1Controller {
         try {
             outcome = analysisService.analyze(
                     file.getBytes(), file.getOriginalFilename(), file.getContentType(), client.id());
+        } catch (MediaTooLargeException ex) {
+            return error(HttpStatus.PAYLOAD_TOO_LARGE, "too_large", "Images must be at most 25 MB and videos at most 50 MB.");
+        } catch (MlRejectedException ex) {
+            return error(HttpStatus.UNPROCESSABLE_ENTITY, "unreadable_media",
+                    "The file is not a readable JPEG/PNG/WebP image or MP4/WebM/MOV video. Retrying the same file won't help.");
         } catch (IllegalArgumentException | IllegalStateException ex) {
             log.warn("v1 analyze failed for client {}: {}", client.id(), ex.getMessage());
             return error(HttpStatus.BAD_GATEWAY, "analysis_unavailable",
-                    "The image could not be analysed. Check it is a valid JPEG/PNG/WebP and retry.");
+                    "The media could not be analysed. Check it is a valid JPEG/PNG/WebP image or MP4/WebM/MOV video and retry.");
         }
         AnalysisResult result = outcome.result();
 
@@ -85,6 +92,8 @@ public class ApiV1Controller {
         body.put("verifyUrl", result.getProvenanceId() != null ? "/api/verify/" + result.getProvenanceId() : null);
         body.put("reuploadOf", reuploadView(outcome.embeddedSource()));
         body.put("createdAt", result.getCreatedAt().toString());
+        MediaViews.put(body, result);
+        AnalyzeController.putNotice(body, outcome);
         if (extras.contains("heatmap")) {
             body.put("heatmap", outcome.heatmap() != null ? outcome.heatmap() : "");
         }
@@ -92,6 +101,7 @@ public class ApiV1Controller {
             ProvenanceService.LabelledImage labelled = outcome.labelled();
             body.put("labelledImage", labelled != null ? labelled.base64() : null);
             body.put("labelledMimeType", labelled != null ? labelled.mimeType() : null);
+            body.put("labelledContentCredentials", labelled != null ? labelled.c2pa() : null);
         }
         return ResponseEntity.ok(body);
     }

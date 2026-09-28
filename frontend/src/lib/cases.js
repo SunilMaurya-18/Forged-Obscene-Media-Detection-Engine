@@ -7,6 +7,9 @@ export const DETAILS_MAX = 1000
 export const REGIONS = [
   { code: 'IN', key: 'IN' },
   { code: 'US', key: 'US' },
+  { code: 'EU', key: 'EU' },
+  { code: 'GB', key: 'GB' },
+  { code: 'AU', key: 'AU' },
   { code: 'GENERIC', key: 'OTHER' },
 ]
 

@@ -7,6 +7,12 @@ pillow>=10.0.0
 numpy>=1.26.0,<3
 opencv-python-headless>=4.8.0
 imagehash>=4.3.0
+# Phase 23: in-memory video decoding and C2PA Content Credentials (the c2pa API changes between minors)
+av>=14.0.0
+c2pa-python>=0.37,<0.38
+cryptography>=43.0.0
+# Phase 24: /metrics
+prometheus-client>=0.20.0
 
 # Install torch/torchvision separately (see Dockerfile):
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu

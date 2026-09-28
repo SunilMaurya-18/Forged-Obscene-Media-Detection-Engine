@@ -1,5 +1,6 @@
 package com.forgeddetect.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.forgeddetect.model.AnalysisResult;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.Decision;
@@ -45,7 +46,8 @@ public class ProvenanceService {
     /** An earlier analysis an upload was traced to. {@code source} is null if a manifest's ID is unknown here. */
     public record SourceMatch(MatchVia via, AnalysisResult source, MlProvenanceCheck manifest) {}
 
-    public record LabelledImage(String base64, String mimeType) {}
+    /** {@code c2pa}: summary of the C2PA manifest written next to the XMP label, or null if none was written. */
+    public record LabelledImage(String base64, String mimeType, JsonNode c2pa) {}
 
     static final String SYSTEM = "system";
     static final String MODERATOR = "moderator";
@@ -113,7 +115,8 @@ public class ProvenanceService {
             if (labelled == null || labelled.image() == null) {
                 return null;
             }
-            return new LabelledImage(labelled.image(), labelled.mimeType());
+            return new LabelledImage(labelled.image(), labelled.mimeType(),
+                    labelled.c2pa() == null || labelled.c2pa().isNull() ? null : labelled.c2pa());
         } catch (Exception ex) {
             log.warn("Could not label analysis #{} ({}): {}", item.getId(), item.getProvenanceId(), ex.getMessage());
             return null;
@@ -207,6 +210,7 @@ public class ProvenanceService {
         body.put("record", match != null && match.source() != null ? trailView(match.source()) : null);
         body.put("contentHash", read.contentHash());
         body.put("phash", read.phash());
+        body.put("contentCredentials", read.c2pa() != null && !read.c2pa().isNull() ? read.c2pa() : null);
         return body;
     }
 

@@ -49,10 +49,21 @@ public class ComplianceService {
     @Transactional
     public AnalysisService.AnalyzeOutcome fileComplaint(
             byte[] imageBytes, String filename, String contentType, ComplaintType type, String reference, String jurisdiction) {
+        return fileComplaint(imageBytes, filename, contentType, type, reference, jurisdiction, null);
+    }
+
+    /**
+     * @param receivedAt when the complaint reached the platform, if earlier than now (imported or demo
+     *     complaints); null starts the clock now
+     */
+    @Transactional
+    public AnalysisService.AnalyzeOutcome fileComplaint(
+            byte[] imageBytes, String filename, String contentType, ComplaintType type, String reference, String jurisdiction,
+            Instant receivedAt) {
         String j = slaClock.normalizeJurisdiction(jurisdiction);
         AnalysisService.AnalyzeOutcome outcome = analysisService.analyze(imageBytes, filename, contentType);
         outcome.result().setJurisdiction(j);
-        AnalysisResult saved = openComplaint(outcome.result(), type, reference, clock.instant());
+        AnalysisResult saved = openComplaint(outcome.result(), type, reference, receivedAt != null ? receivedAt : clock.instant());
         return outcome.withResult(saved);
     }
 

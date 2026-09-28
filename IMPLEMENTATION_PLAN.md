@@ -525,3 +525,168 @@ The people most likely to use a reporting flow are distressed, non-technical, an
 - [x] Keyboard approve / reject / skip work, and a decision can be undone within 10 s
 - [x] The Hindi toggle updates all end-user screens
 - [x] Every verdict / status indicator is distinguishable without colour
+
+---
+
+# CREDIBLE TRUST-AND-SAFETY EXTENSION (Phases 22–25)
+
+> Extends `IMPLEMENTATION_PLAN.md`. Same locked tech stack, phase-gate rules and data rules apply: public research benchmarks and synthetic data only, no real non-consensual or explicit imagery, and no raw media persisted. These phases move the project from "impressive prototype" to "credible trust-and-safety system": the model's claims become measurable, the product covers the hard parts of real moderation, the engineering is verifiable on every commit, and the demo tells the story without hand-holding.
+
+---
+
+# PHASE 22 — Model Credibility & Evaluation Rigor
+
+> Depends on Phase 11 (evaluation) and Phase 17 (diffusion-era robustness).
+
+## Why this phase exists
+
+Every headline metric today carries the caveat "synthetic smoke splits". A reviewer's first questions are: does a score of 0.67 actually mean anything, does the model survive a re-upload through a social app, does it fail some groups more than others, and how often do human moderators disagree with it? This phase makes each of those answerable with numbers, and is explicit about which numbers still need licensed data.
+
+## Tasks
+
+- [ ] **Real-data evaluation** — retrain and evaluate on licensed FaceForensics++ / DFDC / Celeb-DF crops plus real diffusion fakes; publish per-dataset results and the cross-dataset gap. *Blocked on dataset access (request forms in `ml/data/download_instructions.md`); every tool below accepts `--crops/--splits` so it re-runs unchanged on real data.*
+- [x] `ml/calibration.py` — temperature scaling fitted on the validation split (NLL minimisation), expected calibration error (ECE) and Brier score before/after, reliability diagram PNG. Detects a perfectly separable fit set and reports the calibration as degenerate instead of publishing a meaningless temperature
+- [x] Runtime calibration in `ml-service` — if `ml/models/calibration.json` exists (written only by `calibration.py --promote`), serve `sigmoid(logit / T)`; `/health` reports whether calibration is active and the temperature
+- [x] `ml/robustness.py` — score stability under real-world transforms: JPEG re-encode (q 90/70/50), downscale-upscale, centre crop, Gaussian blur, "screenshot" (resize + gamma + JPEG), and "social transcode" (downscale + JPEG 75). Reports AUC, accuracy, mean score shift and decision flip rate per transform
+- [x] `ml/fairness.py` — per-group FPR / FNR / AUC from any labels CSV with annotation columns (e.g. `skin_tone`, `age_band`, `gender_presentation`), with bootstrap confidence intervals, a minimum group size below which results are reported as "insufficient data", and the max disparity across groups. On splits without annotations it records `not_run` with the reason — never placeholder groups
+- [x] `ml/phase22.py` — one command that runs calibration, robustness and fairness on the synthetic workspace (or `--crops/--splits`), merges `calibration` / `robustness` / `fairness` blocks into `ml/results/metrics.json`, and draws `reliability_diagram.png` and `robustness_chart.png`
+- [x] **Moderator-agreement metric** — store the model's original routing (`modelDecision`) and `reviewedAt` on `AnalysisResult`; `/api/stats` gains a `moderation` block: REVIEW items confirmed vs cleared by a human, AUTO_FLAG overturn rate, and a precision proxy. This is the live, real-data signal that synthetic benchmarks can't give
+- [x] `docs/MODEL_CARD.md` — intended use, out-of-scope uses, training data, evaluation data, metrics with caveats, calibration, robustness, fairness status, known failure modes, ethical considerations
+- [x] Dashboard: calibration, robustness and moderator-agreement cards; README links the model card
+- [ ] **Compression-robust retraining** (follow-up from the robustness finding: the demo checkpoint flips genuine images to "fake" under JPEG q≤70, blur, rescale and social transcode) — add JPEG / blur / rescale / transcode augmentation to `ml/train.py`, and gate checkpoint promotion on `robustness.py` flip rate ≤ 0.05 for `social_transcode`
+
+## Files touched
+
+- `ml/calibration.py`, `ml/robustness.py`, `ml/fairness.py`, `ml/phase22.py`, `ml/tests/test_phase22.py`
+- `ml-service/inference.py`, `ml-service/main.py`, `ml-service/test_calibration.py`, `ml-service/Dockerfile`, `.dockerignore`
+- `backend/.../model/AnalysisResult.java`, `backend/.../repository/AnalysisResultRepository.java`, `backend/.../service/AnalysisService.java`, `backend/.../controller/QueueController.java`, `backend/.../controller/ModerationAgreementIntegrationTest.java`
+- `docs/MODEL_CARD.md`, `frontend/src/pages/Dashboard.jsx`, `frontend/public/reliability_diagram.png`, `frontend/public/robustness_chart.png`, `README.md`
+
+## Definition of Done
+
+- [x] `python ml/phase22.py` writes `calibration`, `robustness` and `fairness` blocks to `metrics.json` plus both charts, on synthetic data, in one run
+- [x] With a `calibration.json` present, ml-service scores change accordingly and `/health` reports the temperature; without it, scores are unchanged
+- [x] Fairness never reports a metric for a group below the minimum size, and reports `not_run` when no annotations exist
+- [x] After a moderator clears a REVIEW item and overturns an AUTO_FLAG, `/api/stats` shows both in the `moderation` block
+- [x] `docs/MODEL_CARD.md` exists and every number in it traces to `metrics.json`
+- [x] New tests pass in `ml/`, `ml-service/` and `backend/`
+
+---
+
+# PHASE 23 — Trust & Safety Product Depth
+
+> Depends on Phases 13, 14, 19 and 21.
+
+## Why this phase exists
+
+Detection is the easy part to demo; the hard parts of real moderation are video, standards-based provenance, due process for the people being moderated, and the wellbeing of the people doing the moderating. This phase covers those.
+
+## Tasks
+
+- [x] **Video support** — `ml-service /infer-video`: sample frames at N fps, score each, aggregate (max and top-k mean), return a per-frame timeline; backend routes on the aggregate; report includes a frame-score strip. Frames are processed in memory and discarded. *PyAV decodes from a `BytesIO`; forgery routes on the top-k mean and explicit on the max (both configurable); the compact timeline is stored, never frames. The fps is lowered for long clips so samples span the whole clip within `VIDEO_MAX_FRAMES`; multipart uploads stay in memory in both Spring and Starlette*
+- [x] **C2PA Content Credentials** — read C2PA manifests on upload (surface signer, claim generator and edit actions in the analysis and report); write a C2PA-compatible manifest alongside the existing HMAC-signed XMP label. *Signed with a generated dev certificate (reported as `VALID_UNTRUSTED`) until a trust-list certificate is configured. The committed sample is signed with a long-lived dev leaf because untimestamped C2PA validates against the current time*
+- [x] **Appeals workflow** — uploader can contest an AUTO_FLAG / REJECT decision with a case number; appeal gets its own SLA clock, must be decided by a different moderator than the original, and is recorded in the audit trail and the report (EU DSA Art. 20 style). *Every upload gets a notice number + PIN and a statement of reasons; granting proposes a restore that an unconflicted second moderator confirms*
+- [x] **Moderator wellbeing controls** — greyscale + blur-by-default media, per-session exposure counter with a configurable limit and enforced break, opt-in "reveal" per item that is audit-logged, and a support-resources link. *Counters are shared across backend instances through Redis (Phase 24)*
+- [x] **Teams and escalation** — moderator teams, item assignment, escalation to a senior role, and mandatory second review for AUTO_FLAG overrides. *Seniors can route an item to a team pool*
+- [x] **More jurisdictions** — EU DSA, UK Online Safety Act and Australia eSafety as `JurisdictionRule` rows with legal-reference labels marked "pending legal review". *EU member-state codes resolve to the EU rules; each jurisdiction has an APPEAL row*
+- [x] **Transparency report** — `GET /api/transparency?period=…` and a printable page: volumes, decisions, SLA compliance rate, appeal outcomes, moderator overturn rate (aggregates only). *Small counts are withheld (`TRANSPARENCY_MIN_CELL`), with a 7-day minimum window*
+
+### Re-audit (gaps found and closed)
+
+A second pass checked every item above against the code and fixed the following:
+
+- **Appeals**: the moderators who made the takedown and the person who contested it are now all conflicted out of the appeal, including rejecting the reinstatement at second review. A second-review rejection records who decided it. Duplicate appeals filed concurrently are refused. A reinstated item is removed from the known-hash list. The appeal clock runs under the shared SLA lock, escalates through `EscalationService` (webhook and metric) and shows on the compliance summary. Uploaders see a statement of reasons: grounds, legal or policy basis, whether detection and decision were automated, and redress options.
+- **Escalation and teams**: escalation also covers AUTO_FLAG items and their second review. A senior must make the decision and the second review, and the report records the senior who resolved it (`seniorResolvedBy`). Seniors can route an item to a team pool that only that team (or a senior) can claim. Escalation and team state are cleared once an item is decided.
+- **Signed reports**: canonical snapshot `fmd-evidentiary-report/v2` adds the frame timeline, C2PA manifest digests and escalation fields. Verification uses the version a report was signed with, so v1 reports still verify.
+- **Video and C2PA**: `/api/v1` returns `413 too_large` (25 MB images, 50 MB videos) and `422 unreadable_media` for files the scoring service can't read. `labelledContentCredentials` comes back with `include=labelled`. Video originals can't be attached to a report (`400`). AVI is detected by content sniffing. `VideoProperties` values are validated at startup.
+- **Wellbeing**: reports filed during an enforced break are refused (`423`). Videos play only after a reveal. The support page is in the moderator navigation, and the demo page veils media until shown.
+- **Jurisdictions**: `/api/analyze` accepts an explicit `jurisdiction` parameter (no geo-IP). Invalid codes are rejected with `400`. The compliance page names EU, GB and AU.
+- **Transparency**: small-cell suppression, the reviewed-model-decision and moderator-overturn aggregates, a per-period cache, pending-legal-review labels, and a fully translated page.
+
+Not done: there is no deadline on the second review itself, and the analyze page has no jurisdiction selector (the API accepts one).
+
+## Files touched
+
+- `ml-service/video.py`, `ml-service/content_credentials.py`, `ml-service/main.py`, `ml-service/requirements.txt`, `ml-service/test_video.py`, `ml-service/test_content_credentials.py`, `ml-service/tools/make_phase23_samples.py`
+- `backend/.../model/` (`Appeal`, `ModerationAuditEvent`, `ModeratorAccount`, `AnalysisResult` fields), `backend/.../repository/`, `backend/.../service/` (`AnalysisService`, `MediaKinds`, `VideoProperties`, `NoticeService`, `AppealService`, `ModerationService`, `ModerationAuditService`, `WellbeingService`, `TransparencyService`, `CaseNumbers`, `PinAttemptGuard`, `ReportService`, `ReportSigningService`, `ForensicPanelRenderer`), `backend/.../controller/` (`AppealController`, `ModerationController`, `TransparencyController`, `QueueController`, `AnalyzeController`, `ApiV1Controller`, `MediaViews`), `backend/.../security/`, `backend/.../config/` (`ModeratorAccountSeeder`, `JurisdictionRuleSeeder`), `application.yml`
+- Tests: `TrustSafetyIntegrationTest`, `ModeratorWellbeingIntegrationTest`, `MediaRoutingTest`, `TransparencySuppressionTest`, updated `ModerationAgreementIntegrationTest`, `ProvenanceIntegrationTest`, `ReportSigningIntegrationTest`; `frontend/src/lib/queue.test.js`
+- `frontend/src/pages/` (`Demo`, `Appeal`, `Transparency`, `Support`, `ModerationQueue`, `Compliance`), `frontend/src/components/` (`FrameStrip`, `ContentCredentials`, `MediaPreview`, `ModerationControls`, `AppealsPanel`, `Wellbeing`, `Layout`), `frontend/src/lib/media.js`, `frontend/src/lib/appeals.js`, `frontend/src/lib/media.test.js`, `frontend/src/context/DecisionContext.jsx`, `frontend/src/api/client.js`, `frontend/src/i18n/*.json`, `frontend/nginx.conf`, `frontend/public/sample-clip.mp4`, `frontend/public/c2pa-sample.jpg`
+- `README.md`, `API_DOCS.md`, `docs/MODEL_CARD.md`, `docs/PROJECT_DOCUMENTATION.md`
+
+## Definition of Done
+
+- [x] A synthetic test clip returns a per-frame timeline and a single routed decision; no frame is written to disk
+- [x] A C2PA-signed sample shows its manifest details in the analysis response
+- [x] An appeal can be filed, is blocked for the original moderator, and its outcome appears in the audit trail
+- [x] The exposure limit forces a break; reveals are logged
+- [x] The transparency report renders from live aggregates
+
+---
+
+# PHASE 24 — Engineering Maturity
+
+> Depends on all previous phases. Can start in parallel with Phase 23.
+
+## Why this phase exists
+
+A trust-and-safety system has to be verifiably correct on every change and observable in production. Today tests exist per service but nothing runs them automatically, and the stack has no metrics.
+
+## Tasks
+
+- [x] **CI** — GitHub Actions: backend `mvn test`, ml-service `pytest`, `ml/` tests, frontend lint + tests, `docker compose build`, and a compose smoke test of `POST /api/analyze`; status badge in the README. *`.github/workflows/ci.yml`. The stack job also checks request-ID propagation and both metrics endpoints, and runs the Playwright, HA and prod-refusal checks, Trivy and SBOMs*
+- [x] **End-to-end tests** — Playwright suite for the demo script: analyse → REVIEW → moderator approves → SLA countdown → provenance verify → report `VALID`; runs in CI against the compose stack. *`e2e/`, 3 tests: the demo script, the mock feed, request IDs through nginx*
+- [x] **Observability** — Micrometer/Prometheus metrics (latency, decisions, SLA breaches, ml-service errors), a Grafana dashboard in `ops/`, structured JSON logs with request IDs across backend and ml-service. *Management port 8090 is internal-only. `docker-compose.observability.yml` adds Prometheus (with alert rules) and a provisioned Grafana dashboard. Both services write one ECS-style JSON access line per request, with matching field names*
+- [x] **Production hardening** — Redis-backed rate limits and PIN lockouts; signing keys from a KMS/HSM interface with rotation; RFC 3161 timestamps on reports; startup refuses demo secrets outside the `dev` profile. *`SharedState` (Redis Lua scripts, or in-memory for one instance) also holds exposure counters and the SLA scheduler lock. `SigningKeyProvider` has a file keyring and Vault Transit, with audit-logged rotation and a published keyring. `DemoSecretsGuard` and the ml-service `startup_guard` enforce the dev-only secrets. The backend times out ml-service calls (`ML_SERVICE_TIMEOUT`)*
+- [x] **Supply chain** — Dependabot, Trivy image scan, SBOM generation, non-root containers. *Trivy fails on fixable CRITICAL CVEs; CycloneDX SBOM per image; backend/ml-service run as UID 10001, frontend/feed on `nginx-unprivileged`*
+- [x] **Load test** — k6 script and a documented throughput / saturation point for the CPU-only ml-service, with a GPU / batching option. *`load/README.md`: saturates at about 8 req/s on an 8-core laptop CPU; batched video-frame scoring (`VIDEO_BATCH_SIZE`); `docker-compose.gpu.yml` (GPU numbers not measured, no GPU available)*
+
+## Files touched
+
+- `.github/workflows/ci.yml`, `.github/dependabot.yml`
+- `e2e/` (Playwright config, `tests/demo-script.spec.js`, `tests/helpers.js`)
+- `ops/prometheus/` (scrape config, alerts), `ops/grafana/` (provisioning, `fmd-overview.json`), `ops/ha-ratelimit-check.sh`
+- `load/analyze.js`, `load/synthetic-224.jpg`, `load/README.md`
+- `docker-compose.yml` (Redis, management port, profiles, env), `docker-compose.ha.yml`, `docker-compose.observability.yml`, `docker-compose.gpu.yml`, `docker-compose.dev.yml`, all four Dockerfiles (non-root), `frontend/nginx.conf` (request IDs)
+- `backend/.../state/` (`SharedState`, `RedisSharedState`, `InMemorySharedState`, `SharedStateConfig`), `backend/.../signing/` (`SigningKeyProvider`, `FileSigningKeyProvider`, `VaultTransitSigningKeyProvider`, `ReportTimestampService`, `Ed25519Keys`, `SigningConfig`), `backend/.../observability/` (`FmdMetrics`, `RequestIdFilter`), `config/DemoSecretsGuard`, `controller/SigningKeyController`, `RateLimiter`, `PinAttemptGuard`, `WellbeingService`, `SlaScheduler`, `ReportSigningService`, `MlClientService`, `WebClientConfig`, `application.yml`, `META-INF/spring.factories`
+- `ml-service/observability.py`, `ml-service/startup_guard.py`, `ml-service/start.sh`, `ml-service/video.py` + `inference.py` (batched frame scoring)
+- Tests: `EngineeringMaturityIntegrationTest`, `DemoSecretsGuardTest`, `RedisSharedStateTest` (Testcontainers), `SigningKeyProvidersTest`, `ReportTimestampServiceTest`, `RequestIdFilterTest`, `MlClientServiceTimeoutTest`, `support/FakeTsa`, `support/FakeVaultTransit`; `ml-service/test_observability.py`, `test_video.py` (batching)
+- `README.md`, `API_DOCS.md`, `.env.example`, `docs/PROJECT_DOCUMENTATION.md`
+
+## Definition of Done
+
+- [ ] A pull request shows green CI across all services, including the Playwright run. *Not yet shown: the workflow has not been pushed. Every step it runs was run locally against the rebuilt stack and passed (backend, ml-service, frontend, smoke, metrics, Playwright 3/3, HA check, prod refusal)*
+- [x] `/actuator/prometheus` exposes decision and latency metrics; the Grafana dashboard loads them. *All 25 dashboard queries return successfully from Prometheus; all four scrape targets up*
+- [x] Two backend instances share rate-limit state through Redis. *`ops/ha-ratelimit-check.sh`: 10 requests alternated across both instances empty one bucket; the 11th is refused by both*
+- [x] The backend fails to start in a non-dev profile with default secrets. *`SPRING_PROFILES_ACTIVE=prod` exits with each problem listed; the ml-service refuses `APP_PROFILE=prod` with the demo provenance key*
+
+---
+
+# PHASE 25 — Presentation & Exhibition Polish
+
+> Depends on Phases 22–24.
+
+## Why this phase exists
+
+Reviewers, judges and interviewers should understand the system and its reasoning in minutes, without running Docker.
+
+## Tasks
+
+- [x] **Public live demo** — hosted instance with synthetic samples only and a reset button. *`docker-compose.demo.yml` + `ops/demo/Caddyfile` (HTTPS for the console and `feed.` host; only Caddy publishes ports) and `docs/PUBLIC_DEMO.md`. Public mode (`DEMO_PUBLIC`): every multipart upload on every route must be a bundled synthetic sample or a labelled copy the demo issued (`403 demo_samples_only`), uploads share an instance-wide budget (`429 demo_rate_limited`), anyone may reset with a cooldown, the instance resets itself every `DEMO_RESET_INTERVAL`, a banner shows the next reset, and the tour offers one-click moderator sign-in. The configuration is ready and validated; actually hosting it needs a VM and a domain*
+- [x] **One-click demo scenario** — script / admin button that seeds a full story: a flagged upload, an at-risk complaint, a breach, an appeal and a signed report. *Landing CTA → `/tour` seeds the story on first click (idempotent, lock-protected across instances) from synthetic images drawn at runtime and walks through it in five live chapters with links to the verify trail, the appeal and case pages (PIN passed in navigation state, never the URL), the queue, compliance and the signed PDF. Senior moderators get a reset button; `POST /api/demo/reset` wipes and reseeds. Every upload form offers **Use a sample** chips*
+- [x] **Architecture decision records** — `docs/adr/`: no raw-media persistence, two independent models, Ed25519 signatures, hash-only prescreen, explicit jurisdiction (no geo-IP). *Index + template in `docs/adr/README.md`; each record names the code and tests that enforce it and when to revisit*
+- [x] **Threat model** — `docs/THREAT_MODEL.md`: adversarial uploads, key theft, hash-list poisoning, moderator account compromise, report forgery; mitigations and residual risk. *Plus public-demo abuse, trust boundaries and assets. Writing it surfaced two fixes made here: the moderator session cookie is now `SameSite=Strict`, and public-demo uploads are rate-limited. Open gaps are stated as residual risk: no MFA or login throttling for moderators, single-moderator hash import, no edge rate limit on the public analyze endpoint outside demo mode*
+- [x] **Launch video** — embed `brag-output/brag.mp4` with `brag.jpg` as poster at the top of the README. *A `<video>` element with the poster, falling back to the poster image linked to the MP4 where `<video>` isn't rendered, plus a text link. The composition's render cache is git-ignored*
+
+## Files touched
+
+- `backend/.../demo/` (`DemoProperties`, `DemoStory`, `DemoStoryRepository`, `DemoSamples`, `DemoScenarioService`, `DemoResetService`, `DemoUploadGuard`, `DemoUploadFilter`, `DemoController`), `backend/src/main/resources/demo-samples/`, `service/LabelledCopyIssued`, `AnalysisService`, `ComplianceService`, `CaseService`, `TransparencyService`, `SecurityConfig`, `DemoSecretsGuard`, `ForgedMediaApplication`, `application.yml`
+- Tests: `DemoScenarioIntegrationTest`, `DemoPublicModeIntegrationTest`, `TrustSafetyIntegrationTest`, `DemoSecretsGuardTest`; `frontend/src/lib/demo.test.js`; `e2e/tests/tour.spec.js`
+- `frontend/src/pages/Tour.jsx`, `Landing.jsx`, `Demo.jsx`, `ReportWizard.jsx`, `Verify.jsx`, `Compliance.jsx`, `CaseStatus.jsx`, `Appeal.jsx`; `frontend/src/components/` (`DemoBanner`, `SamplePicker`, `Layout`); `frontend/src/context/DemoContext.jsx`, `frontend/src/lib/demo.js`, `frontend/src/lib/format.js`, `frontend/src/api/client.js`, `frontend/src/App.jsx`, `frontend/src/i18n/*.json`; `mock-social-feed/app.js`
+- `docker-compose.demo.yml`, `ops/demo/Caddyfile`, `docker-compose.yml`, `.env.example`, `.gitignore`, `.gitattributes`
+- `docs/adr/` (index + 5 records), `docs/THREAT_MODEL.md`, `docs/PUBLIC_DEMO.md`, `README.md`, `API_DOCS.md`, `docs/PROJECT_DOCUMENTATION.md`
+
+## Definition of Done
+
+- [x] A first-time visitor reaches a populated, meaningful demo in one click. *Landing → **See it live in one click** → `/tour` with all five chapters populated and the report verifying `VALID`; covered by `e2e/tests/tour.spec.js` and `DemoScenarioIntegrationTest`*
+- [x] ADRs and the threat model are linked from the README. *In the header links and a "Design decisions and threat model" section*
+- [x] The launch video plays from the README. *Plays inline wherever the README's HTML is rendered in full (IDE previews, most Markdown viewers). github.com does not reliably play a repo-relative `<video>` source, so the poster and a text link also open the MP4; for guaranteed inline playback there, drag `brag.mp4` into the README editor on GitHub once, and swap the `src` for the `user-attachments` URL it generates*

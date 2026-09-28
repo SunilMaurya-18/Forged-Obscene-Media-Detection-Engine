@@ -1,0 +1,149 @@
+{
+  "uid": "fmd-overview",
+  "title": "Forged Media Detection — Overview",
+  "tags": ["fmd"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Analyses / min",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rate(fmd_decisions_total{source=\"model\"}[5m])) * 60 or vector(0)" }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 2, "type": "stat", "title": "p95 /api/analyze",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/analyze\"}[5m])))" }],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 2, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 2 }, { "color": "red", "value": 5 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Review queue",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "max(fmd_review_queue)" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Complaints at risk / breached",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "max(fmd_sla_open{status=\"AT_RISK\"})", "legendFormat": "At risk" },
+        { "refId": "B", "expr": "max(fmd_sla_open{status=\"BREACHED\"})", "legendFormat": "Breached" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "value_and_name" }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Scrape targets up",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "up{job=~\"backend|ml-service\"}", "legendFormat": "{{instance}}" }],
+      "fieldConfig": { "defaults": { "unit": "short", "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "value_and_name" }
+    },
+    {
+      "id": 6, "type": "stat", "title": "ML model loaded",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "max(fmd_ml_models_loaded)" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "NO", "color": "red" }, "1": { "text": "YES", "color": "green" } } }] }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Automatic decisions / min",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (decision, media) (rate(fmd_decisions_total{source=\"model\"}[5m])) * 60", "legendFormat": "{{decision}} ({{media}})" }],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30 } }, "overrides": [] }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Moderator decisions and overturned removals / min",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (decision) (rate(fmd_decisions_total{source=\"moderator\"}[5m])) * 60", "legendFormat": "{{decision}}" },
+        { "refId": "B", "expr": "sum(rate(fmd_moderation_overturns_total[5m])) * 60", "legendFormat": "overturned AUTO_FLAG" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "/api/analyze latency (backend, end to end)",
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/analyze\"}[5m])))", "legendFormat": "p50" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/analyze\"}[5m])))", "legendFormat": "p95" },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/analyze\"}[5m])))", "legendFormat": "p99" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "ML service latency p95 by endpoint",
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(fmd_ml_request_duration_seconds_bucket{endpoint!~\"/health|/metrics\"}[5m])))", "legendFormat": "{{endpoint}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "ML service in-flight requests (saturation)",
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(fmd_ml_requests_in_flight)", "legendFormat": "in flight" },
+        { "refId": "B", "expr": "sum(rate(fmd_ml_requests_total{endpoint=~\"/infer.*\"}[1m]))", "legendFormat": "inferences / s" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Errors / min",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (endpoint, reason) (rate(fmd_ml_client_errors_total[5m])) * 60", "legendFormat": "backend→ML {{endpoint}} {{reason}}" },
+        { "refId": "B", "expr": "sum by (endpoint) (rate(fmd_ml_errors_total[5m])) * 60", "legendFormat": "ML 5xx {{endpoint}}" },
+        { "refId": "C", "expr": "sum by (uri) (rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) * 60", "legendFormat": "backend 5xx {{uri}}" },
+        { "refId": "D", "expr": "sum by (plan) (rate(fmd_api_rate_limited_total[5m])) * 60", "legendFormat": "API 429 {{plan}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "Open complaints by SLA status, escalations",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "max by (status) (fmd_sla_open)", "legendFormat": "open {{status}}" },
+        { "refId": "B", "expr": "sum by (status) (increase(fmd_sla_escalations_total[15m]))", "legendFormat": "escalated → {{status}} (15m)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Mean served score (drift signal)",
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (model) (rate(fmd_model_score_sum[15m])) / sum by (model) (rate(fmd_model_score_count[15m]))", "legendFormat": "{{model}}" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] }
+    },
+    {
+      "id": 15, "type": "timeseries", "title": "Backend JVM heap and CPU",
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "fmd-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (instance) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "heap {{instance}}" },
+        { "refId": "B", "expr": "process_cpu_usage{job=\"backend\"}", "legendFormat": "cpu {{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [{ "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "custom.axisPlacement", "value": "right" }] }] }
+    }
+  ]
+}

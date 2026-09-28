@@ -55,11 +55,18 @@ export async function apiFetch(path, options = {}) {
   return res.text()
 }
 
-export async function analyzeImage(file) {
+/**
+ * Images and (Phase 23) videos: the backend picks the pipeline from the file itself.
+ * {@code jurisdiction} (optional) picks the rules for the upload's appeal clock.
+ */
+export async function analyzeImage(file, jurisdiction) {
   const body = new FormData()
   body.append('file', file)
+  if (jurisdiction) body.append('jurisdiction', jurisdiction)
   return apiFetch('/api/analyze', { method: 'POST', body })
 }
+
+export const analyzeMedia = analyzeImage
 
 export async function login(username, password) {
   setBasicAuth(username, password)
@@ -71,12 +78,13 @@ export async function login(username, password) {
   }
 }
 
-export async function fetchQueue() {
-  return apiFetch('/api/queue')
+/** {@code status}: review | flagged | second-review | escalated; {@code scope}: all | mine | team | unassigned. */
+export async function fetchQueue(status = 'review', scope = 'all') {
+  return apiFetch(`/api/queue?status=${encodeURIComponent(status)}&scope=${encodeURIComponent(scope)}`)
 }
 
 export async function fetchFlagged() {
-  return apiFetch('/api/queue?status=flagged')
+  return fetchQueue('flagged')
 }
 
 function dispositionFilename(header, fallback) {
@@ -110,12 +118,15 @@ export async function downloadReport(id, original) {
   }
 }
 
-/** {@code keepalive} lets a decision still in its undo window be sent while the page is closing. */
-export async function updateQueueDecision(id, decision, { keepalive = false } = {}) {
+/**
+ * {@code keepalive} lets a decision still in its undo window be sent while the page is closing.
+ * Resolves with {@code pendingSecondReview: true} (HTTP 202) when overriding an AUTO_FLAG became a proposal.
+ */
+export async function updateQueueDecision(id, decision, { keepalive = false, reason } = {}) {
   return apiFetch(`/api/queue/${id}/decision`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision }),
+    body: JSON.stringify(reason ? { decision, reason } : { decision }),
     keepalive,
   })
 }
@@ -225,4 +236,100 @@ export async function prescreenHash(hash, algorithm = 'phash') {
 /** Phase 20: VALID / TAMPERED / NOT_FOUND for a report ID or analysis ID. Public. */
 export async function verifyReport(id) {
   return apiFetch(`/api/verify-report/${encodeURIComponent(id)}`)
+}
+
+// ---------------------------------------------------------------- Phase 23: moderation depth
+
+export async function secondReview(id, confirm, note) {
+  return postJson(`/api/queue/${id}/second-review`, { confirm, note })
+}
+
+/** No assignee = take it yourself; {@code team} without an assignee routes to that team's pool (seniors only). */
+export async function assignItem(id, assignee, team) {
+  return postJson(`/api/queue/${id}/assign`, assignee ? { assignee } : team ? { team } : {})
+}
+
+export async function unassignItem(id) {
+  return postJson(`/api/queue/${id}/unassign`)
+}
+
+export async function escalateItem(id, reason) {
+  return postJson(`/api/queue/${id}/escalate`, { reason })
+}
+
+/** Logs (and counts toward the exposure limit) that the moderator chose to see the media unblurred. */
+export async function revealItem(id) {
+  return postJson(`/api/queue/${id}/reveal`)
+}
+
+export async function fetchItemAudit(id) {
+  return apiFetch(`/api/queue/${id}/audit`)
+}
+
+export async function fetchModerationMe() {
+  return apiFetch('/api/moderation/me')
+}
+
+export async function fetchTeams() {
+  return apiFetch('/api/moderation/teams')
+}
+
+export async function takeBreak() {
+  return postJson('/api/moderation/break')
+}
+
+export async function fetchAppeals(status = 'open') {
+  return apiFetch(`/api/appeals?status=${encodeURIComponent(status)}`)
+}
+
+export async function decideAppeal(id, outcome, reason) {
+  return postJson(`/api/appeals/${id}/decision`, { outcome, reason })
+}
+
+/** Public: the uploader's notice number + PIN. */
+export async function fileAppeal({ noticeNumber, pin, statement }) {
+  const res = await request('/api/appeals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ noticeNumber, pin, statement }),
+    credentials: 'omit',
+  })
+  return res.json()
+}
+
+/** The PIN travels in a header so it never lands in URLs, history or server logs. */
+export async function fetchAppealStatus(noticeNumber, pin) {
+  const res = await request(`/api/appeals/${encodeURIComponent(noticeNumber)}/status`, {
+    headers: { 'X-Case-Pin': pin },
+    credentials: 'omit',
+    cache: 'no-store',
+  })
+  return res.json()
+}
+
+/** Public aggregate report; {@code period}: YYYY-MM, YYYY-Qn, YYYY or last-Nd. */
+export async function fetchTransparency(period) {
+  const res = await request(`/api/transparency?period=${encodeURIComponent(period || 'last-30d')}`, { credentials: 'omit' })
+  return res.json()
+}
+
+/** Phase 25: demo settings, bundled samples and the current story ({@code enabled: false} when off). */
+export async function fetchDemo() {
+  return apiFetch('/api/demo', { cache: 'no-store' })
+}
+
+/** Seeds the demo story on first use and returns it; {@code fresh} (moderators) seeds another. */
+export async function startDemoStory({ fresh = false } = {}) {
+  return apiFetch(`/api/demo/story${fresh ? '?fresh=true' : ''}`, { method: 'POST' })
+}
+
+export async function resetDemo() {
+  return apiFetch('/api/demo/reset', { method: 'POST' })
+}
+
+/** Downloads a bundled synthetic sample as a File, ready for any upload form. */
+export async function fetchSampleFile(sample) {
+  const res = await request(sample.url, { credentials: 'omit' })
+  const blob = await res.blob()
+  return new File([blob], sample.name, { type: sample.mimeType || blob.type })
 }

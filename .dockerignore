@@ -2,5 +2,6 @@
 *
 !ml-service/
 !ml/models/checkpoint.pt
+!ml/models/calibration.json
 ml-service/__pycache__/
 ml-service/.pytest_cache/

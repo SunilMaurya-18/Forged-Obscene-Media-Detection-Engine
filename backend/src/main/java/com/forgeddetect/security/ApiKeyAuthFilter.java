@@ -2,6 +2,7 @@ package com.forgeddetect.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.forgeddetect.model.ApiClient;
+import com.forgeddetect.observability.FmdMetrics;
 import com.forgeddetect.service.ApiKeyService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -35,11 +36,13 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     private final ApiKeyService keys;
     private final RateLimiter rateLimiter;
     private final ObjectMapper mapper;
+    private final FmdMetrics metrics;
 
-    public ApiKeyAuthFilter(ApiKeyService keys, RateLimiter rateLimiter, ObjectMapper mapper) {
+    public ApiKeyAuthFilter(ApiKeyService keys, RateLimiter rateLimiter, ObjectMapper mapper, FmdMetrics metrics) {
         this.keys = keys;
         this.rateLimiter = rateLimiter;
         this.mapper = mapper;
+        this.metrics = metrics;
     }
 
     @Override
@@ -72,6 +75,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         response.setHeader("X-RateLimit-Reset", String.valueOf(rate.resetSeconds()));
         if (metered && !rate.allowed()) {
             keys.recordThrottled(client.getId());
+            metrics.rateLimited(client.getPlan() != null ? client.getPlan().name() : null);
             response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(rate.retryAfterSeconds()));
             Map<String, Object> body = error("rate_limited",
                     "Rate limit of " + rate.limit() + " requests per minute exceeded for plan " + client.getPlan()

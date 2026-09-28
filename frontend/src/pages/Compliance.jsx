@@ -28,11 +28,13 @@ import { useAuth } from '../auth/AuthContext'
 import FamilyChip from '../components/FamilyChip'
 import JurisdictionBadge from '../components/JurisdictionBadge'
 import ReportButton from '../components/ReportButton'
+import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingState } from '../components/Status'
 import { useToast } from '../components/Toast'
 import { Alert, Button, Card, CardHeader, DecisionBadge, EmptyState, PageHeader, StatTile } from '../components/ui'
 import { useDecisions } from '../context/DecisionContext'
 import { useStats } from '../context/StatsContext'
+import { IMAGE_SAMPLES } from '../lib/demo'
 import { cn, dateTime, fileSize, score, timeAgo } from '../lib/format'
 import { COMPLAINT_TYPES, SLA_STATUS, countdown, humanDuration, liveStatus } from '../lib/sla'
 
@@ -193,7 +195,45 @@ function ruleFor(rules, jurisdiction, type) {
   )
 }
 
-const JURISDICTION_NAMES = { IN: 'India', US: 'United States', GENERIC: 'Other (generic policy)' }
+/** Uploader appeals run on their own clock (APPEAL rules); decided from the queue's Appeals tab. */
+function AppealClocks({ appeals }) {
+  const parts = [
+    { n: appeals.at_risk, label: 'at risk', cls: 'text-amber-300' },
+    { n: appeals.breached, label: 'breached', cls: 'text-rose-300' },
+  ].filter((p) => p.n > 0)
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-white/[0.02] px-4 py-3 mb-8 text-sm">
+      <Gavel aria-hidden className="size-4 text-brand" />
+      <span className="font-medium">Uploader appeals</span>
+      <span className="text-muted">
+        {appeals.open} open
+        {parts.map((p) => (
+          <span key={p.label}>
+            {' · '}
+            <span className={p.cls}>
+              {p.n} {p.label}
+            </span>
+          </span>
+        ))}
+        {appeals.nextDeadline && (
+          <span title={dateTime(appeals.nextDeadline)}> · next decision due {timeAgo(appeals.nextDeadline)}</span>
+        )}
+      </span>
+      <Link to="/queue" className="ml-auto text-xs text-brand hover:underline underline-offset-4">
+        Decide in the queue
+      </Link>
+    </div>
+  )
+}
+
+const JURISDICTION_NAMES = {
+  IN: 'India',
+  US: 'United States',
+  EU: 'European Union',
+  GB: 'United Kingdom',
+  AU: 'Australia',
+  GENERIC: 'Other (generic policy)',
+}
 
 function RulesCard({ rules }) {
   if (!rules?.rules?.length) return null
@@ -202,7 +242,7 @@ function RulesCard({ rules }) {
       <CardHeader
         icon={Scale}
         title="Jurisdiction rules"
-        description={`Deadlines come from this table, not code. Complaints without a jurisdiction use ${rules.defaultJurisdiction}; jurisdictions without their own rule fall back to GENERIC.`}
+        description={`Deadlines come from this table, not code. Complaints without a jurisdiction use ${rules.defaultJurisdiction}. EU member states (DE, FR, …) use the EU rule; any other jurisdiction without its own rule falls back to GENERIC.`}
       />
       <div className="overflow-x-auto -mx-6 px-6">
         <table className="w-full text-sm min-w-[720px]">
@@ -224,10 +264,17 @@ function RulesCard({ rules }) {
                     <span className="ml-2 rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] text-brand">default</span>
                   )}
                 </td>
-                <td className="py-3 pr-4 text-muted">{COMPLAINT_TYPES[r.complaintType]?.label || r.complaintType}</td>
+                <td className="py-3 pr-4 text-muted">
+                  {r.complaintType === 'APPEAL' ? 'Uploader appeal' : COMPLAINT_TYPES[r.complaintType]?.label || r.complaintType}
+                </td>
                 <td className="py-3 pr-4 font-mono text-xs">{r.deadlineHours}h</td>
                 <td className="py-3 pr-4 whitespace-nowrap">
                   <JurisdictionBadge badge={r.badge} />
+                  {/pending legal review/i.test(`${r.badge} ${r.legalReference}`) && (
+                    <span className="ml-2 rounded-md border border-amber-400/30 bg-amber-400/[0.08] px-1.5 py-0.5 text-[10px] text-amber-200">
+                      pending legal review
+                    </span>
+                  )}
                 </td>
                 <td className="py-3 pr-4 text-xs text-muted leading-relaxed max-w-md">{r.legalReference || '—'}</td>
               </tr>
@@ -368,6 +415,7 @@ function FileComplaintDialog({ rules, onClose, onFiled }) {
                 <span className="text-sm text-muted">Choose an image…</span>
               )}
             </button>
+            {!file && <SamplePicker kinds={IMAGE_SAMPLES} onPick={setFile} disabled={busy} className="mt-2" />}
           </div>
 
           {error && <Alert>{error}</Alert>}
@@ -467,7 +515,7 @@ export default function Compliance() {
       <PageHeader
         eyebrow="Multi-jurisdiction compliance"
         title="Takedown SLA monitor"
-        description={`Each complaint runs on its jurisdiction's statutory clock: India IT Rules 2026 (${humanDuration((windows.USER_COMPLAINT ?? 120) * 60)} user complaints, ${humanDuration((windows.GOVERNMENT_ORDER ?? 180) * 60)} government orders), the US Take It Down Act (48h), or the generic policy. Items escalate automatically with ${humanDuration(atRiskMinutes * 60)} left.`}
+        description={`Each complaint runs on its jurisdiction's clock: India IT Rules 2026 (${humanDuration((windows.USER_COMPLAINT ?? 120) * 60)} user complaints, ${humanDuration((windows.GOVERNMENT_ORDER ?? 180) * 60)} government orders), the US Take It Down Act (48h), EU, UK and Australian platform targets (pending legal review), or the generic policy. Items escalate automatically with ${humanDuration(atRiskMinutes * 60)} left.`}
         actions={
           <>
             <Button
@@ -501,6 +549,8 @@ export default function Compliance() {
           loading={!data}
         />
       </div>
+
+      {summary?.appeals && <AppealClocks appeals={summary.appeals} />}
 
       <div className="flex items-center gap-2 mb-4">
         <Timer className="size-4 text-brand" />

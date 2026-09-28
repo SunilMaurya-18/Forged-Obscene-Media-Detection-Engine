@@ -318,7 +318,7 @@ The JavaScript hash is a bit-exact port of the Python `imagehash.phash` the serv
 
 ```mermaid
 flowchart LR
-    A["Moderator clicks<br/>Download report"] --> B["Canonical snapshot<br/>fmd-evidentiary-report/v1<br/>(IDs, decision, scores, hashes,<br/>jurisdiction, SLA times)"]
+    A["Moderator clicks<br/>Download report"] --> B["Canonical snapshot<br/>fmd-evidentiary-report/v2<br/>(IDs, decision, scores, hashes,<br/>jurisdiction, SLA times,<br/>frame timeline + C2PA digests)"]
     B --> C["SHA-256"]
     C --> D["Ed25519 sign"]
     D --> E["Store on AnalysisResult<br/>+ embed in PDF section & metadata"]
@@ -432,6 +432,8 @@ Nothing in this model can hold image bytes.
 | ml-service, PostgreSQL | Not exposed | Internal Docker network only |
 
 Secrets that must be changed outside development: moderator password, `PROVENANCE_SIGNING_KEY`, the report-signing keypair (use a KMS/HSM), and `API_DEMO_KEY` (leave empty).
+
+Threats, mitigations and residual risks (adversarial uploads, key theft, hash-list poisoning, moderator account compromise, report forgery, public-demo abuse) are in the [threat model](THREAT_MODEL.md). The reasoning behind the core design choices is in the [architecture decision records](adr/README.md).
 
 ### 5.13 Privacy design
 
@@ -609,9 +611,10 @@ frontend/
   src/utils/              onDeviceHash.js (browser pHash)
   src/i18n/               en.json, hi.json
 mock-social-feed/         Static "platform" calling /api/analyze on each post
-docs/                     This document
+docs/                     This document, MODEL_CARD.md, THREAT_MODEL.md, PUBLIC_DEMO.md,
+  adr/                    Architecture decision records
 API_DOCS.md · ONE_PAGER.md · IMPLEMENTATION_PLAN.md · README.md
-docker-compose.yml · docker-compose.dev.yml · .env.example
+docker-compose.yml · docker-compose.dev.yml · docker-compose.demo.yml · .env.example
 ```
 
 ---
@@ -627,6 +630,7 @@ docker compose ps             # wait for "healthy"; ml-service may take 1–3 mi
 | URL | Page |
 |---|---|
 | http://localhost:3000 | Landing page |
+| http://localhost:3000/tour | One-click demo: a seeded, live story (flagged upload, appeal, signed report, at-risk and breached complaints) |
 | http://localhost:3000/analyze | Check an image (and Check before you post) |
 | http://localhost:3000/report | Report wizard |
 | http://localhost:3000/status | Case status |
@@ -656,6 +660,7 @@ Every setting is an environment variable with a safe default. The full table is 
 | Admin | `/api/admin/clients…`, `/api/admin/known-hashes…` | Moderator |
 | Partner | `POST /api/v1/analyze`, `GET /api/v1/usage` | API key |
 | Misc | `GET /api/stats`, `POST /api/auth/login`, `GET /api/auth/me` | Public |
+| Demo | `GET /api/demo`, `POST /api/demo/story`, `POST /api/demo/reset`, `GET /api/demo/samples/{name}`, `GET /api/demo/report.pdf` | Public (reset: senior moderator, or anyone in public mode) |
 
 Full parameters and responses: [README API table](../README.md#api) and [`API_DOCS.md`](../API_DOCS.md).
 
@@ -687,29 +692,28 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 ## 16. Limitations
 
 - **Model performance is unproven on real data.** Metrics come from synthetic smoke splits; retraining on licensed benchmark data is required for real figures. No detector generalises perfectly to new generators.
-- **Images only.** Video and audio are out of scope.
+- **Video is frame by frame, and there is no audio.** Clips are scored with the image model on sampled frames; nothing models motion, lip sync or audio.
 - **Faces.** The forgery model is trained on face crops; non-face manipulations are not its target.
-- **Keys in development mode.** The report-signing key is a file on disk and the provenance key is a shared secret; production needs a KMS/HSM and proper rotation. Report timestamps use the server clock; legal admissibility would need an RFC 3161 timestamp authority and legal review.
-- **Single-instance state.** Rate-limit buckets and PIN lockouts are in memory per backend instance.
+- **The demo runs with development keys.** The compose stack signs reports with the file keyring and has no timestamp authority, and the provenance HMAC key is a shared secret. Any non-`dev` profile refuses to start like that. Vault Transit signing and RFC 3161 timestamps are implemented but tested only against local fakes; legal admissibility would still need a qualified TSA and legal review.
+- **Capacity measured on one laptop.** About 8 analyses/s on a shared 8-core CPU (`load/README.md`); GPU throughput is not measured.
 - **Notifications are a stub.** Logging plus an optional webhook; no email or SMS provider.
 - **StopNCII compatibility, not integration.** Matching logic and import are ready; a live integration needs formal participation approval and credentials.
 - **Translation.** The Hindi strings are in-house and should be reviewed by a native speaker.
-- **Single moderator role.** No per-team permissions or assignment.
+- **Legal hours pending review.** EU, UK and AU deadlines and every appeal deadline are platform targets until counsel signs off.
 
 ---
 
 ## 17. Roadmap
 
 1. Retrain and evaluate on licensed FaceForensics++ / DFDC / Celeb-DF data and real diffusion fakes; publish per-dataset results.
-2. Video support (frame sampling, temporal consistency).
-3. KMS/HSM-backed signing, key rotation with published history, RFC 3161 timestamps.
-4. Distributed rate limiting and lockout (Redis).
-5. Email / SMS notifications through a provider, with templates per language.
-6. Live StopNCII participation and server-side PDQ on every upload.
-7. More jurisdictions (EU DSA, UK Online Safety Act, Brazil, Australia) with reviewed legal references.
-8. More languages, reviewed by native speakers.
-9. Moderator teams, assignment, and wellbeing controls (exposure limits, breaks).
-10. C2PA-compatible provenance manifests.
+2. Temporal video models (frame consistency, lip sync) on top of today's frame-by-frame scoring.
+3. Connect a live KMS (Vault, AWS KMS, GCP Cloud KMS or an HSM) and a qualified RFC 3161 TSA, with a documented key lifecycle including revocation.
+4. Email / SMS notifications through a provider, with templates per language.
+5. Live StopNCII participation and server-side PDQ on every upload.
+6. Legal review of the EU / UK / AU and appeal deadlines; more jurisdictions (for example Brazil).
+7. More languages, reviewed by native speakers.
+8. C2PA signing with a trust-list certificate.
+9. GPU capacity numbers and horizontal ml-service scaling.
 
 ---
 

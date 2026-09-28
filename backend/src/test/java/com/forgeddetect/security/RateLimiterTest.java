@@ -2,6 +2,7 @@ package com.forgeddetect.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.forgeddetect.state.InMemorySharedState;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,7 +39,7 @@ class RateLimiterTest {
     @Test
     void burstThenThrottleThenRefillEvenlyOverAMinute() {
         MutableClock clock = new MutableClock();
-        RateLimiter limiter = new RateLimiter(clock);
+        RateLimiter limiter = new RateLimiter(new InMemorySharedState(clock));
 
         for (int i = 0; i < 6; i++) {
             assertThat(limiter.tryConsume(1L, 6).allowed()).isTrue();

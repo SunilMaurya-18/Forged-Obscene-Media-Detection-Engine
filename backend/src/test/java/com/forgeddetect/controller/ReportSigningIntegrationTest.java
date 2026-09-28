@@ -17,6 +17,7 @@ import com.forgeddetect.model.Decision;
 import com.forgeddetect.repository.AnalysisResultRepository;
 import com.forgeddetect.service.MlClientService;
 import com.forgeddetect.service.MlInferResponse;
+import com.forgeddetect.signing.SigningKeyProvider;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.Signature;
@@ -65,6 +66,7 @@ class ReportSigningIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private AnalysisResultRepository repository;
+    @Autowired private SigningKeyProvider keys;
 
     @MockBean private MlClientService mlClientService;
 
@@ -128,7 +130,7 @@ class ReportSigningIntegrationTest {
             assertThat(info.getCustomMetadataValue("FMD-Signed-Content-SHA256")).isEqualTo(item.getReportContentHash());
             assertThat(info.getCustomMetadataValue("FMD-Report-Id")).isEqualTo(reportId);
             String text = new PDFTextStripper().getText(doc).replaceAll("\\s+", "");
-            assertThat(text).contains("7.Digitalsignature", item.getReportSignature(), item.getReportContentHash(),
+            assertThat(text).contains("9.Digitalsignature", item.getReportSignature(), item.getReportContentHash(),
                     "/api/verify-report/" + reportId, "Diffusionmodel");
         }
 
@@ -176,6 +178,46 @@ class ReportSigningIntegrationTest {
         JsonNode v = verify(reportId);
         assertThat(v.get("status").asText()).isEqualTo("TAMPERED");
         assertThat(v.get("changedFields").toString()).contains("signature");
+    }
+
+    @Test
+    void v2SnapshotCoversTheContentCredentialsAndEscalation() throws Exception {
+        long id = analyze();
+        String reportId = report(id).getHeader("X-Report-Id");
+        AnalysisResult item = repository.findById(id).orElseThrow();
+        assertThat(item.getReportCanonical()).startsWith("fmd-evidentiary-report/v2\n");
+
+        // c2pa_status alone (v1) wouldn't notice a swapped manifest that keeps the same status
+        item.setC2paManifest("{\"signer\":{\"common_name\":\"Someone Else\"}}");
+        item.setSeniorEscalatedAt(java.time.Instant.parse("2026-09-01T00:00:00Z"));
+        repository.save(item);
+        JsonNode v = verify(reportId);
+        assertThat(v.get("status").asText()).isEqualTo("TAMPERED");
+        assertThat(v.get("changedFields").toString()).contains("c2pa_manifest_sha256", "senior_escalated_at");
+    }
+
+    @Test
+    void reportsSignedWithTheV1SnapshotStillVerify() throws Exception {
+        long id = analyze();
+        report(id);
+        AnalysisResult item = repository.findById(id).orElseThrow();
+        // No video, C2PA or escalation on this item, so its v1 snapshot is the v2 one under the old header
+        String v1 = item.getReportCanonical().replaceFirst("^fmd-evidentiary-report/v2\n", "fmd-evidentiary-report/v1\n");
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(v1.getBytes(StandardCharsets.UTF_8));
+        SigningKeyProvider.SignatureResult signed = keys.sign(digest);
+        item.setReportCanonical(v1);
+        item.setReportContentHash(java.util.HexFormat.of().formatHex(digest));
+        item.setReportSignature(Base64.getEncoder().encodeToString(signed.signature()));
+        item.setReportSigningKeyId(signed.keyId());
+        item.setReportTimestampToken(null);
+        // A field v1 never covered changes: still VALID
+        item.setC2paManifest("{\"signer\":{\"common_name\":\"Added later\"}}");
+        repository.save(item);
+
+        assertThat(verify(item.getReportId()).get("status").asText()).isEqualTo("VALID");
+        item.setDecision(Decision.ALLOW);
+        repository.save(item);
+        assertThat(verify(item.getReportId()).get("changedFields").toString()).contains("decision");
     }
 
     @Test

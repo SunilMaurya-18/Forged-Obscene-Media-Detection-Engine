@@ -76,9 +76,30 @@ public class PrescreenService {
         if (phash == null || !FORMATS.get("phash").matcher(phash.toLowerCase(Locale.ROOT)).matches()) {
             return;
         }
-        if (add(phash, "phash", KnownHashSource.INTERNAL_CONFIRMED, "Moderator-confirmed takedown of analysis #" + analysisId)) {
+        if (add(phash, "phash", KnownHashSource.INTERNAL_CONFIRMED, takedownNote(analysisId))) {
             log.info("Known-hash list: added pHash of analysis #{}", analysisId);
         }
+    }
+
+    /**
+     * A takedown was reversed (appeal granted, override confirmed): drop the hash this item's takedown
+     * added, so re-uploads of restored content stop matching. Imported or seeded hashes are never touched.
+     */
+    @Transactional
+    public void releaseTakedown(String phash, Long analysisId) {
+        if (phash == null || !FORMATS.get("phash").matcher(phash.toLowerCase(Locale.ROOT)).matches()) {
+            return;
+        }
+        List<KnownHash> rows = repository.findByAlgorithmAndHashAndSourceAndNote(
+                "phash", phash.toLowerCase(Locale.ROOT), KnownHashSource.INTERNAL_CONFIRMED, takedownNote(analysisId));
+        if (!rows.isEmpty()) {
+            repository.deleteAll(rows);
+            log.info("Known-hash list: removed pHash of analysis #{} (takedown reversed)", analysisId);
+        }
+    }
+
+    private static String takedownNote(Long analysisId) {
+        return "Moderator-confirmed takedown of analysis #" + analysisId;
     }
 
     /** Bulk import (e.g. a StopNCII hash list); malformed entries are counted, not fatal. */

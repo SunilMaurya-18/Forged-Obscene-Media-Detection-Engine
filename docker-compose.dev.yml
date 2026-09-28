@@ -6,9 +6,18 @@ services:
     ports:
       - "5432:5432"
 
+  redis:
+    ports:
+      - "6379:6379"
+
   ml-service:
     ports:
       - "8000:8000"
     volumes:
       - ./ml-service:/app
       - ./ml/models/checkpoint.pt:/models/checkpoint.pt:ro
+
+  backend:
+    ports:
+      # Management port: /actuator/health, /actuator/prometheus
+      - "8090:8090"

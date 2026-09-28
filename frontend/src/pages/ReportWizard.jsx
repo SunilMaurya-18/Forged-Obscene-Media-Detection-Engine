@@ -21,9 +21,11 @@ import {
 } from 'lucide-react'
 import { fileReport } from '../api/client'
 import PrivacyNote from '../components/PrivacyNote'
+import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingLine } from '../components/Status'
 import { Button, Card, CopyButton, PageHeader, buttonClass } from '../components/ui'
 import { DETAILS_MAX, REGIONS, composeDetails, contactChannel, formatWhen } from '../lib/cases'
+import { IMAGE_SAMPLES } from '../lib/demo'
 import { errorText } from '../lib/errors'
 import { cn, fileSize } from '../lib/format'
 
@@ -153,6 +155,7 @@ function SelectStep({ form, preview, onFile, error }) {
           e.target.value = ''
         }}
       />
+      {!preview && <SamplePicker kinds={IMAGE_SAMPLES} onPick={onFile} />}
       {error && <FieldError>{error}</FieldError>}
     </div>
   )

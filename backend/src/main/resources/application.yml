@@ -1,15 +1,38 @@
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        # CSRF tokens are off (the console authenticates every call with Basic auth); a strict cookie
+        # means a cross-site request never carries the moderator's session
+        same-site: strict
+        http-only: true
 
 spring:
   application:
     name: forged-media
+  # Phase 24: any other profile (e.g. SPRING_PROFILES_ACTIVE=prod) refuses to start with demo secrets
+  profiles:
+    default: dev
   main:
     web-application-type: servlet
+  # Phase 24: only used when app.state.store=redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+      repositories:
+        enabled: false
   servlet:
     multipart:
-      max-file-size: 25MB
-      max-request-size: 26MB
+      # Phase 23: videos up to 50 MB (the ML service's own cap)
+      max-file-size: 50MB
+      max-request-size: 51MB
+      # Hold every accepted upload in memory: Tomcat otherwise spools multipart files to a temp dir,
+      # and media bytes must never touch disk
+      file-size-threshold: 52MB
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/forged_media}
     username: ${SPRING_DATASOURCE_USERNAME:forged}
@@ -27,14 +50,27 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: never
+  health:
+    # Compose turns this on together with STATE_STORE=redis (MANAGEMENT_HEALTH_REDIS_ENABLED=true)
+    redis:
+      enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
 
 ml:
   service:
     url: ${ML_SERVICE_URL:http://localhost:8000}
+    # Phase 24: per call; a hung ml-service fails the request instead of holding a servlet thread
+    timeout: ${ML_SERVICE_TIMEOUT:PT60S}
 
 decision:
   forgery-auto-flag: 0.85
@@ -57,13 +93,49 @@ compliance:
   # Seeded GENERIC rules (fallback for any jurisdiction without its own rule). Edit the DB row afterwards.
   generic-user-complaint-hours: ${COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS:24}
   generic-government-order-hours: ${COMPLIANCE_GENERIC_GOVERNMENT_ORDER_HOURS:24}
+  # Phase 23: appeal decision window (GENERIC APPEAL rule; per-jurisdiction rows override it)
+  generic-appeal-hours: ${COMPLIANCE_GENERIC_APPEAL_HOURS:72}
+
+# Phase 23: video is sampled at N fps; each score is routed on one aggregate of its per-frame scores
+video:
+  fps: ${VIDEO_FPS:1.0}
+  top-k: ${VIDEO_TOP_K:3}
+  forgery-aggregate: ${VIDEO_FORGERY_AGGREGATE:TOPK_MEAN}
+  explicit-aggregate: ${VIDEO_EXPLICIT_AGGREGATE:MAX}
+
+# Phase 23: moderator wellbeing. Items acted on or revealed per session before a break is enforced.
+wellbeing:
+  exposure-limit: ${WELLBEING_EXPOSURE_LIMIT:40}
+  break-duration: ${WELLBEING_BREAK_DURATION:PT15M}
+  idle-reset: ${WELLBEING_IDLE_RESET:PT2H}
+  support-url: ${WELLBEING_SUPPORT_URL:/support}
+
+# Phase 23: public transparency report. Counts below min-cell (and rates over so few items) are withheld.
+transparency:
+  min-cell: ${TRANSPARENCY_MIN_CELL:5}
+  cache-ttl: ${TRANSPARENCY_CACHE_TTL:PT60S}
 
 # Phase 15: evidentiary reports show timestamps in UTC plus this zone
 report:
   local-zone: ${REPORT_LOCAL_ZONE:Asia/Kolkata}
-  # Phase 20: dev Ed25519 signing key, generated on first start. Production: KMS/HSM, not a file.
   signing:
+    # Phase 24: file = dev keyring in key-dir (generated on first start); vault = HashiCorp Vault Transit (KMS)
+    provider: ${REPORT_SIGNING_PROVIDER:file}
     key-dir: ${REPORT_SIGNING_KEY_DIR:./data/signing-keys}
+    # Outside the dev profile the file provider is refused unless this is true
+    allow-file-keys: ${REPORT_SIGNING_ALLOW_FILE_KEYS:false}
+    vault:
+      address: ${VAULT_ADDR:}
+      token: ${VAULT_TOKEN:}
+      namespace: ${VAULT_NAMESPACE:}
+      mount: ${VAULT_TRANSIT_MOUNT:transit}
+      key-name: ${VAULT_TRANSIT_KEY:fmd-report-signing}
+  # Phase 24: RFC 3161 Time-Stamping Authority for signed reports (blank = no timestamps)
+  timestamp:
+    url: ${REPORT_TSA_URL:}
+    timeout: ${REPORT_TSA_TIMEOUT:PT10S}
+    # PEM bundle of TSA certificates (or their issuers) to report as trusted; blank = none trusted
+    trusted-certs: ${REPORT_TSA_TRUSTED_CERTS:}
 
 # Phase 18: on-device hash pre-screening ("check before you post")
 prescreen:
@@ -88,8 +160,25 @@ api:
   # Dev only: seeds a FREE "Demo Platform" client with this exact key (must start with fmd_live_)
   demo-key: ${API_DEMO_KEY:}
 
+# Phase 25: one-click demo story (/api/demo) and the hosted public demo. Dev profile only.
+demo:
+  enabled: ${DEMO_ENABLED:false}
+  # Hosted for strangers: anyone may reset, logins are shown, uploads limited to the bundled synthetic samples
+  public-mode: ${DEMO_PUBLIC:false}
+  reset-interval: ${DEMO_RESET_INTERVAL:PT6H}
+  reset-cooldown: ${DEMO_RESET_COOLDOWN:PT2M}
+  # Public mode: uploads per minute shared by every visitor (0 = unlimited)
+  uploads-per-minute: ${DEMO_UPLOADS_PER_MINUTE:60}
+  jurisdiction: ${DEMO_JURISDICTION:IN}
+
 # Dev-only seeded moderator (Phase 8). Change in production.
 app:
+  # Phase 24: memory (one instance) or redis (rate limits, PIN lockouts, exposure counters shared by all instances)
+  state:
+    store: ${STATE_STORE:memory}
   security:
     moderator-username: ${MODERATOR_USERNAME:moderator}
     moderator-password: ${MODERATOR_PASSWORD:moderator}
+    # Phase 23: extra dev accounts, "username:password:ROLE:team" (ROLE = MODERATOR | SENIOR_MODERATOR).
+    # Needed for second review and appeals, which must be decided by a different person. Change in production.
+    extra-moderators: ${MODERATOR_EXTRA_ACCOUNTS:reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac}
