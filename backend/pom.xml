@@ -54,7 +54,7 @@
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
-            <version>1.4.2</version>
+            <version>3.0.5</version>
         </dependency>
         <!-- Phase 24: shared rate-limit / lockout / wellbeing state across instances -->
         <dependency>
