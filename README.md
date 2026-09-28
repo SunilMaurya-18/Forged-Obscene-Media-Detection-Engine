@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/SunilMaurya-18/Forged-Obscene-Media-Detection-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/SunilMaurya-18/Forged-Obscene-Media-Detection-Engine/actions/workflows/ci.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
-![Spring Boot 3.4](https://img.shields.io/badge/Spring_Boot-3.4-6DB33F?logo=springboot&logoColor=white)
+![Spring Boot 3.5](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-EfficientNet--B0-EE4C2C?logo=pytorch&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-inference-009688?logo=fastapi&logoColor=white)
@@ -106,7 +106,7 @@ flowchart LR
 |---|---|---|---|
 | `frontend` | React 19 + Vite + Tailwind 4, served by nginx | 3000 | Landing, Analyze, Report wizard, Case status, Moderation Queue, Compliance, Verify, Dashboard, Login |
 | `mock-social-feed` | Static HTML/JS, served by nginx | 3001 | Simulates a platform upload pipeline |
-| `backend` | Spring Boot 3.4 / Java 21 | 8081 | Public API + decision engine + auth |
+| `backend` | Spring Boot 3.5 / Java 21 | 8081 | Public API + decision engine + auth |
 | `ml-service` | Python 3.12 + FastAPI + PyTorch (CPU) | internal only | Inference microservice |
 | `postgres` | PostgreSQL 16 | internal only | `analysis_results` (scores, decisions, SLA, provenance and report-signature fields), `provenance_events` (audit trail), `api_clients` (hashed API keys, plans, usage), `known_hashes` (prescreen list), `jurisdiction_rules` (SLA rules) |
 | `redis` | Redis 7 | internal only | Short-lived state shared by every backend instance: API rate-limit buckets, PIN lockouts, moderator exposure counters and the SLA scheduler lock. No persistence |

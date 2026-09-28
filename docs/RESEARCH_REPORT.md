@@ -8,7 +8,7 @@
 | **Repository** | [Forged-Obscene-Media-Detection-Engine](https://github.com/SunilMaurya-18/Forged-Obscene-Media-Detection-Engine) |
 | **Version** | 1.0 (covers implementation Phases 0–25) |
 | **Date** | 28 September 2026 |
-| **Stack** | Java 21 / Spring Boot 3.4 · Python 3.12 / FastAPI / PyTorch · React 19 / Tailwind 4 · PostgreSQL 16 · Redis · Docker Compose |
+| **Stack** | Java 21 / Spring Boot 3.5 · Python 3.12 / FastAPI / PyTorch · React 19 / Tailwind 4 · PostgreSQL 16 · Redis · Docker Compose |
 
 ---
 
@@ -255,7 +255,7 @@ flowchart LR
 | Component | Responsibility | Technology |
 |---|---|---|
 | **Frontend** | Public pages (landing, tour, analyze, report, status, appeal, verify, transparency), moderator console (queue, compliance, API access, support), bilingual UI | React 19, Vite, Tailwind 4, react-router 7, react-i18next, served by unprivileged nginx |
-| **Backend** | The only public API: security, decision engine, SLA clocks, complaints, appeals, moderation, provenance, reports and signing, API keys, rate limiting, transparency, demo | Spring Boot 3.4, Spring Security, Spring Data JPA, WebClient, OpenPDF, JDK Ed25519, BouncyCastle (TSP) |
+| **Backend** | The only public API: security, decision engine, SLA clocks, complaints, appeals, moderation, provenance, reports and signing, API keys, rate limiting, transparency, demo | Spring Boot 3.5, Spring Security, Spring Data JPA, WebClient, OpenPDF, JDK Ed25519, BouncyCastle (TSP) |
 | **ml-service** | Stateless inference: forgery and explicit scores, Grad-CAM, pHash, pixel hash, generation family, forensic signature, video frame sampling, provenance label embed and read, C2PA read and write | FastAPI, PyTorch (CPU or CUDA), torchvision, transformers, Pillow, OpenCV, imagehash, PyAV, c2pa-python |
 | **PostgreSQL** | Structured data only | PostgreSQL 16 (H2 in tests) |
 | **Redis** | Shared state across backend instances | Redis with Lua scripts, or in-memory for a single instance |

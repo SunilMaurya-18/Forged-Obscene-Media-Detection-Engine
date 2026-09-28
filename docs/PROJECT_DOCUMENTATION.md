@@ -577,7 +577,7 @@ The dashboard (`/dashboard`) shows these metrics with the same caveats, plus liv
 | Layer | Technology |
 |---|---|
 | Frontend | React 19, Vite, Tailwind CSS v4, react-router-dom 7, lucide-react icons, i18next / react-i18next, served by nginx |
-| Backend | Spring Boot 3.4, Java 21, Spring Security, Spring Data JPA, WebClient, OpenPDF, Ed25519 (JDK), BCrypt |
+| Backend | Spring Boot 3.5, Java 21, Spring Security, Spring Data JPA, WebClient, OpenPDF, Ed25519 (JDK), BCrypt |
 | ML service | Python 3.12, FastAPI, PyTorch (CPU), torchvision EfficientNet-B0, transformers (NSFW), OpenCV, Pillow, imagehash |
 | Database | PostgreSQL 16 (H2 in backend tests) |
 | Packaging | Docker, Docker Compose |
