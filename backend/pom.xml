@@ -93,7 +93,7 @@
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>3.0.3</version>
+            <version>3.0.8</version>
             <scope>test</scope>
         </dependency>
         <!-- Phase 24: real Redis for the shared-state tests (skipped when Docker is unavailable) -->
