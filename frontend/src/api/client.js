@@ -368,6 +368,46 @@ export async function reopenInvestigation(caseNumber) {
   return caseAction(caseNumber, 'reopen')
 }
 
+// ---------------------------------------------------------------- Phase 27: custody
+
+/** Every custody event with its hashes, and whether the chain verifies. */
+export async function fetchCustody(caseNumber) {
+  return apiFetch(`/api/investigations/${encodeURIComponent(caseNumber)}/custody`, { cache: 'no-store' })
+}
+
+/** Signs a manifest of what the case holds now; returns the preservation with its manifest and signature. */
+export async function preserveEvidence(caseNumber, reason) {
+  return caseAction(caseNumber, 'preservations', reason ? { reason } : {})
+}
+
+export async function verifyPreservation(caseNumber, preservationId) {
+  return apiFetch(
+    `/api/investigations/${encodeURIComponent(caseNumber)}/preservations/${encodeURIComponent(preservationId)}/verify`,
+    { cache: 'no-store' },
+  )
+}
+
+/** Plain-text manifest exactly as signed, for hashing offline. */
+export async function fetchPreservationManifest(caseNumber, preservationId) {
+  return apiFetch(
+    `/api/investigations/${encodeURIComponent(caseNumber)}/preservations/${encodeURIComponent(preservationId)}/manifest`,
+    { cache: 'no-store' },
+  )
+}
+
+/** {@code postRefs} empty: every linked sighting on that platform in the case. */
+export async function requestLegalHold(caseNumber, { platform, postRefs, note }) {
+  return caseAction(caseNumber, 'legal-holds', { platform, postRefs, note })
+}
+
+export async function acknowledgeLegalHold(caseNumber, holdNumber, partnerReference) {
+  return caseAction(caseNumber, `legal-holds/${encodeURIComponent(holdNumber)}/acknowledge`, { partnerReference })
+}
+
+export async function releaseLegalHold(caseNumber, holdNumber, reason) {
+  return caseAction(caseNumber, `legal-holds/${encodeURIComponent(holdNumber)}/release`, { reason })
+}
+
 /** Downloads a bundled synthetic sample as a File, ready for any upload form. */
 export async function fetchSampleFile(sample) {
   const res = await request(sample.url, { credentials: 'omit' })

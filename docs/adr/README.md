@@ -12,9 +12,10 @@ a reviewer can check the claim instead of trusting it.
 | [0003](0003-ed25519-report-signatures.md) | Sign evidentiary reports with Ed25519 over a canonical record snapshot | Accepted |
 | [0004](0004-hash-only-prescreen.md) | The "check before you post" prescreen accepts a hash, never an image | Accepted |
 | [0005](0005-explicit-jurisdiction-no-geoip.md) | Jurisdiction is always stated explicitly; never inferred from geo-IP | Accepted |
+| [0006](0006-preserve-commitments-not-media.md) | Preserve evidence as signed hashes plus a partner legal hold; never escrow the file | Accepted |
 
 These decisions were taken while the phases in [`IMPLEMENTATION_PLAN.md`](../../IMPLEMENTATION_PLAN.md)
-were built and were written down in Phase 25. The [threat model](../THREAT_MODEL.md) leans on
+were built and were written down in Phase 25 (0006 in Phase 27). The [threat model](../THREAT_MODEL.md) leans on
 them: several of its mitigations exist only because of these choices.
 
 ## Adding a record

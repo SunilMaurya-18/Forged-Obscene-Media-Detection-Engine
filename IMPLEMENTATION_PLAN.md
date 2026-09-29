@@ -750,16 +750,25 @@ Evidence is only useful to an investigator if nobody can quietly change it later
 
 ## Tasks
 
-- [ ] **Hash-chained custody log** — every case event carries `SHA-256(previous hash + canonical event)`; a verifier recomputes the chain and reports the first broken link
-- [ ] **Preservation snapshot** — "Preserve evidence" freezes the case: a canonical manifest of the analyses (content SHA-256, pHash, scores, signed report IDs and hashes), linked sightings and the custody head, signed with the report-signing key and optionally timestamped (RFC 3161)
-- [ ] **Legal hold requests** — per partner platform, recorded as custody events with the post references the hold covers; the platform keeps the media
-- [ ] **ADR 0006** — "Preserve commitments, not media": why the system never escrows the file, and how the committed SHA-256 proves a later copy is the same
+- [x] **Hash-chained custody log** — every case event carries `SHA-256(previous hash + canonical event)`; a verifier recomputes the chain and reports the first broken link. *The case log from Phase 26 is the custody log: `InvestigationEvent` gains `seq`, `prevHash` and `hash` (canonical `fmd-custody-event/v1`: case, seq, time, actor, type, analysis, sighting, detail), and the case row keeps the chain length and head. Appends take a row lock on the case so concurrent events queue instead of forking. `GET …/custody` names the first bad event and why: edited, deleted (gap), trimmed from the end (misses the recorded head), inserted by hand (no position), or rewritten end to end (no longer matches a signed preservation). Cases opened before Phase 27 are sealed once at startup; an unsealed event on an already sealed case is reported, never absorbed*
+- [x] **Preservation snapshot** — "Preserve evidence" freezes the case: a canonical manifest of the analyses (content SHA-256, pHash, scores, signed report IDs and hashes), linked sightings and the custody head, signed with the report-signing key and optionally timestamped (RFC 3161). *`PRS-XXXX-XXXX`, manifest `fmd-preservation-manifest/v1` (also case, preserver, reason; sightings carry platform, post, account pseudonym and how they matched), Ed25519 via the `SigningKeyProvider`, RFC 3161 over the signature via `ReportTimestampService`. Verification rebuilds the manifest from the records it names, recomputes the custody head from event contents, and diffs: evidence added to the case later doesn't disturb an earlier preservation. The preservation itself is a custody event carrying the manifest SHA-256. Refused (`409 custody_broken`) while the log fails verification. Allowed on closed cases. The exact signed text is downloadable for offline checks*
+- [x] **Legal hold requests** — per partner platform, recorded as custody events with the post references the hold covers; the platform keeps the media. *`HLD-XXXX-XXXX`, covering named posts that are linked sightings on that platform (all of them by default, at most 100). Requested → confirmed (with the platform's reference) → released, each a custody event; the request event carries the SHA-256 of the sorted post list. A request whose posts are all already under an active hold is refused. Delivery to the platform is out of band, so partners still can't learn through the API whether their sightings matched a case*
+- [x] **ADR 0006** — "Preserve commitments, not media": why the system never escrows the file, and how the committed SHA-256 proves a later copy is the same. *`docs/adr/0006-preserve-commitments-not-media.md`, including exactly how to recompute `content_sha256` for images (pixels) and videos (file), and the residual risks*
+- [x] **Console and demo** *(added)* — "Custody and preservation" card on the case page (verify chain with the event log, preserve, download and verify manifests, request / confirm / release holds); preservation and hold counts on case cards; the one-click story preserves the spread case and requests a `pixelgram` hold, shown in chapter 6 of `/tour`
 
 ## Definition of Done
 
-- [ ] Editing or deleting any custody event is detected by verification
-- [ ] A preserved manifest verifies `VALID`, and `TAMPERED` after any stored field it covers changes
-- [ ] No media bytes are written by preservation
+- [x] Editing or deleting any custody event is detected by verification. *`CustodyIntegrationTest.editingOrDeletingAnyCustodyEventIsDetected` edits each stored field of an event, re-hashes one, deletes one from the middle and the newest, and inserts one by hand; `CustodyChainTest` also covers reordering and a fully recomputed chain caught by a signed anchor*
+- [x] A preserved manifest verifies `VALID`, and `TAMPERED` after any stored field it covers changes. *`aPreservedManifestVerifiesAndCatchesAnyChangeItCovers`: `VALID` with a verified RFC 3161 timestamp and checkable offline with the public key; still `VALID` after new sightings and notes; `TAMPERED` naming the field for an analysis score, content hash, report hash, sighting post, match distance, a custody event before the head, the preservation row and the manifest text; `VALID` again once each is restored; deleting a covered link is caught. Also asserted on the demo story*
+- [x] No media bytes are written by preservation. *`preservationWritesNoMediaBytes`: every manifest line is a known `key=value` field, the manifest is smaller than the upload, and a full H2 `SCRIPT` dump after preservation contains neither the hex nor the base64 of the uploaded bytes*
+
+## Files touched
+
+- `backend/.../investigation/` (`CustodyChain`, `CustodyLog`, `Preservation`, `PreservationRepository`, `PreservationService`, `LegalHold`, `LegalHoldStatus`, `LegalHoldRepository`, `LegalHoldService`, `CustodyController`; `InvestigationEvent`, `InvestigationEventType`, `InvestigationEventRepository`, `Investigation`, `InvestigationRepository`, `InvestigationService`)
+- `backend/.../config/EnumConstraintSync`; `demo/DemoScenarioService`, `DemoResetService`
+- Tests: `CustodyChainTest`, `CustodyIntegrationTest`, updated `DemoScenarioIntegrationTest`; `frontend/src/lib/investigations.test.js`
+- `frontend/src/pages/Investigations.jsx`, `Tour.jsx`; `frontend/src/lib/investigations.js`, `frontend/src/api/client.js`, `frontend/src/i18n/*.json`
+- `docs/adr/0006-preserve-commitments-not-media.md`, `docs/adr/README.md`, `README.md`, `API_DOCS.md`, `docs/PROJECT_DOCUMENTATION.md`
 
 ---
 

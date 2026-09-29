@@ -334,7 +334,7 @@ A moderator login is required, and API keys get `401`. Case numbers look like `I
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| `GET` | `/api/investigations?status=open\|closed\|all` or `?analysisId=` | — | Case summaries: `caseNumber`, `title`, `status`, `items`, `sightings`, `platforms`, `accounts`, `lastActivityAt` |
+| `GET` | `/api/investigations?status=open\|closed\|all` or `?analysisId=` | — | Case summaries: `caseNumber`, `title`, `status`, `items`, `sightings`, `platforms`, `accounts`, `preservations`, `activeLegalHolds`, `lastActivityAt` |
 | `POST` | `/api/investigations` | `{"analysisId": 42, "title": "…"}` | `201` with the case. Sightings already reported for that media are linked immediately |
 | `GET` | `/api/investigations/{caseNumber}` | — | `evidence` (scores, family, signed report, complaint and appeal state per analysis), `sightings` (platform, post, account pseudonym, how it matched), `appearances` (other uploads to this platform), `platforms`, `accounts` (with `otherCases` the same pseudonym appears in), `timeline`, `counts` |
 | `POST` | `/api/investigations/{caseNumber}/items` | `{"analysisId": 43}` | Adds evidence and links its existing sightings |
@@ -344,3 +344,22 @@ A moderator login is required, and API keys get `401`. Case numbers look like `I
 | `POST` | `/api/investigations/{caseNumber}/reopen` | — | Reopens the case and links the sightings reported while it was closed |
 
 Errors: `400` `analysis_required`, `note_required`, `invalid_status`, `invalid_sighting`, `not_in_case`; `404` `case_not_found`, `analysis_not_found`; `409` `case_closed`, `already_open`, `already_in_case`.
+
+### Custody, preservation and legal holds (moderators)
+
+Every case event is also a custody event, sealed into a hash chain: `hash = SHA-256(prevHash + "\n" + canonical event)`, starting from 64 zeros. The canonical event is `fmd-custody-event/v1` followed by `case`, `seq`, `occurred_at`, `actor`, `type`, `analysis_id`, `sighting_id` and `detail`, one `key=value` per line (`\`, newline and carriage return escaped). The case view carries a `custody` block with the chain `length` and `head`, `preservations` and `legalHolds`. These actions work on closed cases too.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| `GET` | `/api/investigations/{caseNumber}/custody` | — | `verification` (`VALID` or `BROKEN`, with `brokenAt`, the position of the first bad event, and a sentence saying what happened: edited, deleted, trimmed, inserted, or rewritten after a preservation) and every event with `seq`, `prevHash` and `hash` |
+| `POST` | `/api/investigations/{caseNumber}/preservations` | `{"reason": "…"}` | `201` with `preservationId` (`PRS-XXXX-XXXX`), the `manifest` (`fmd-preservation-manifest/v1`), `manifestSha256`, Ed25519 `signature`, `signingKeyId`, `publicKeyPem`, and `timestampStatus` (`STAMPED`, `UNAVAILABLE` or `DISABLED`). The manifest covers each analysis (content SHA-256, pHash, scores, decision, signed report ID and SHA-256), each linked sighting (platform, post, account pseudonym, match) and the custody head. `409 custody_broken` if the log already fails verification |
+| `GET` | `/api/investigations/{caseNumber}/preservations` \| `/{preservationId}` | — | Summaries / one preservation with its manifest, signature and public key |
+| `GET` | `/api/investigations/{caseNumber}/preservations/{preservationId}/manifest` | — | The manifest exactly as signed (`text/plain`), with `X-Manifest-SHA256`, `X-Signature` and `X-Signing-Key-Id` headers |
+| `GET` | `/api/investigations/{caseNumber}/preservations/{preservationId}/verify` | — | `VALID`, or `TAMPERED` with `changedFields` (for example `analysis.1.forgery_score`, `sighting.2.post_ref`, `custody_head`, `signature`). The manifest is rebuilt from the records it names, so evidence added later doesn't affect it. Also checks the RFC 3161 timestamp when there is one |
+| `POST` | `/api/investigations/{caseNumber}/legal-holds` | `{"platform": "pixelgram", "postRefs": ["pg-1"]?, "note": "…"?}` | `201` with the case. Without `postRefs` the hold covers every linked sighting on that platform. `400 no_sightings`, `not_in_case`, `invalid_hold`; `409 already_held` |
+| `POST` | `/api/investigations/{caseNumber}/legal-holds/{holdNumber}/acknowledge` | `{"partnerReference": "…"?}` | The platform confirmed the hold. `409 hold_not_pending` |
+| `POST` | `/api/investigations/{caseNumber}/legal-holds/{holdNumber}/release` | `{"reason": "…"?}` | The hold is no longer needed. `409 hold_released` |
+
+A legal hold is recorded here and sent to the platform through its own legal channel. The platform keeps the media; this system never fetches or stores it ([ADR 0006](docs/adr/0006-preserve-commitments-not-media.md)).
+
+**Checking a preservation without this server.** Compute the SHA-256 of the manifest bytes and compare it with `manifestSha256`. Verify the base64 `signature` over those 32 digest bytes with the Ed25519 key in `publicKeyPem`; its ID, the first 16 hex characters of the SHA-256 of the DER public key, must equal `signingKeyId` and appear in `GET /api/verify-report/keys`. To tie a file obtained later from the platform to the case, recompute `analysis.N.content_sha256`: for an image, SHA-256 of `"<width>x<height>:"` followed by its decoded RGBA pixels (as Pillow's `convert("RGBA").tobytes()` produces them); for a video, SHA-256 of the file bytes.

@@ -67,6 +67,10 @@ const EVENT_LABELS = {
   NOTE_ADDED: 'Note',
   CLOSED: 'Case closed',
   REOPENED: 'Case reopened',
+  PRESERVED: 'Evidence preserved',
+  LEGAL_HOLD_REQUESTED: 'Legal hold requested',
+  LEGAL_HOLD_ACKNOWLEDGED: 'Legal hold confirmed',
+  LEGAL_HOLD_RELEASED: 'Legal hold released',
   OBSERVED: 'Seen on a platform',
   UPLOADED: 'Uploaded here again',
 }
@@ -76,6 +80,31 @@ export function eventLabel(entry) {
   if (EVENT_LABELS[entry.type]) return EVENT_LABELS[entry.type]
   const t = String(entry.type || '').toLowerCase().replace(/_/g, ' ')
   return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+// ------------------------------------------------------------------ Phase 27: custody
+
+export const HOLD_STATUS = {
+  REQUESTED: { label: 'Requested', hint: 'Asked of the platform, not yet confirmed' },
+  ACKNOWLEDGED: { label: 'Confirmed', hint: 'The platform confirmed it is keeping the posts' },
+  RELEASED: { label: 'Released', hint: 'No longer needed; normal retention applies again' },
+}
+
+/** First {@code n} hex characters, enough to compare by eye; the full value stays in the title/copy button. */
+export function shortHash(hash, n = 12) {
+  return hash ? String(hash).slice(0, n) : ''
+}
+
+/**
+ * The posts a legal hold on {@code platform} could cover: every linked sighting there, sorted, with
+ * {@code held} set when an unreleased hold already covers it. Mirrors LegalHoldService.
+ */
+export function holdablePosts(sightings, holds, platform) {
+  const held = new Set(
+    (holds || []).filter((h) => h.platform === platform && h.status !== 'RELEASED').flatMap((h) => h.postRefs || []),
+  )
+  const posts = [...new Set((sightings || []).filter((s) => s.platform === platform).map((s) => s.postRef))].sort()
+  return posts.map((postRef) => ({ postRef, held: held.has(postRef) }))
 }
 
 /** Newest first, grouped by calendar day (local time) for the timeline view. */

@@ -3,10 +3,12 @@ import { test } from 'node:test'
 import {
   eventLabel,
   groupByDay,
+  holdablePosts,
   matchLabel,
   normalizeInvestigationNumber,
   normalizePlatform,
   postRefProblem,
+  shortHash,
 } from './investigations.js'
 
 test('investigation numbers are normalised the same way as the backend', () => {
@@ -62,4 +64,29 @@ test('event labels and day grouping', () => {
     ['NOTE_ADDED', 'SIGHTING_LINKED'],
   )
   assert.equal(groupByDay(null).length, 0)
+})
+
+test('custody events have plain names', () => {
+  assert.equal(eventLabel({ type: 'PRESERVED' }), 'Evidence preserved')
+  assert.equal(eventLabel({ type: 'LEGAL_HOLD_ACKNOWLEDGED' }), 'Legal hold confirmed')
+  assert.equal(shortHash('0123456789abcdef0123'), '0123456789ab')
+  assert.equal(shortHash(null), '')
+})
+
+test('holdable posts are the linked sightings on one platform, marking those already held', () => {
+  const sightings = [
+    { platform: 'pixelgram', postRef: 'pg-2' },
+    { platform: 'pixelgram', postRef: 'pg-1' },
+    { platform: 'pixelgram', postRef: 'pg-1' },
+    { platform: 'chirp', postRef: 'ch-1' },
+  ]
+  const holds = [
+    { platform: 'pixelgram', status: 'ACKNOWLEDGED', postRefs: ['pg-2'] },
+    { platform: 'pixelgram', status: 'RELEASED', postRefs: ['pg-1'] },
+  ]
+  assert.deepEqual(holdablePosts(sightings, holds, 'pixelgram'), [
+    { postRef: 'pg-1', held: false },
+    { postRef: 'pg-2', held: true },
+  ])
+  assert.deepEqual(holdablePosts(sightings, [], 'vidshare'), [])
 })

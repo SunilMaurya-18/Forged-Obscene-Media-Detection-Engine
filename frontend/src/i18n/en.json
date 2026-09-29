@@ -680,7 +680,9 @@
         "body": "Partner platforms reported {{sightings}} copies on {{platforms}} platforms. One account also posted the image from the victim's report, so the two cases are linked. Accounts are stored as pseudonyms and no media is kept.",
         "case": "Investigation",
         "related": "Linked case",
-        "open": "Open the investigation"
+        "open": "Open the investigation",
+        "custody": "Evidence",
+        "custodyValue": "Preserved {{preservations}}× · {{holds}} legal hold(s) requested"
       }
     },
     "sla": {

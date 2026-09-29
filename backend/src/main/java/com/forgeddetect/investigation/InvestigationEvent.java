@@ -9,14 +9,21 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 
 /**
  * Internal case log. Names moderators, so it is never part of the public provenance trail; sightings
  * are recorded here and not as provenance events for the same reason.
+ *
+ * <p>Phase 27: also the custody log. Each event is sealed into a hash chain ({@link CustodyChain})
+ * when it is written, so the log is append-only in a way anyone can check.
  */
 @Entity
-@Table(name = "investigation_events", indexes = @Index(name = "idx_investigation_events_case", columnList = "investigationId"))
+@Table(
+        name = "investigation_events",
+        indexes = @Index(name = "idx_investigation_events_case", columnList = "investigationId"),
+        uniqueConstraints = @UniqueConstraint(name = "uq_investigation_events_seq", columnNames = {"investigationId", "seq"}))
 public class InvestigationEvent {
 
     @Id
@@ -42,6 +49,16 @@ public class InvestigationEvent {
 
     @Column(length = 512)
     private String detail;
+
+    /** Position in the case's custody chain, from 1. */
+    private Integer seq;
+
+    /** {@link #hash} of the previous event, or {@link CustodyChain#GENESIS} for the first. */
+    @Column(length = 64)
+    private String prevHash;
+
+    @Column(length = 64)
+    private String hash;
 
     protected InvestigationEvent() {}
 
@@ -87,5 +104,23 @@ public class InvestigationEvent {
 
     public String getDetail() {
         return detail;
+    }
+
+    public Integer getSeq() {
+        return seq;
+    }
+
+    public String getPrevHash() {
+        return prevHash;
+    }
+
+    public String getHash() {
+        return hash;
+    }
+
+    void seal(int seq, String prevHash, String hash) {
+        this.seq = seq;
+        this.prevHash = prevHash;
+        this.hash = hash;
     }
 }

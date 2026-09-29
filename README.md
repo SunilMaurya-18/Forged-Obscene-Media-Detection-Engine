@@ -59,6 +59,7 @@ Existing tools each solve one piece. Detectors give a score but no workflow, has
 | **Check before you post** | StopNCII-style: the browser computes the perceptual hash and sends **only the hash** (under 50 bytes). Never the image |
 | **Partner API** | `POST /api/v1/analyze` with hashed API keys, FREE / PRO / ENTERPRISE rate limits and usage stats |
 | **Investigations** | Follows media past the verdict. Partners report sightings (`POST /api/v1/sightings`) by hash and opaque post ID. They link to open cases by pHash distance or provenance ID, whether they arrive before or after the case is opened. Accounts are stored only as keyed, per-platform pseudonyms, and one seen in two cases is flagged in both. Everything is shown on one timeline |
+| **Chain of custody** | Every case event is hash-chained, so an edited or deleted entry is caught on verification. **Preserve evidence** signs (and can timestamp) a manifest of the case's hashes, scores, signed reports and sightings, which later reads `VALID` or `TAMPERED` with the changed fields named. Legal hold requests ask the hosting platform to keep the posts; the media never comes here ([ADR 0006](docs/adr/0006-preserve-commitments-not-media.md)) |
 | **Accessible by default** | Skip links, focus management, icon + text on every status, dark / light themes, plain-language errors |
 
 > **Data policy.** Models are trained and evaluated only on consenting-actor research benchmarks (FaceForensics++, DFDC, Celeb-DF). No real non-consensual or explicit imagery is included anywhere in this repo. Only perceptual hashes, scores, and metadata are stored. Raw media is never persisted.
@@ -456,6 +457,9 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `GET` / `POST` | `/api/investigations` | `MODERATOR` | `?status=open\|closed\|all` or `?analysisId=` / open a case `{"analysisId","title"?}` (links sightings already reported) |
 | `GET` | `/api/investigations/{caseNumber}` | `MODERATOR` | Evidence, sightings, other uploads here, platforms, account pseudonyms with `otherCases`, and the combined timeline |
 | `POST` | `/api/investigations/{caseNumber}/items` \| `/sightings` \| `/notes` \| `/close` \| `/reopen` | `MODERATOR` | Add evidence / record a sighting a moderator was told about / note / close (read-only, stops linking) / reopen (catches up on sightings). `409 case_closed`, `already_in_case`, `already_open` |
+| `GET` | `/api/investigations/{caseNumber}/custody` | `MODERATOR` | The hash-chained custody log and whether it verifies (`VALID` / `BROKEN` with the first bad event) |
+| `POST` / `GET` | `/api/investigations/{caseNumber}/preservations` \| `/{id}` \| `/{id}/manifest` \| `/{id}/verify` | `MODERATOR` | Preserve evidence (signed manifest, optional RFC 3161 timestamp) / read it / the exact signed text / `VALID` or `TAMPERED` with `changedFields`. `409 custody_broken` |
+| `POST` | `/api/investigations/{caseNumber}/legal-holds` \| `/{holdNumber}/acknowledge` \| `/{holdNumber}/release` | `MODERATOR` | Record a legal hold request to a platform for linked posts (all on that platform by default) / its confirmation / release. Each is a custody event |
 | `GET` / `POST` | `/api/admin/clients` | `MODERATOR` | List clients and plan limits / create a client (`{"name","plan"}`). The key is returned once |
 | `POST` | `/api/admin/clients/{id}/rotate` \| `/revoke` \| `/plan` | `MODERATOR` | New key (old one stops working) / disable the key / change plan |
 | `GET` | `/api/stats` | public | Totals by decision |
@@ -482,7 +486,7 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `GET` | `/api/compliance/breaches` | `MODERATOR` | All items that breached their SLA |
 | `GET` | `/api/compliance/summary` | `MODERATOR` | Open count by status, total breaches, configured SLA windows, and an `appeals` block (open appeals by SLA status, next deadline) |
 | `GET` | `/api/demo` | public | Demo status: `enabled`, `publicMode`, next reset, synthetic `samples`, demo `accounts` (passwords only in public mode) and the current `story`, if any. Never seeds. `{"enabled": false}` when off |
-| `POST` | `/api/demo/story` | public | Seeds the one-click story if there is none (idempotent) and returns it: flagged upload + notice PIN, appeal, signed report, at-risk complaint + case PIN, breached order, and two investigations linked by a shared (synthetic) account. `?fresh=true` (moderators) builds a new one. `409 demo_busy` while another request is seeding |
+| `POST` | `/api/demo/story` | public | Seeds the one-click story if there is none (idempotent) and returns it: flagged upload + notice PIN, appeal, signed report, at-risk complaint + case PIN, breached order, and two investigations linked by a shared (synthetic) account, the first preserved and with a legal hold requested from `pixelgram`. `?fresh=true` (moderators) builds a new one. `409 demo_busy` while another request is seeding |
 | `POST` | `/api/demo/reset` | `SENIOR_MODERATOR` (anyone in public mode) | Wipes all data and seeds a fresh story. Public visitors: once per `DEMO_RESET_COOLDOWN` (`429 demo_reset_cooldown` + `Retry-After`) |
 | `GET` | `/api/demo/samples/{name}` \| `/api/demo/report.pdf` | public | A bundled synthetic sample / the story's signed PDF (`X-Report-Id`, `X-Report-SHA256`) |
 
@@ -600,7 +604,7 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 # Tests
-cd backend && mvn test                                   # decision engine, API, auth, SLA + jurisdiction rules, provenance, signed PDF reports, API keys, prescreen, public complaints, video routing, C2PA, appeals, teams + second review, wellbeing, transparency, investigations + sightings
+cd backend && mvn test                                   # decision engine, API, auth, SLA + jurisdiction rules, provenance, signed PDF reports, API keys, prescreen, public complaints, video routing, C2PA, appeals, teams + second review, wellbeing, transparency, investigations + sightings, custody chain + preservation + legal holds
 cd ml-service && python -m pytest                        # health, /infer, NSFW, provenance manifests, forensic signature, generation family, /infer-video (no disk writes), C2PA read/write
 cd ml && python -m pytest tests data/tests               # pipeline, model, plots, poster, diffusion split + family head
 cd frontend && npm test                                  # on-device pHash parity, Hindi/English key coverage, case-number + contact validation, queue urgency order, near-duplicates, video/C2PA/appeal/investigation helpers
@@ -622,12 +626,12 @@ ml-service/         FastAPI inference (forgery, NSFW, Grad-CAM, pHash) + provena
 backend/            Spring Boot API, decision engine, compliance SLA engine, provenance audit trail, PDF reports,
                     API keys + rate limiting (/api/v1), security, JPA
   demo/             one-click demo story, reset, synthetic sample allowlist (Phase 25)
-  investigation/    investigation cases, partner sightings, account pseudonyms, hash linking (Phase 26)
+  investigation/    investigation cases, partner sightings, account pseudonyms, hash linking (Phase 26); custody chain, preservation, legal holds (Phase 27)
 frontend/           React + Tailwind UI (Landing, Tour, Analyze, Report, Case status, Appeal, Queue, Compliance,
                     Investigations, Verify, Dashboard, Transparency, Support, API access, Explained, Login)
 mock-social-feed/   static "platform" that calls /api/analyze on each post
 docs/               PROJECT_DOCUMENTATION.md: the complete project guide · MODEL_CARD.md: intended use, metrics, limits
-  adr/              architecture decision records (no raw media, two models, Ed25519, hash-only prescreen, no geo-IP)
+  adr/              architecture decision records (no raw media, two models, Ed25519, hash-only prescreen, no geo-IP, preserve commitments not media)
   THREAT_MODEL.md   threats, mitigations and residual risk
   PUBLIC_DEMO.md    hosting the public demo
 API_DOCS.md         third-party integration guide for /api/v1
@@ -666,6 +670,7 @@ The choices that shape everything else are written down as [Architecture Decisio
 | [0003](docs/adr/0003-ed25519-report-signatures.md) | Ed25519 signatures over a canonical record snapshot, verifiable by anyone |
 | [0004](docs/adr/0004-hash-only-prescreen.md) | The prescreen accepts a hash computed on the device, never an image |
 | [0005](docs/adr/0005-explicit-jurisdiction-no-geoip.md) | Jurisdiction is always stated explicitly, never inferred from geo-IP |
+| [0006](docs/adr/0006-preserve-commitments-not-media.md) | Preserve evidence as signed hashes and a partner legal hold; never escrow the file |
 
 The [threat model](docs/THREAT_MODEL.md) covers adversarial uploads, key theft, hash-list poisoning, moderator account compromise, report forgery and public-demo abuse. For each it lists the mitigations in place and the residual risk, including the gaps that are still open (no MFA or login throttling for moderators, single-moderator hash import, no edge rate limit on the public analyze endpoint).
 

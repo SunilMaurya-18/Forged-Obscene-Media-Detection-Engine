@@ -6,5 +6,9 @@ public enum InvestigationEventType {
     SIGHTING_LINKED,
     NOTE_ADDED,
     CLOSED,
-    REOPENED
+    REOPENED,
+    PRESERVED,
+    LEGAL_HOLD_REQUESTED,
+    LEGAL_HOLD_ACKNOWLEDGED,
+    LEGAL_HOLD_RELEASED
 }

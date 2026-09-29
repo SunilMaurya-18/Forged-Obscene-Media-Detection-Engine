@@ -322,6 +322,13 @@ function Story({ story, now, isAuthenticated }) {
               </Field>
             </div>
           )}
+          {investigation.preservations > 0 && (
+            <div className="col-span-2">
+              <Field label={t('demo.steps.investigation.custody')}>
+                {t('demo.steps.investigation.custodyValue', { preservations: investigation.preservations, holds: investigation.activeLegalHolds })}
+              </Field>
+            </div>
+          )}
         </Step>
       )}
     </ol>

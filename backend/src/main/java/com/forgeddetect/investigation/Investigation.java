@@ -44,6 +44,12 @@ public class Investigation {
     @Column(length = 512)
     private String closeReason;
 
+    /** Phase 27: number of events in the custody chain and the hash of the newest one. */
+    private Integer custodyLength;
+
+    @Column(length = 64)
+    private String custodyHead;
+
     protected Investigation() {}
 
     public Investigation(String caseNumber, String title, String openedBy, Instant openedAt) {
@@ -105,5 +111,18 @@ public class Investigation {
 
     public String getCloseReason() {
         return closeReason;
+    }
+
+    public Integer getCustodyLength() {
+        return custodyLength;
+    }
+
+    public String getCustodyHead() {
+        return custodyHead;
+    }
+
+    void advanceCustody(int length, String head) {
+        custodyLength = length;
+        custodyHead = head;
     }
 }

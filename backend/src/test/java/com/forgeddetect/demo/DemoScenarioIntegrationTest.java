@@ -128,6 +128,17 @@ class DemoScenarioIntegrationTest {
         assertThat(caseView.get("accounts").findValuesAsText("caseNumber")).contains(related.get("caseNumber").asText());
         mockMvc.perform(get("/api/investigations/" + investigation.get("caseNumber").asText())).andExpect(status().isUnauthorized());
 
+        // Phase 27: the spread case is preserved (and still verifies) and pixelgram was asked to hold its post
+        assertThat(investigation.get("preservations").asInt()).isEqualTo(1);
+        assertThat(investigation.get("activeLegalHolds").asInt()).isEqualTo(1);
+        String pid = caseView.at("/custody/preservations/0/preservationId").asText();
+        JsonNode verified = json(mockMvc.perform(get("/api/investigations/" + investigation.get("caseNumber").asText()
+                        + "/preservations/" + pid + "/verify").with(httpBasic("moderator", "moderator")))
+                .andExpect(status().isOk()));
+        assertThat(verified.get("status").asText()).as(verified.toString()).isEqualTo("VALID");
+        assertThat(caseView.at("/custody/legalHolds/0/platform").asText()).isEqualTo("pixelgram");
+        assertThat(caseView.at("/custody/legalHolds/0/postRefs").get(0).asText()).isEqualTo("pg-7Q2X91");
+
         // Idempotent: a second visitor gets the same story
         JsonNode again = json(mockMvc.perform(post("/api/demo/story")).andExpect(status().isOk())).get("story");
         assertThat(again.get("flagged").get("id").asLong()).isEqualTo(flagged.get("id").asLong());

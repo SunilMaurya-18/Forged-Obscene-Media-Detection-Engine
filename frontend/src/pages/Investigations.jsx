@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
+  Archive,
   ArrowLeft,
   CircleDot,
   FileCheck2,
+  FileDown,
   FolderSearch,
+  Gavel,
   Globe,
   History,
   Link2,
+  ListTree,
   Lock,
   LockOpen,
   MapPin,
@@ -17,17 +21,26 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  ShieldX,
+  Stamp,
   Users,
 } from 'lucide-react'
 import {
+  acknowledgeLegalHold,
   addInvestigationItem,
   addInvestigationNote,
   closeInvestigation,
+  fetchCustody,
   fetchInvestigation,
   fetchInvestigations,
+  fetchPreservationManifest,
   openInvestigation,
+  preserveEvidence,
   recordSighting,
+  releaseLegalHold,
   reopenInvestigation,
+  requestLegalHold,
+  verifyPreservation,
 } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import FamilyChip from '../components/FamilyChip'
@@ -37,16 +50,19 @@ import { Alert, Button, Card, CardHeader, CopyButton, DecisionBadge, EmptyState,
 import { cn, dateTime, score, timeAgo } from '../lib/format'
 import {
   ACCOUNT_ID_MAX,
+  HOLD_STATUS,
   NOTE_MAX,
   SOURCE,
   TIMELINE_KINDS,
   VIA,
   eventLabel,
   groupByDay,
+  holdablePosts,
   matchLabel,
   normalizeInvestigationNumber,
   normalizePlatform,
   postRefProblem,
+  shortHash,
 } from '../lib/investigations'
 
 const INPUT =
@@ -175,6 +191,18 @@ function CaseCard({ c }) {
             <Users className="inline size-3.5 mr-1 text-brand" />
             {c.accounts} {c.accounts === 1 ? 'account' : 'accounts'}
           </span>
+          {c.preservations > 0 && (
+            <span>
+              <Archive className="inline size-3.5 mr-1 text-emerald-300" />
+              {c.preservations} preserved
+            </span>
+          )}
+          {c.activeLegalHolds > 0 && (
+            <span>
+              <Gavel className="inline size-3.5 mr-1 text-amber-300" />
+              {c.activeLegalHolds} {c.activeLegalHolds === 1 ? 'hold' : 'holds'}
+            </span>
+          )}
           <span className="text-subtle">
             Opened by {c.openedBy} {timeAgo(c.openedAt)}
           </span>
@@ -651,6 +679,380 @@ function CloseControls({ c, onDone, onUnauthorized }) {
   )
 }
 
+// ------------------------------------------------------------------ custody (Phase 27)
+
+function VerdictLine({ result, okLabel, badLabel }) {
+  const ok = result.status === 'VALID'
+  const Icon = ok ? ShieldCheck : ShieldX
+  return (
+    <div className={cn('rounded-xl border px-3.5 py-2.5 text-sm mt-3', ok ? 'border-emerald-400/30 bg-emerald-400/[0.06]' : 'border-rose-400/30 bg-rose-400/[0.07]')}>
+      <p className={cn('flex items-center gap-1.5 font-semibold', ok ? 'text-emerald-200' : 'text-rose-200')}>
+        <Icon className="size-4" />
+        {ok ? okLabel : badLabel}
+      </p>
+      <p className="text-xs text-muted mt-1 break-words">{result.message}</p>
+      {result.changedFields?.length > 0 && (
+        <p className="text-xs mt-1.5">
+          <span className="text-subtle">Changed: </span>
+          <span className="font-mono text-rose-200">{result.changedFields.join(', ')}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+function CustodyLogPanel({ c, onUnauthorized }) {
+  const [log, setLog] = useState(null)
+  const [showEvents, setShowEvents] = useState(false)
+  const { busy, error, run } = useAction(onUnauthorized)
+  const check = async () => {
+    const result = await run(() => fetchCustody(c.caseNumber))
+    if (result) setLog(result)
+  }
+  const brokenAt = log?.verification.brokenAt
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm">
+          <span className="font-medium">{c.custody.length ?? 0} custody events</span>
+          {c.custody.head && (
+            <span className="text-xs text-subtle" title={c.custody.head}>
+              {' '}
+              · head <span className="font-mono">{shortHash(c.custody.head)}</span>
+            </span>
+          )}
+        </p>
+        <div className="flex gap-2 ml-auto">
+          {log && (
+            <Button size="sm" variant="ghost" icon={ListTree} onClick={() => setShowEvents((s) => !s)}>
+              {showEvents ? 'Hide log' : 'Show log'}
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" icon={ShieldCheck} loading={busy} onClick={check}>
+            Verify chain
+          </Button>
+        </div>
+      </div>
+      {error && <p className="text-xs text-rose-300 mt-2">{error.message}</p>}
+      {log && <VerdictLine result={log.verification} okLabel="Chain intact" badLabel="Chain broken" />}
+      {log && showEvents && (
+        <ol className="mt-3 max-h-72 overflow-y-auto divide-y divide-line rounded-xl border border-line text-xs">
+          {log.events.map((e) => (
+            <li key={e.seq ?? `x${e.occurredAt}`} className={cn('flex flex-wrap gap-x-3 gap-y-0.5 px-3 py-2', brokenAt != null && e.seq === brokenAt && 'bg-rose-400/[0.08]')}>
+              <span className="font-mono text-subtle w-7">{e.seq ?? '?'}</span>
+              <span className="font-medium">{eventLabel(e)}</span>
+              <span className="text-subtle">{e.actor}</span>
+              <span className="font-mono text-subtle ml-auto" title={e.hash || 'not sealed'}>
+                {e.hash ? shortHash(e.hash) : 'unsealed'}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function PreservationRow({ caseNumber, p, onUnauthorized }) {
+  const [result, setResult] = useState(null)
+  const { busy, error, run } = useAction(onUnauthorized)
+  const verify = async () => {
+    const r = await run(() => verifyPreservation(caseNumber, p.preservationId))
+    if (r) setResult(r)
+  }
+  const download = async () => {
+    const text = await run(() => fetchPreservationManifest(caseNumber, p.preservationId))
+    if (text == null) return
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${p.preservationId}.manifest.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <li className="rounded-xl border border-line bg-white/[0.02] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Archive className="size-4 text-brand" />
+        <span className="font-mono text-sm font-semibold">{p.preservationId}</span>
+        <span className="text-xs text-subtle" title={dateTime(p.preservedAt)}>
+          by {p.preservedBy} {timeAgo(p.preservedAt)}
+        </span>
+        <div className="flex gap-2 ml-auto">
+          <Button size="sm" variant="ghost" icon={FileDown} onClick={download} disabled={busy}>
+            Manifest
+          </Button>
+          <Button size="sm" variant="secondary" icon={ShieldCheck} loading={busy} onClick={verify}>
+            Verify
+          </Button>
+        </div>
+      </div>
+      <p className="text-xs text-muted mt-2">
+        {p.analyses} {p.analyses === 1 ? 'analysis' : 'analyses'} · {p.sightings} {p.sightings === 1 ? 'sighting' : 'sightings'} · custody log to event {p.custodyLength}
+        {p.reason && <span className="text-subtle"> · {p.reason}</span>}
+      </p>
+      <p className="flex flex-wrap items-center gap-1.5 text-xs text-subtle mt-1">
+        Manifest SHA-256 <span className="font-mono text-muted">{shortHash(p.manifestSha256, 16)}…</span>
+        <CopyButton value={p.manifestSha256} className="size-6" />
+        <span>· {p.algorithm} key {p.signingKeyId}</span>
+        {p.timestampedAt ? (
+          <span className="inline-flex items-center gap-1" title={p.timestampAuthority}>
+            · <Stamp className="size-3.5" /> timestamped {timeAgo(p.timestampedAt)}
+          </span>
+        ) : (
+          <span>· no trusted timestamp</span>
+        )}
+      </p>
+      {error && <p className="text-xs text-rose-300 mt-2">{error.message}</p>}
+      {result && <VerdictLine result={result} okLabel="Preservation verifies" badLabel="Tampered since preservation" />}
+    </li>
+  )
+}
+
+function PreserveForm({ c, onPreserved, onUnauthorized }) {
+  const [reason, setReason] = useState('')
+  const { busy, error, run } = useAction(onUnauthorized)
+  const submit = async (e) => {
+    e.preventDefault()
+    const done = await run(() => preserveEvidence(c.caseNumber, reason.trim() || undefined))
+    if (done) {
+      setReason('')
+      onPreserved(done)
+    }
+  }
+  return (
+    <form onSubmit={submit} className="mt-3">
+      <div className="flex flex-wrap gap-2">
+        <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={NOTE_MAX} placeholder="Why now (optional)" className={cn(INPUT, 'flex-1 min-w-48')} />
+        <Button type="submit" icon={Archive} loading={busy}>
+          Preserve evidence
+        </Button>
+      </div>
+      {error && <p className="text-xs text-rose-300 mt-2">{error.message}</p>}
+    </form>
+  )
+}
+
+function HoldStatusBadge({ status }) {
+  const tone = {
+    REQUESTED: 'border-amber-400/30 text-amber-200',
+    ACKNOWLEDGED: 'border-emerald-400/30 text-emerald-200',
+    RELEASED: 'border-line-strong text-muted',
+  }[status]
+  return (
+    <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone)} title={HOLD_STATUS[status]?.hint}>
+      {HOLD_STATUS[status]?.label || status}
+    </span>
+  )
+}
+
+function HoldRow({ caseNumber, h, onDone, onUnauthorized }) {
+  const [mode, setMode] = useState(null)
+  const [text, setText] = useState('')
+  const { busy, error, run } = useAction(onUnauthorized)
+  const submit = async (e) => {
+    e.preventDefault()
+    const updated = await run(() =>
+      mode === 'ack' ? acknowledgeLegalHold(caseNumber, h.holdNumber, text.trim() || undefined) : releaseLegalHold(caseNumber, h.holdNumber, text.trim() || undefined),
+    )
+    if (updated) {
+      setMode(null)
+      setText('')
+      onDone(updated, mode === 'ack' ? `${h.holdNumber} marked as confirmed by ${h.platform}.` : `${h.holdNumber} released.`)
+    }
+  }
+  return (
+    <li className="rounded-xl border border-line bg-white/[0.02] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Gavel className="size-4 text-brand" />
+        <span className="font-mono text-sm font-semibold">{h.holdNumber}</span>
+        <span className="text-sm font-medium">{h.platform}</span>
+        <HoldStatusBadge status={h.status} />
+        {!mode && h.status !== 'RELEASED' && (
+          <div className="flex gap-2 ml-auto">
+            {h.status === 'REQUESTED' && (
+              <Button size="sm" variant="secondary" onClick={() => setMode('ack')}>
+                Mark confirmed
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setMode('release')}>
+              Release
+            </Button>
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-muted mt-2">
+        {h.postRefs.length} {h.postRefs.length === 1 ? 'post' : 'posts'}: <span className="font-mono">{h.postRefs.join(', ')}</span>
+      </p>
+      <p className="text-xs text-subtle mt-1">
+        Requested by {h.requestedBy} {timeAgo(h.requestedAt)}
+        {h.note && <> · {h.note}</>}
+        {h.acknowledgedAt && <> · confirmed {timeAgo(h.acknowledgedAt)}{h.partnerReference && <> (ref <span className="font-mono">{h.partnerReference}</span>)</>}</>}
+        {h.releasedAt && <> · released by {h.releasedBy} {timeAgo(h.releasedAt)}{h.releaseReason && `: ${h.releaseReason}`}</>}
+      </p>
+      {mode && (
+        <form onSubmit={submit} className="flex flex-wrap items-center gap-2 mt-3">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={mode === 'ack' ? 128 : NOTE_MAX}
+            placeholder={mode === 'ack' ? "Platform's reference (optional)" : 'Reason (optional)'}
+            className={cn(INPUT, 'flex-1 min-w-48')}
+            autoFocus
+          />
+          <Button type="submit" size="sm" variant={mode === 'ack' ? 'primary' : 'danger'} loading={busy}>
+            {mode === 'ack' ? 'Confirm' : 'Release hold'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setMode(null)}>
+            Cancel
+          </Button>
+        </form>
+      )}
+      {error && <p className="text-xs text-rose-300 mt-2">{error.message}</p>}
+    </li>
+  )
+}
+
+function HoldForm({ c, onDone, onUnauthorized }) {
+  const platforms = c.platforms.map((p) => p.platform)
+  const [platform, setPlatform] = useState(platforms[0] || '')
+  const [unchecked, setUnchecked] = useState(() => new Set())
+  const [note, setNote] = useState('')
+  const { busy, error, run } = useAction(onUnauthorized)
+  const posts = holdablePosts(c.sightings, c.custody.legalHolds, platform)
+  const chosen = posts.filter((p) => !p.held && !unchecked.has(p.postRef)).map((p) => p.postRef)
+
+  if (platforms.length === 0) {
+    return <p className="text-sm text-muted mt-3">A legal hold names posts on a partner platform; this case has no linked sightings yet.</p>
+  }
+  const toggle = (ref) =>
+    setUnchecked((s) => {
+      const next = new Set(s)
+      if (next.has(ref)) next.delete(ref)
+      else next.add(ref)
+      return next
+    })
+  const submit = async (e) => {
+    e.preventDefault()
+    const updated = await run(() => requestLegalHold(c.caseNumber, { platform, postRefs: chosen, note: note.trim() || undefined }))
+    if (updated) {
+      setNote('')
+      setUnchecked(new Set())
+      onDone(updated, `Legal hold requested from ${platform} for ${chosen.length} ${chosen.length === 1 ? 'post' : 'posts'}. Send it through their legal channel.`)
+    }
+  }
+  return (
+    <form onSubmit={submit} className="rounded-xl border border-line bg-white/[0.02] p-4 mt-3 space-y-3">
+      <p className="text-sm font-medium">Request a legal hold</p>
+      <div className="grid sm:grid-cols-[12rem_1fr] gap-3">
+        <Field label="Platform">
+          <select
+            value={platform}
+            onChange={(e) => {
+              setPlatform(e.target.value)
+              setUnchecked(new Set())
+            }}
+            className={INPUT}
+          >
+            {platforms.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Note (optional)" hint="e.g. the order or request reference">
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={NOTE_MAX} className={INPUT} />
+        </Field>
+      </div>
+      <fieldset>
+        <legend className="text-xs font-medium text-muted mb-1.5">Posts to hold</legend>
+        <div className="flex flex-wrap gap-2">
+          {posts.map((p) => (
+            <label key={p.postRef} className={cn('inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs', p.held && 'opacity-60')} title={p.held ? 'Already under an active hold' : undefined}>
+              <input type="checkbox" checked={p.held || !unchecked.has(p.postRef)} disabled={p.held} onChange={() => toggle(p.postRef)} />
+              <span className="font-mono">{p.postRef}</span>
+              {p.held && <span className="text-subtle">held</span>}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {error && <Alert title="Couldn't record the hold">{error.message}</Alert>}
+      <Button type="submit" icon={Gavel} loading={busy} disabled={chosen.length === 0}>
+        Record hold request
+      </Button>
+    </form>
+  )
+}
+
+function CustodyCard({ c, onDone, onReload, onUnauthorized }) {
+  const toast = useToast()
+  const [holdOpen, setHoldOpen] = useState(false)
+  const { preservations, legalHolds } = c.custody
+  return (
+    <Card className="p-5">
+      <CardHeader
+        icon={Archive}
+        title="Custody and preservation"
+        description="Every case event is hash-chained, so a changed or deleted entry shows up on verification. Preserving signs a manifest of hashes and scores; the media itself stays with the platform that hosts it."
+      />
+      <CustodyLogPanel c={c} onUnauthorized={onUnauthorized} />
+
+      <div className="border-t border-line mt-5 pt-5">
+        <p className="text-sm font-medium mb-1">Preservations</p>
+        {preservations.length === 0 ? (
+          <p className="text-sm text-muted">Nothing preserved yet. Preserve before asking a platform to hold posts, and again before any handover.</p>
+        ) : (
+          <ul className="space-y-3 mt-3">
+            {[...preservations].reverse().map((p) => (
+              <PreservationRow key={p.preservationId} caseNumber={c.caseNumber} p={p} onUnauthorized={onUnauthorized} />
+            ))}
+          </ul>
+        )}
+        <PreserveForm
+          c={c}
+          onUnauthorized={onUnauthorized}
+          onPreserved={(p) => {
+            toast(`Preserved as ${p.preservationId}${p.timestampStatus === 'STAMPED' ? ', with a trusted timestamp' : ''}.`)
+            onReload()
+          }}
+        />
+      </div>
+
+      <div className="border-t border-line mt-5 pt-5">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium">Legal holds</p>
+          {!holdOpen && (
+            <Button size="sm" variant="ghost" icon={Plus} className="ml-auto" onClick={() => setHoldOpen(true)}>
+              Request hold
+            </Button>
+          )}
+        </div>
+        {legalHolds.length === 0 && !holdOpen && (
+          <p className="text-sm text-muted mt-1">No holds requested. A hold asks a partner platform to keep specific posts under its own legal hold.</p>
+        )}
+        {legalHolds.length > 0 && (
+          <ul className="space-y-3 mt-3">
+            {[...legalHolds].reverse().map((h) => (
+              <HoldRow key={h.holdNumber} caseNumber={c.caseNumber} h={h} onDone={onDone} onUnauthorized={onUnauthorized} />
+            ))}
+          </ul>
+        )}
+        {holdOpen && (
+          <HoldForm
+            c={c}
+            onUnauthorized={onUnauthorized}
+            onDone={(updated, message) => {
+              setHoldOpen(false)
+              onDone(updated, message)
+            }}
+          />
+        )}
+      </div>
+    </Card>
+  )
+}
+
 function CaseDetail({ caseNumber, onUnauthorized }) {
   const toast = useToast()
   const [c, setCase] = useState(null)
@@ -764,6 +1166,8 @@ function CaseDetail({ caseNumber, onUnauthorized }) {
             <CardHeader icon={CircleDot} title="On this platform" description="Other uploads here: re-uploads traced through provenance, or near-identical by perceptual hash." />
             <Appearances appearances={c.appearances} phashMaxDistance={c.phashMaxDistance} />
           </Card>
+
+          <CustodyCard c={c} onDone={onDone} onReload={load} onUnauthorized={onUnauthorized} />
         </div>
 
         <div className="lg:col-span-2 space-y-6">

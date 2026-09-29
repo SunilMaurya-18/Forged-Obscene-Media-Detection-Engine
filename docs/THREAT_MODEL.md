@@ -295,6 +295,13 @@ bad actor impersonating the platform to a court or the police; an insider rewrit
 - **Signature-record tampering is caught.** If someone edits the stored signature or snapshot, the
   stored hash, signature and snapshot no longer agree, and the result is `TAMPERED`.
 - **Timestamps** (RFC 3161) fix *when* a report was signed, independent of our clock.
+- **Investigation records are chained and preserved (Phase 27).** Every case event is hash-chained, so
+  an insider editing, deleting or back-dating an entry is caught on verification with the event named.
+  A preservation signs a manifest of a case's hashes, scores, report hashes, sightings and custody
+  head; changing any of them later makes it `TAMPERED`
+  ([ADR 0006](adr/0006-preserve-commitments-not-media.md)). Whole-chain rewrites fail against the head
+  stored on the case and every signed preservation, but events after the latest preservation rely on
+  the case row alone.
 
 ### Residual risk
 

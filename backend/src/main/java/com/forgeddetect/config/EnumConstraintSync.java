@@ -2,6 +2,7 @@ package com.forgeddetect.config;
 
 import com.forgeddetect.investigation.InvestigationEventType;
 import com.forgeddetect.investigation.InvestigationStatus;
+import com.forgeddetect.investigation.LegalHoldStatus;
 import com.forgeddetect.investigation.SightingSource;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.ModerationAction;
@@ -40,7 +41,8 @@ public class EnumConstraintSync implements ApplicationRunner {
             new Column("moderation_audit_events", "action", ModerationAction.class),
             new Column("investigations", "status", InvestigationStatus.class),
             new Column("investigation_events", "type", InvestigationEventType.class),
-            new Column("sightings", "source", SightingSource.class));
+            new Column("sightings", "source", SightingSource.class),
+            new Column("investigation_legal_holds", "status", LegalHoldStatus.class));
 
     private final DataSource dataSource;
 

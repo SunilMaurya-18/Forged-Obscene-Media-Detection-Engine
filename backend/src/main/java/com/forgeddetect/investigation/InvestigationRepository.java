@@ -18,4 +18,7 @@ public interface InvestigationRepository extends JpaRepository<Investigation, Lo
     List<Investigation> findByStatus(InvestigationStatus status);
 
     List<Investigation> findByIdIn(Collection<Long> ids);
+
+    /** Cases whose custody log was never sealed (opened before Phase 27). */
+    List<Investigation> findByCustodyLengthIsNull();
 }

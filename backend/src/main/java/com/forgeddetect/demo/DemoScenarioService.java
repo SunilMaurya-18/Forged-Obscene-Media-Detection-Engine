@@ -2,6 +2,8 @@ package com.forgeddetect.demo;
 
 import com.forgeddetect.investigation.Investigation;
 import com.forgeddetect.investigation.InvestigationService;
+import com.forgeddetect.investigation.LegalHoldService;
+import com.forgeddetect.investigation.PreservationService;
 import com.forgeddetect.investigation.SightingService;
 import com.forgeddetect.investigation.SightingSource;
 import com.forgeddetect.model.AnalysisResult;
@@ -94,6 +96,8 @@ public class DemoScenarioService {
     private final DevModeratorProperties moderators;
     private final InvestigationService investigations;
     private final SightingService sightings;
+    private final PreservationService preservations;
+    private final LegalHoldService legalHolds;
     private final ApiClientRepository apiClients;
     private final SharedState state;
     private final TransactionTemplate tx;
@@ -119,6 +123,8 @@ public class DemoScenarioService {
             DevModeratorProperties moderators,
             InvestigationService investigations,
             SightingService sightings,
+            PreservationService preservations,
+            LegalHoldService legalHolds,
             ApiClientRepository apiClients,
             SharedState state,
             PlatformTransactionManager transactions,
@@ -138,6 +144,8 @@ public class DemoScenarioService {
         this.moderators = moderators;
         this.investigations = investigations;
         this.sightings = sightings;
+        this.preservations = preservations;
+        this.legalHolds = legalHolds;
         this.apiClients = apiClients;
         this.state = state;
         this.tx = new TransactionTemplate(transactions);
@@ -260,6 +268,13 @@ public class DemoScenarioService {
                 "Demo: the reporter named this post. The same pixelgram account also posted the composite in "
                         + spread.getCaseNumber() + ".", moderator);
         story.setRelatedInvestigationNumber(victim.getCaseNumber());
+
+        // 7. Phase 27: freeze what the spread case holds and ask pixelgram to keep its post
+        preservations.preserve(spread.getCaseNumber(), "Demo: preserved before asking platforms to hold the posts", moderator);
+        if (flagged.getPhash() != null || flagged.getProvenanceId() != null) {
+            legalHolds.request(spread.getCaseNumber(), "pixelgram", null,
+                    "Demo: sent through pixelgram's law-enforcement portal (fictional)", moderator);
+        }
     }
 
     /** A re-encoded copy: {@code flips} low bits of the hash differ, as they would after recompression. */

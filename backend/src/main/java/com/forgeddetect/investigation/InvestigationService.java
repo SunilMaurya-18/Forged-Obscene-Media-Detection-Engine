@@ -12,6 +12,7 @@ import com.forgeddetect.service.PrescreenProperties;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -63,6 +64,9 @@ public class InvestigationService {
     private final AnalysisResultRepository results;
     private final ProvenanceEventRepository provenanceEvents;
     private final ApiClientRepository clients;
+    private final CustodyLog custody;
+    private final PreservationRepository preservations;
+    private final LegalHoldRepository holds;
     private final PrescreenProperties prescreen;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
@@ -76,6 +80,9 @@ public class InvestigationService {
             AnalysisResultRepository results,
             ProvenanceEventRepository provenanceEvents,
             ApiClientRepository clients,
+            CustodyLog custody,
+            PreservationRepository preservations,
+            LegalHoldRepository holds,
             PrescreenProperties prescreen,
             Clock clock) {
         this.cases = cases;
@@ -86,6 +93,9 @@ public class InvestigationService {
         this.results = results;
         this.provenanceEvents = provenanceEvents;
         this.clients = clients;
+        this.custody = custody;
+        this.preservations = preservations;
+        this.holds = holds;
         this.prescreen = prescreen;
         this.clock = clock;
     }
@@ -105,7 +115,7 @@ public class InvestigationService {
 
     @Transactional
     public Investigation addItem(String caseNumber, Long analysisId, String actor) {
-        Investigation inv = requireOpen(caseNumber);
+        Investigation inv = requireOpenLocked(caseNumber);
         AnalysisResult analysis = analysis(analysisId);
         if (items.existsByInvestigationIdAndAnalysisId(inv.getId(), analysisId)) {
             throw new ModerationException(HttpStatus.CONFLICT, "already_in_case",
@@ -117,7 +127,7 @@ public class InvestigationService {
 
     @Transactional
     public Investigation note(String caseNumber, String text, String actor) {
-        Investigation inv = requireOpen(caseNumber);
+        Investigation inv = requireOpenLocked(caseNumber);
         if (text == null || text.isBlank()) {
             throw new ModerationException(HttpStatus.BAD_REQUEST, "note_required", "Write the note first.");
         }
@@ -127,7 +137,7 @@ public class InvestigationService {
 
     @Transactional
     public Investigation close(String caseNumber, String reason, String actor) {
-        Investigation inv = requireOpen(caseNumber);
+        Investigation inv = requireOpenLocked(caseNumber);
         String r = reason == null || reason.isBlank() ? null : clip(reason.strip(), MAX_TEXT);
         inv.close(actor, clock.instant(), r);
         cases.save(inv);
@@ -138,7 +148,7 @@ public class InvestigationService {
     /** Also links sightings reported while the case was closed. */
     @Transactional
     public Investigation reopen(String caseNumber, String actor) {
-        Investigation inv = find(caseNumber);
+        Investigation inv = custody.lock(find(caseNumber));
         if (inv.isOpen()) {
             throw new ModerationException(HttpStatus.CONFLICT, "already_open", inv.getCaseNumber() + " is already open.");
         }
@@ -167,7 +177,7 @@ public class InvestigationService {
     // ------------------------------------------------------------------ linking
 
     private void attach(Investigation inv, AnalysisResult analysis, String actor) {
-        items.save(new InvestigationItem(inv.getId(), analysis.getId(), actor, clock.instant()));
+        items.save(new InvestigationItem(inv.getId(), analysis.getId(), actor, clock.instant().truncatedTo(ChronoUnit.MICROS)));
         event(inv, actor, InvestigationEventType.ITEM_ADDED, analysis.getId(), null,
                 String.format(Locale.ROOT, "Analysis #%d added (%s, forgery %.2f, explicit %.2f)",
                         analysis.getId(), analysis.getDecision(), analysis.getForgeryScore(), analysis.getExplicitScore()));
@@ -208,7 +218,8 @@ public class InvestigationService {
                         byCase.values().stream().flatMap(List::stream).map(InvestigationItem::getAnalysisId).collect(Collectors.toSet()))
                 .stream().collect(Collectors.toMap(AnalysisResult::getId, Function.identity()));
         int linked = 0;
-        for (Investigation inv : open) {
+        // Locked in ID order, so two sightings linking to the same cases can't deadlock
+        for (Investigation inv : open.stream().sorted(Comparator.comparing(Investigation::getId)).toList()) {
             Match best = null;
             for (InvestigationItem item : byCase.getOrDefault(inv.getId(), List.of())) {
                 Match m = match(s, analyses.get(item.getAnalysisId()));
@@ -216,7 +227,7 @@ public class InvestigationService {
                     best = m;
                 }
             }
-            if (best != null && link(inv, s, best)) {
+            if (best != null && custody.lock(inv).isOpen() && link(inv, s, best)) {
                 linked++;
             }
         }
@@ -238,7 +249,7 @@ public class InvestigationService {
         if (links.existsByInvestigationIdAndSightingId(inv.getId(), s.getId())) {
             return false;
         }
-        links.save(new SightingLink(inv.getId(), s.getId(), m.analysis().getId(), m.via(), m.distance(), clock.instant()));
+        links.save(new SightingLink(inv.getId(), s.getId(), m.analysis().getId(), m.via(), m.distance(), clock.instant().truncatedTo(ChronoUnit.MICROS)));
         String how = VIA_PROVENANCE.equals(m.via()) ? "its embedded provenance ID" : "pHash distance " + m.distance();
         event(inv, s.getReportedBy() != null ? s.getReportedBy() : SYSTEM, InvestigationEventType.SIGHTING_LINKED,
                 m.analysis().getId(), s.getId(),
@@ -279,6 +290,8 @@ public class InvestigationService {
         m.put("sightings", linked.size());
         m.put("platforms", linked.stream().map(Sighting::getPlatform).distinct().count());
         m.put("accounts", linked.stream().map(Sighting::getAccountKey).filter(Objects::nonNull).distinct().count());
+        m.put("preservations", preservations.countByInvestigationId(inv.getId()));
+        m.put("activeLegalHolds", holds.countByInvestigationIdAndStatusNot(inv.getId(), LegalHoldStatus.RELEASED));
         m.put("lastActivityAt", events.findTopByInvestigationIdOrderByOccurredAtDescIdDesc(inv.getId())
                 .map(e -> e.getOccurredAt().toString()).orElse(inv.getOpenedAt().toString()));
         return m;
@@ -345,7 +358,20 @@ public class InvestigationService {
         counts.put("accounts", linked.values().stream().map(Sighting::getAccountKey).filter(Objects::nonNull).distinct().count());
         body.put("counts", counts);
         body.put("phashMaxDistance", prescreen.getPhashMaxDistance());
+        body.put("custody", custodySummary(inv));
         return body;
+    }
+
+    /** Phase 27: the chain head, preservations and legal holds. The full log is at {@code /custody}. */
+    private Map<String, Object> custodySummary(Investigation inv) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("length", inv.getCustodyLength());
+        m.put("head", inv.getCustodyHead());
+        m.put("preservations", preservations.findByInvestigationIdOrderByPreservedAtAscIdAsc(inv.getId()).stream()
+                .map(PreservationService::view).toList());
+        m.put("legalHolds", holds.findByInvestigationIdOrderByRequestedAtAscIdAsc(inv.getId()).stream()
+                .map(LegalHoldService::view).toList());
+        return m;
     }
 
     private Map<String, Object> evidenceView(AnalysisResult a, InvestigationItem item) {
@@ -522,7 +548,9 @@ public class InvestigationService {
             Map<Long, Sighting> linked) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (InvestigationEvent e : events.findByInvestigationIdOrderByOccurredAtAscIdAsc(inv.getId())) {
-            out.add(entry(e.getOccurredAt(), "case", e.getType().name(), e.getActor(), e.getDetail(), e.getAnalysisId(), e.getSightingId()));
+            Map<String, Object> v = entry(e.getOccurredAt(), "case", e.getType().name(), e.getActor(), e.getDetail(), e.getAnalysisId(), e.getSightingId());
+            v.put("seq", e.getSeq());
+            out.add(v);
         }
         Set<String> seen = new TreeSet<>();
         for (AnalysisResult a : caseAnalyses) {
@@ -594,7 +622,15 @@ public class InvestigationService {
     }
 
     private Investigation requireOpen(String caseNumber) {
-        Investigation inv = find(caseNumber);
+        return requireOpen(find(caseNumber));
+    }
+
+    /** For changes: checks the status under the case's row lock, so a concurrent close can't slip in between. */
+    private Investigation requireOpenLocked(String caseNumber) {
+        return requireOpen(custody.lock(find(caseNumber)));
+    }
+
+    private static Investigation requireOpen(Investigation inv) {
         if (!inv.isOpen()) {
             throw new ModerationException(HttpStatus.CONFLICT, "case_closed",
                     inv.getCaseNumber() + " is closed. Reopen it to make changes.");
@@ -603,7 +639,7 @@ public class InvestigationService {
     }
 
     private void event(Investigation inv, String actor, InvestigationEventType type, Long analysisId, Long sightingId, String detail) {
-        events.save(new InvestigationEvent(inv.getId(), clock.instant(), actor, type, analysisId, sightingId, clip(detail, MAX_TEXT)));
+        custody.append(inv, actor, type, analysisId, sightingId, detail);
     }
 
     private static String clip(String s, int max) {

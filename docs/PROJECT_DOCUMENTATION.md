@@ -166,6 +166,9 @@ Detection answers *is this manipulated?* An investigation answers the next quest
 | Appearances here | Other uploads to this platform of the same media: re-uploads traced by provenance, or near-duplicates by pHash |
 | One timeline | Case log, the provenance trail of every item, and sightings, in time order |
 | Boundaries | No web scraping or reverse image search. Only opaque post IDs are accepted, and URLs, usernames and e-mail addresses are refused. Sightings never appear on the public audit trail, and partners can't learn whether they matched anything |
+| Custody chain (Phase 27) | Every case event stores `SHA-256(previous hash + canonical event)`, and the case row keeps the chain length and head. **Verify chain** names the first bad event: edited, deleted, trimmed from the end, inserted by hand, or rewritten after a preservation signed it. Cases opened before the chain existed are sealed once at startup |
+| Preserve evidence | Signs a canonical manifest of the case: per analysis the content SHA-256, pHash, scores, decision and signed report ID + SHA-256; per sighting the platform, post, account pseudonym and match; and the custody head. Ed25519 with the report key, RFC 3161 timestamp when a TSA is set. Verification rebuilds it from the records it names and reports `VALID` or `TAMPERED` with the changed fields; evidence added later doesn't affect it. Refused while the custody log fails verification |
+| Legal holds | A request to one partner platform to keep named posts (by default every linked sighting there). Requested, confirmed (with the platform's reference) and released are all custody events; the request event carries the SHA-256 of the post list. Sent to the platform out of band; the platform keeps the media ([ADR 0006](adr/0006-preserve-commitments-not-media.md)) |
 
 ### 4.8 Experience
 
@@ -511,7 +514,7 @@ flowchart TD
 2. **Queue:** items with the nearest legal deadline come first. Use the keyboard to approve, reject, skip, or select similar items and act on them together. Every decision can be undone for 10 seconds.
 3. **Compliance:** live countdowns for every open complaint, escalation times, jurisdiction badges and the rules card. **Take down** or **Dismiss** stops the clock.
 4. **Evidence:** **Download report** produces the signed PDF; **Verify report integrity** confirms it.
-5. **Investigate:** **Investigate** on a queue item opens (or goes to) its case on `/investigations`. The case shows partner sightings by platform, the account pseudonyms involved and any other cases they appear in, and one timeline. Moderators can record a sighting someone told them about, add evidence and notes, and close or reopen the case.
+5. **Investigate:** **Investigate** on a queue item opens (or goes to) its case on `/investigations`. The case shows partner sightings by platform, the account pseudonyms involved and any other cases they appear in, and one timeline. Moderators can record a sighting someone told them about, add evidence and notes, and close or reopen the case. Under **Custody and preservation**: **Verify chain** checks the case log, **Preserve evidence** signs a manifest (download it, or **Verify** it later), and **Request hold** records a legal hold request to a platform, then its confirmation or release.
 6. **API:** issue and manage partner keys on `/api-access`.
 
 ### 6.4 Partner platform
@@ -677,6 +680,7 @@ Every setting is an environment variable with a safe default. The full table is 
 | Admin | `/api/admin/clients…`, `/api/admin/known-hashes…` | Moderator |
 | Partner | `POST /api/v1/analyze`, `GET /api/v1/usage`, `POST /api/v1/sightings` | API key |
 | Investigations | `GET`/`POST /api/investigations`, `GET /api/investigations/{caseNumber}`, `POST …/items` · `/sightings` · `/notes` · `/close` · `/reopen` | Moderator |
+| Custody | `GET …/custody`, `POST`/`GET …/preservations`, `GET …/preservations/{id}` · `/manifest` · `/verify`, `POST …/legal-holds`, `…/legal-holds/{holdNumber}/acknowledge` · `/release` | Moderator |
 | Misc | `GET /api/stats`, `POST /api/auth/login`, `GET /api/auth/me` | Public |
 | Demo | `GET /api/demo`, `POST /api/demo/story`, `POST /api/demo/reset`, `GET /api/demo/samples/{name}`, `GET /api/demo/report.pdf` | Public (reset: senior moderator, or anyone in public mode) |
 
@@ -688,7 +692,7 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 
 | Suite | Command | Covers |
 |---|---|---|
-| Backend (148 tests) | `cd backend && mvn test` | Decision engine, API, auth, SLA and jurisdiction rules, provenance, PDF and signed reports, API keys and rate limits, prescreen, public complaints (case + PIN, lockout, notifications, queue order), appeals, second review, wellbeing, transparency, demo story, investigations and sightings (linking before and after opening, distance threshold, pseudonyms, cross-case accounts, closed cases, access control) |
+| Backend (162 tests) | `cd backend && mvn test` | Decision engine, API, auth, SLA and jurisdiction rules, provenance, PDF and signed reports, API keys and rate limits, prescreen, public complaints (case + PIN, lockout, notifications, queue order), appeals, second review, wellbeing, transparency, demo story, investigations and sightings (linking before and after opening, distance threshold, pseudonyms, cross-case accounts, closed cases, access control), custody chain (edits, deletions, truncation, inserted rows, rewrites caught by a signed anchor, legacy sealing), preservation (`VALID`, then `TAMPERED` per covered field, RFC 3161, no media bytes in a full database dump), legal holds |
 | ML service | `cd ml-service && python -m pytest` | Health, `/infer`, NSFW, provenance manifests, forensic signature, generation family |
 | ML pipeline | `cd ml && python -m pytest tests data/tests` | Data pipeline, model, plots, poster, diffusion split and family head |
 | Frontend | `cd frontend && npm test` | Browser pHash parity with Python, Hindi/English key coverage, case-number and contact validation, queue urgency order, near-duplicates |
@@ -719,6 +723,7 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 - **Translation.** The Hindi strings are in-house and should be reviewed by a native speaker.
 - **Legal hours pending review.** EU, UK and AU deadlines and every appeal deadline are platform targets until counsel signs off.
 - **Sightings are only as complete as partners make them.** The platform does not search the web. An investigation shows what partners and moderators reported, and a pHash match within 8 bits means "very likely the same picture", not proof.
+- **Preservation proves what a file was, not where it is.** The platform hosting the post keeps the media under its legal hold; if it deletes it anyway, the signed hashes still identify the file but can't reproduce it. The custody chain can be recomputed end to end by someone with database write access; that is caught against the head on the case row and every signed preservation, but events after the latest preservation rely on the case row alone.
 
 ---
 
