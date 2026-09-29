@@ -408,6 +408,65 @@ export async function releaseLegalHold(caseNumber, holdNumber, reason) {
   return caseAction(caseNumber, `legal-holds/${encodeURIComponent(holdNumber)}/release`, { reason })
 }
 
+// ---------------------------------------------------------------- Phase 28: investigator handover
+
+export async function fetchLegalRequests() {
+  return apiFetch('/api/legal-requests', { cache: 'no-store' })
+}
+
+export async function fetchInvestigatorAccounts() {
+  return apiFetch('/api/legal-requests/investigators')
+}
+
+/** {@code expiresAt}: ISO instant; the server accepts between an hour and the configured maximum term. */
+export async function fileLegalRequest({ authority, orderReference, investigator, caseNumbers, expiresAt, note }) {
+  return postJson('/api/legal-requests', { authority, orderReference, investigator, caseNumbers, expiresAt, note })
+}
+
+/** {@code action}: approve | reject | revoke. Seniors only, and never the moderator who filed it. */
+export async function decideLegalRequest(requestNumber, action, note) {
+  return postJson(`/api/legal-requests/${encodeURIComponent(requestNumber)}/${action}`, { note })
+}
+
+export async function fetchInvestigatorCases() {
+  return apiFetch('/api/investigator/cases', { cache: 'no-store' })
+}
+
+/** Recorded in the case's custody log as INVESTIGATOR_VIEWED. */
+export async function fetchInvestigatorCase(caseNumber) {
+  return apiFetch(`/api/investigator/cases/${encodeURIComponent(caseNumber)}`, { cache: 'no-store' })
+}
+
+export async function issueEvidencePackage(caseNumber) {
+  return postJson(`/api/investigator/cases/${encodeURIComponent(caseNumber)}/packages`)
+}
+
+export async function fetchEvidencePackages() {
+  return apiFetch('/api/investigator/packages', { cache: 'no-store' })
+}
+
+/** Saves the ZIP; recorded as PACKAGE_DOWNLOADED. Resolves with the hashes to check it against. */
+export async function downloadEvidencePackage(packageId) {
+  const res = await request(`/api/investigator/packages/${encodeURIComponent(packageId)}/download`, {
+    headers: { ...getAuthHeader() },
+    cache: 'no-store',
+  })
+  const blob = await res.blob()
+  const filename = dispositionFilename(res.headers.get('content-disposition'), `${packageId}.zip`)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return {
+    filename,
+    sha256: res.headers.get('x-package-sha256'),
+    manifestSha256: res.headers.get('x-manifest-sha256'),
+    signingKeyId: res.headers.get('x-signing-key-id'),
+  }
+}
+
 /** Downloads a bundled synthetic sample as a File, ready for any upload form. */
 export async function fetchSampleFile(sample) {
   const res = await request(sample.url, { credentials: 'omit' })

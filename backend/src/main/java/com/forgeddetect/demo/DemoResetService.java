@@ -1,9 +1,11 @@
 package com.forgeddetect.demo;
 
+import com.forgeddetect.investigation.EvidencePackageRepository;
 import com.forgeddetect.investigation.InvestigationEventRepository;
 import com.forgeddetect.investigation.InvestigationItemRepository;
 import com.forgeddetect.investigation.InvestigationRepository;
 import com.forgeddetect.investigation.LegalHoldRepository;
+import com.forgeddetect.investigation.LegalRequestRepository;
 import com.forgeddetect.investigation.PreservationRepository;
 import com.forgeddetect.investigation.SightingLinkRepository;
 import com.forgeddetect.investigation.SightingRepository;
@@ -75,6 +77,8 @@ public class DemoResetService {
     private final InvestigationRepository investigations;
     private final PreservationRepository preservations;
     private final LegalHoldRepository legalHolds;
+    private final LegalRequestRepository legalRequests;
+    private final EvidencePackageRepository evidencePackages;
     private final AnalysisResultRepository results;
     private final KnownHashRepository knownHashes;
     private final ApiClientRepository apiClients;
@@ -102,6 +106,8 @@ public class DemoResetService {
             InvestigationRepository investigations,
             PreservationRepository preservations,
             LegalHoldRepository legalHolds,
+            LegalRequestRepository legalRequests,
+            EvidencePackageRepository evidencePackages,
             AnalysisResultRepository results,
             KnownHashRepository knownHashes,
             ApiClientRepository apiClients,
@@ -126,6 +132,8 @@ public class DemoResetService {
         this.investigations = investigations;
         this.preservations = preservations;
         this.legalHolds = legalHolds;
+        this.legalRequests = legalRequests;
+        this.evidencePackages = evidencePackages;
         this.results = results;
         this.knownHashes = knownHashes;
         this.apiClients = apiClients;
@@ -160,6 +168,9 @@ public class DemoResetService {
                 complaints.deleteAllInBatch();
                 provenanceEvents.deleteAllInBatch();
                 sightingLinks.deleteAllInBatch();
+                evidencePackages.deleteAllInBatch();
+                // Row by row so the request's case list goes with it
+                legalRequests.deleteAll();
                 preservations.deleteAllInBatch();
                 legalHolds.deleteAllInBatch();
                 investigationEvents.deleteAllInBatch();

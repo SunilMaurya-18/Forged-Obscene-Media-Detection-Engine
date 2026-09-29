@@ -123,7 +123,7 @@ function ReportCheck({ reportId }) {
 function Story({ story, now, isAuthenticated }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language
-  const { flagged, appeal, report, atRisk, breached, investigation, relatedInvestigation } = story
+  const { flagged, appeal, report, atRisk, breached, investigation, relatedInvestigation, handover } = story
   const staffLink = (to) => (isAuthenticated ? { to } : { to: '/login', state: { from: to } })
 
   return (
@@ -329,6 +329,18 @@ function Story({ story, now, isAuthenticated }) {
               </Field>
             </div>
           )}
+          {handover?.status === 'APPROVED' && (
+            <div className="col-span-2">
+              <Field label={t('demo.steps.investigation.handover')}>
+                {t('demo.steps.investigation.handoverValue', {
+                  request: handover.requestNumber,
+                  authority: handover.authority,
+                  investigator: handover.investigator,
+                  until: formatWhen(handover.expiresAt, lang),
+                })}
+              </Field>
+            </div>
+          )}
         </Step>
       )}
     </ol>
@@ -341,7 +353,7 @@ function Accounts({ demo }) {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
-  const accounts = (demo.accounts || []).filter((a) => a.role === 'MODERATOR' || a.role === 'SENIOR_MODERATOR')
+  const accounts = (demo.accounts || []).filter((a) => ['MODERATOR', 'SENIOR_MODERATOR', 'INVESTIGATOR'].includes(a.role))
   const withPasswords = accounts.filter((a) => a.password)
 
   const signIn = async (account) => {
@@ -349,7 +361,7 @@ function Accounts({ demo }) {
     setError(null)
     try {
       await login(account.username, account.password)
-      navigate('/queue')
+      navigate(account.role === 'INVESTIGATOR' ? '/investigator' : '/queue')
     } catch (err) {
       setError(err)
       setBusy(null)

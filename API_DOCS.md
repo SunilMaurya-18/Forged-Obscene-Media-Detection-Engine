@@ -362,4 +362,48 @@ Every case event is also a custody event, sealed into a hash chain: `hash = SHA-
 
 A legal hold is recorded here and sent to the platform through its own legal channel. The platform keeps the media; this system never fetches or stores it ([ADR 0006](docs/adr/0006-preserve-commitments-not-media.md)).
 
+### Legal requests (moderators, Phase 28)
+
+An investigator (role `INVESTIGATOR`) reads a case only under a legal request that names the case and the investigator, has been approved, and has not expired. Any moderator records the request; only a **senior moderator who did not file it** can approve or reject it. Request numbers look like `LRQ-XXXX-XXXX`. Filing, approval, rejection and revocation are custody events in every case the request names.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| `GET` | `/api/legal-requests` | — | Every request, newest first: `requestNumber`, `status` (`PENDING`, `APPROVED`, `REJECTED`, `REVOKED`, or `EXPIRED` once `expiresAt` passes), `authority`, `orderReference`, `investigator`, `cases`, `expiresAt`, who filed, decided or revoked it and why, and `canDecide` / `canRevoke` for the caller |
+| `GET` | `/api/legal-requests/investigators` | — | Investigator accounts (`username`, `displayName`, `agency`) a request can name |
+| `POST` | `/api/legal-requests` | `{"authority","orderReference","investigator","caseNumbers":[…],"expiresAt":"2026-12-31T23:59:59Z","note?"}` | `201` with the request (`PENDING`). `400 invalid_request` (missing fields, 1 to 25 cases), `unknown_investigator`, `invalid_expiry` (more than an hour and at most `HANDOVER_MAX_REQUEST_TERM` away); `404 case_not_found` |
+| `POST` | `/api/legal-requests/{requestNumber}/approve` | `{"note?"}` | `APPROVED`. `403 senior_required`, `403 conflict_of_interest` (you filed it); `409 request_not_pending`, `request_expired` |
+| `POST` | `/api/legal-requests/{requestNumber}/reject` | `{"note"}` | `REJECTED`; the note is required (`400 reason_required`). Same `403`/`409` rules |
+| `POST` | `/api/legal-requests/{requestNumber}/revoke` | `{"note"}` | `REVOKED`: access ends on the investigator's next request. Seniors only; reason required; `409 request_not_active` if it is not currently granting access |
+
+The case view's `custody` block also lists `legalRequests` naming the case and the evidence `packages` issued from it.
+
+### Investigator API (Phase 28)
+
+Only `INVESTIGATOR` accounts; moderators get `403`, and investigators get `403` on every moderator endpoint. Every call re-checks the request: without an approved, unexpired request covering the case the answer is `403 no_legal_authority`, with the same message whether the case exists or not.
+
+| Method | Path | Returns |
+|---|---|---|
+| `GET` | `/api/investigator/cases` | The cases the caller may read now, each with the requests that cover it. Not logged |
+| `GET` | `/api/investigator/cases/{caseNumber}` | The case, read-only, plus `authorisation` (the request relied on) and `custodyVerification`. **Logged** as `INVESTIGATOR_VIEWED`. Compared with the moderator view: no `appearances` (other uploads to this platform), accounts lose `totalSightings`, `otherCases` lists only cases the caller's own active requests cover, and `custody.legalRequests` / `packages` only the caller's own |
+| `POST` | `/api/investigator/cases/{caseNumber}/packages` | `201`: issues a signed evidence package (below) from the case's latest preservation. **Logged** as `PACKAGE_ISSUED`. `409 not_preserved`, `custody_broken`, `evidence_tampered` |
+| `GET` | `/api/investigator/packages` | The caller's packages: `packageId` (`PKG-XXXX-XXXX`), `caseNumber`, `requestNumber`, `issuedAt`, `downloadExpiresAt`, `downloadable`, `sha256` (the ZIP), `manifestSha256`, `signingKeyId`, `downloads` |
+| `GET` | `/api/investigator/packages/{packageId}/download` | The ZIP (`application/zip`, `Cache-Control: no-store`) with `X-Package-SHA256`, `X-Manifest-SHA256` and `X-Signing-Key-Id`. **Logged** as `PACKAGE_DOWNLOADED` with the ZIP's SHA-256. `404 package_not_found` (not yours), `410 package_expired` after `HANDOVER_DOWNLOAD_WINDOW` (or the request's expiry, if sooner), `403` once the request lapses |
+
+**What is in a package** (`fmd-evidence-package/v1`, no media):
+
+| File | Contents |
+|---|---|
+| `PACKAGE-MANIFEST.txt` | `key=value` lines: package, case, request, authority, order reference, investigator, approver, expiries, preservation ID and manifest SHA-256, custody length and head, signing key; then `file_count` and `file.N.path` / `.sha256` / `.size` for every other file |
+| `PACKAGE-SIGNATURE.txt` | `fmd-evidence-package-signature/v1`: `algorithm=Ed25519`, `signing_key_id`, `manifest_sha256`, `signature` (over SHA-256 of the manifest bytes), `timestamp_token` (RFC 3161 over the signature), `timestamp_time`, `timestamp_authority`, and `seal` (a second signature over SHA-256 of all the lines before it) |
+| `case/report.json`, `case/report.pdf` | The case as the investigator view shows it, plus `package` and `authorisation` blocks |
+| `case/sightings.json` | Linked sightings (platform, post ID, account pseudonym, match) |
+| `custody/log.json` | Every custody event up to the package, with `seq`, `prevHash`, `hash` |
+| `preservation/PRS-….manifest.txt`, `.json` | The preserved manifest exactly as signed, and its signature, key and timestamp |
+| `keys/<keyId>.pem` | The public keys used (compare with the published ones) |
+| `README.txt` | What each file is and how to check it |
+
+**Checking a package.** Offline, with Python 3.9+ and nothing else: `python3 tools/verify_evidence_package.py PKG-XXXX-XXXX.zip --keys keys.json` (save `GET /api/verify-report/keys` as `keys.json`, or pass `--public-key key.pem`). It checks the signature and seal, every file's SHA-256 and size, that nothing was added, every custody link up to the manifest's head, the preservation signature and that the log still reaches the head it signed, and that the timestamp token was issued for this signature. `--sha256` also compares the whole ZIP with the download's `X-Package-SHA256`; `--extract-timestamp DIR` writes the token for `openssl ts -verify`. Exit status `0` valid, `1` tampered, `2` usage error.
+
+Online, `POST /api/verify` (public, multipart `file`) treats any ZIP as a package and returns `kind: "evidence_package"`, `status` (`VALID`, `TAMPERED` or `INVALID`), `message`, the ZIP's `sha256`, `packageId`, `caseNumber`, `legalRequest`, `authority`, `investigator`, `issuedAt`, `signingKeyId` and `checks` (`structure`, `signature`, `files`, `preservation`, `custody`, plus `timestamp`, the RFC 3161 token checked against the TSA's certificate, and `issued`, whether the ZIP is byte for byte the one this server issued). Nothing is stored.
+
 **Checking a preservation without this server.** Compute the SHA-256 of the manifest bytes and compare it with `manifestSha256`. Verify the base64 `signature` over those 32 digest bytes with the Ed25519 key in `publicKeyPem`; its ID, the first 16 hex characters of the SHA-256 of the DER public key, must equal `signingKeyId` and appear in `GET /api/verify-report/keys`. To tie a file obtained later from the platform to the case, recompute `analysis.N.content_sha256`: for an image, SHA-256 of `"<width>x<height>:"` followed by its decoded RGBA pixels (as Pillow's `convert("RGBA").tobytes()` produces them); for a video, SHA-256 of the file bytes.

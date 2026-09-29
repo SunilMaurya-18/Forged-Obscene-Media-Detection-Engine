@@ -3,9 +3,11 @@ package com.forgeddetect.config;
 import com.forgeddetect.investigation.InvestigationEventType;
 import com.forgeddetect.investigation.InvestigationStatus;
 import com.forgeddetect.investigation.LegalHoldStatus;
+import com.forgeddetect.investigation.LegalRequestStatus;
 import com.forgeddetect.investigation.SightingSource;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.ModerationAction;
+import com.forgeddetect.model.ModeratorRole;
 import com.forgeddetect.model.ProvenanceEventType;
 import java.util.Arrays;
 import java.util.List;
@@ -42,7 +44,9 @@ public class EnumConstraintSync implements ApplicationRunner {
             new Column("investigations", "status", InvestigationStatus.class),
             new Column("investigation_events", "type", InvestigationEventType.class),
             new Column("sightings", "source", SightingSource.class),
-            new Column("investigation_legal_holds", "status", LegalHoldStatus.class));
+            new Column("investigation_legal_holds", "status", LegalHoldStatus.class),
+            new Column("moderator_accounts", "role", ModeratorRole.class),
+            new Column("investigation_legal_requests", "status", LegalRequestStatus.class));
 
     private final DataSource dataSource;
 

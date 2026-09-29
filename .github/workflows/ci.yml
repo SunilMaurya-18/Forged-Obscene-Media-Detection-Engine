@@ -27,6 +27,12 @@ jobs:
       # Includes the Testcontainers Redis test: two clients share one rate-limit bucket
       - run: mvn -B -ntp test
         working-directory: backend
+      # Phase 28: the offline verifier (standard library only) against the package HandoverIntegrationTest issued
+      - name: Offline evidence-package verifier
+        run: |
+          python3 tools/verify_evidence_package.py backend/target/phase28/package.zip \
+            --keys backend/target/phase28/keys.json --sha256 "$(cat backend/target/phase28/package.sha256)"
+          python3 -m unittest discover -v -s tools -p "test_*.py"
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

@@ -48,6 +48,10 @@ public class ModeratorAccount {
         return role == ModeratorRole.SENIOR_MODERATOR;
     }
 
+    public boolean isInvestigator() {
+        return role == ModeratorRole.INVESTIGATOR;
+    }
+
     public Long getId() {
         return id;
     }

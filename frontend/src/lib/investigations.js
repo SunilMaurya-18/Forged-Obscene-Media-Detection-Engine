@@ -71,6 +71,13 @@ const EVENT_LABELS = {
   LEGAL_HOLD_REQUESTED: 'Legal hold requested',
   LEGAL_HOLD_ACKNOWLEDGED: 'Legal hold confirmed',
   LEGAL_HOLD_RELEASED: 'Legal hold released',
+  LEGAL_REQUEST_FILED: 'Legal request filed',
+  LEGAL_REQUEST_APPROVED: 'Legal request approved',
+  LEGAL_REQUEST_REJECTED: 'Legal request rejected',
+  LEGAL_REQUEST_REVOKED: 'Legal request revoked',
+  INVESTIGATOR_VIEWED: 'Read by investigator',
+  PACKAGE_ISSUED: 'Evidence package issued',
+  PACKAGE_DOWNLOADED: 'Evidence package downloaded',
   OBSERVED: 'Seen on a platform',
   UPLOADED: 'Uploaded here again',
 }

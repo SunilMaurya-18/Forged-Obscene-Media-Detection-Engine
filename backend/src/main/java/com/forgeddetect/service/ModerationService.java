@@ -101,10 +101,15 @@ public class ModerationService {
     @Transactional(readOnly = true)
     public Map<String, List<Map<String, Object>>> teams() {
         Map<String, List<Map<String, Object>>> out = new LinkedHashMap<>();
-        for (ModeratorAccount a : accounts.findAllByOrderByTeamAscUsernameAsc()) {
+        for (ModeratorAccount a : staff()) {
             out.computeIfAbsent(a.getTeam(), k -> new java.util.ArrayList<>()).add(toModerator(a).view());
         }
         return out;
+    }
+
+    /** Moderator accounts only: investigators log in but are never assigned work or counted in a team. */
+    private List<ModeratorAccount> staff() {
+        return accounts.findAllByOrderByTeamAscUsernameAsc().stream().filter(a -> !a.isInvestigator()).toList();
     }
 
     private static Moderator toModerator(ModeratorAccount a) {
@@ -346,7 +351,7 @@ public class ModerationService {
             throw new ModerationException(HttpStatus.CONFLICT, "assigned_elsewhere", "This item is already assigned to " + item.getAssignedTo() + ".");
         }
         requireTeamAccess(item, me);
-        ModeratorAccount account = accounts.findByUsername(target).orElse(null);
+        ModeratorAccount account = accounts.findByUsername(target).filter(a -> !a.isInvestigator()).orElse(null);
         if (account == null && !target.equals(actor)) {
             throw new ModerationException(HttpStatus.BAD_REQUEST, "unknown_moderator", "No moderator named " + target + ".");
         }
@@ -362,7 +367,7 @@ public class ModerationService {
         if (!me.senior()) {
             throw new ModerationException(HttpStatus.FORBIDDEN, "senior_required", "Only a senior moderator can route items to a team.");
         }
-        if (accounts.findAllByOrderByTeamAscUsernameAsc().stream().noneMatch(a -> team.equals(a.getTeam()))) {
+        if (staff().stream().noneMatch(a -> team.equals(a.getTeam()))) {
             throw new ModerationException(HttpStatus.BAD_REQUEST, "unknown_team", "No team named " + team + ".");
         }
         item.setAssignedTo(null);

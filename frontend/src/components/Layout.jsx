@@ -14,8 +14,10 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Scale,
   ScanSearch,
   Search,
+  ShieldCheck,
   Sparkles,
   Stamp,
   Timer,
@@ -51,11 +53,18 @@ const MODERATOR_NAV = [
   { to: '/queue', label: 'Queue', icon: Inbox, badge: 'queue' },
   { to: '/compliance', label: 'Compliance', icon: Timer, badge: 'compliance' },
   { to: '/investigations', label: 'Investigations', icon: FolderSearch },
+  { to: '/legal-requests', label: 'Legal requests', icon: Scale },
   { to: '/verify', label: 'Verify', icon: Stamp },
   { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { to: '/api-access', label: 'API', icon: KeyRound },
   { to: '/support', label: 'Wellbeing support', icon: HeartHandshake, iconOnly: true },
   { to: '/explained', label: 'Explained', icon: BookOpen, iconOnly: true },
+]
+
+/** Phase 28: investigators see only the cases their approved legal requests cover. */
+const INVESTIGATOR_NAV = [
+  { to: '/investigator', label: 'My cases', icon: ShieldCheck },
+  { to: '/verify', label: 'Verify', icon: Stamp },
 ]
 
 /** At-risk + breached open complaints; moderator-only data, so only polled when signed in. */
@@ -136,7 +145,7 @@ function ApiStatus({ online }) {
 
 export default function Layout() {
   const { t } = useTranslation()
-  const { isAuthenticated, user, logout } = useAuth()
+  const { isAuthenticated, isSignedIn, isInvestigator, user, logout } = useAuth()
   const { online, reviewCount } = useStats()
   const compliance = useComplianceAlerts(isAuthenticated)
   const location = useLocation()
@@ -153,7 +162,9 @@ export default function Layout() {
   const { enabled: demoEnabled } = useDemo()
   const nav = isAuthenticated
     ? MODERATOR_NAV
-    : PUBLIC_NAV.filter((item) => demoEnabled || !item.demoOnly).map((item) => ({ ...item, label: t(`common.nav.${item.key}`) }))
+    : isInvestigator
+      ? INVESTIGATOR_NAV
+      : PUBLIC_NAV.filter((item) => demoEnabled || !item.demoOnly).map((item) => ({ ...item, label: t(`common.nav.${item.key}`) }))
 
   return (
     <div className="relative min-h-screen flex flex-col">
@@ -197,12 +208,12 @@ export default function Layout() {
             <ApiStatus online={online} />
             <LanguageToggle className="hidden sm:inline-flex" iconClassName={isAuthenticated ? 'lg:max-2xl:hidden' : undefined} />
             <ThemeToggle className="hidden sm:grid" />
-            {isAuthenticated ? (
+            {isSignedIn ? (
               <div className="flex items-center gap-1 h-9 pl-1 pr-1 rounded-xl border border-line">
                 <span
                   role="img"
-                  aria-label={`Signed in as ${user?.username ?? 'moderator'}`}
-                  title={`Signed in as ${user?.username ?? 'moderator'}`}
+                  aria-label={`Signed in as ${user?.username ?? 'moderator'}${isInvestigator ? ' (investigator)' : ''}`}
+                  title={`Signed in as ${user?.username ?? 'moderator'}${isInvestigator ? ' (investigator)' : ''}`}
                   className="grid place-items-center size-7 rounded-lg bg-brand-gradient text-[#fff] text-xs font-bold uppercase"
                 >
                   {user?.username?.[0] || 'M'}

@@ -60,6 +60,7 @@ Existing tools each solve one piece. Detectors give a score but no workflow, has
 | **Partner API** | `POST /api/v1/analyze` with hashed API keys, FREE / PRO / ENTERPRISE rate limits and usage stats |
 | **Investigations** | Follows media past the verdict. Partners report sightings (`POST /api/v1/sightings`) by hash and opaque post ID. They link to open cases by pHash distance or provenance ID, whether they arrive before or after the case is opened. Accounts are stored only as keyed, per-platform pseudonyms, and one seen in two cases is flagged in both. Everything is shown on one timeline |
 | **Chain of custody** | Every case event is hash-chained, so an edited or deleted entry is caught on verification. **Preserve evidence** signs (and can timestamp) a manifest of the case's hashes, scores, signed reports and sightings, which later reads `VALID` or `TAMPERED` with the changed fields named. Legal hold requests ask the hosting platform to keep the posts; the media never comes here ([ADR 0006](docs/adr/0006-preserve-commitments-not-media.md)) |
+| **Investigator handover** | A moderator records a police or court order (authority, reference, cases, expiry) and a second senior moderator approves it. The named investigator then reads those cases read-only, with the account graph cut to the order, and every read is a custody event. They can download a signed, timestamped evidence package for a limited time, and `tools/verify_evidence_package.py` checks it offline with only the published key |
 | **Accessible by default** | Skip links, focus management, icon + text on every status, dark / light themes, plain-language errors |
 
 > **Data policy.** Models are trained and evaluated only on consenting-actor research benchmarks (FaceForensics++, DFDC, Celeb-DF). No real non-consensual or explicit imagery is included anywhere in this repo. Only perceptual hashes, scores, and metadata are stored. Raw media is never persisted.
@@ -450,7 +451,7 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `GET` | `/api/moderation/me` \| `/teams` | `MODERATOR` | Current moderator (role, team, senior) with wellbeing status / teams and members |
 | `POST` | `/api/moderation/break` | `MODERATOR` | Start a break now (enforced like one triggered by the exposure limit) |
 | `GET` | `/api/verify/{provenanceId}` | public | Audit trail for an ID: current decision, scores, hashes, re-upload count, complaint status, events. 404 if unknown |
-| `POST` | `/api/verify` | public | Multipart `file`. Reads the embedded manifest (`VERIFIED` / `CONTENT_MODIFIED` / `INVALID_SIGNATURE`) and resolves its trail. Stores nothing |
+| `POST` | `/api/verify` | public | Multipart `file`. Reads the embedded manifest (`VERIFIED` / `CONTENT_MODIFIED` / `INVALID_SIGNATURE`) and resolves its trail. A ZIP is checked as an evidence package (`VALID` / `TAMPERED` / `INVALID` with each check). Stores nothing |
 | `POST` | `/api/v1/analyze` | API key | Third-party scoring: decision, scores, hashes, `provenanceId`, `reuploadOf`. Optional `include=heatmap,labelled`. Rate limited per key (`429` + `Retry-After`). See [API_DOCS.md](API_DOCS.md) |
 | `GET` | `/api/v1/usage` | API key | Plan, remaining quota, request and throttled counts, analyses by decision (not metered) |
 | `POST` | `/api/v1/sightings` | API key | Where media appeared on the partner's platform: `{"phash" or "provenanceId", "postRef", "platform"?, "accountId"?, "observedAt"?}`. `201` / `200` duplicate. Never reveals matches. `400 invalid_sighting` for a URL or handle as `postRef`, no hash, or a future time |
@@ -460,6 +461,11 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `GET` | `/api/investigations/{caseNumber}/custody` | `MODERATOR` | The hash-chained custody log and whether it verifies (`VALID` / `BROKEN` with the first bad event) |
 | `POST` / `GET` | `/api/investigations/{caseNumber}/preservations` \| `/{id}` \| `/{id}/manifest` \| `/{id}/verify` | `MODERATOR` | Preserve evidence (signed manifest, optional RFC 3161 timestamp) / read it / the exact signed text / `VALID` or `TAMPERED` with `changedFields`. `409 custody_broken` |
 | `POST` | `/api/investigations/{caseNumber}/legal-holds` \| `/{holdNumber}/acknowledge` \| `/{holdNumber}/release` | `MODERATOR` | Record a legal hold request to a platform for linked posts (all on that platform by default) / its confirmation / release. Each is a custody event |
+| `GET` / `POST` | `/api/legal-requests` \| `/investigators` | `MODERATOR` | List legal requests / investigator accounts / record an order `{"authority","orderReference","investigator","caseNumbers","expiresAt","note"?}` (`PENDING`) |
+| `POST` | `/api/legal-requests/{requestNumber}/approve` \| `/reject` \| `/revoke` | `SENIOR_MODERATOR` | `{"note"}`. Approve or reject needs a senior who did not file it (`403 conflict_of_interest`); reject and revoke need a reason |
+| `GET` | `/api/investigator/cases` \| `/cases/{caseNumber}` | `INVESTIGATOR` | Cases an approved, unexpired request covers / one case, read-only, logged as `INVESTIGATOR_VIEWED`. `403 no_legal_authority` otherwise, the same for unknown cases |
+| `POST` | `/api/investigator/cases/{caseNumber}/packages` | `INVESTIGATOR` | Issue a signed evidence package from the latest preservation (`PACKAGE_ISSUED`). `409 not_preserved` |
+| `GET` | `/api/investigator/packages` \| `/packages/{id}/download` | `INVESTIGATOR` | Your packages / the ZIP with `X-Package-SHA256` (`PACKAGE_DOWNLOADED`). `410 package_expired` after the download window |
 | `GET` / `POST` | `/api/admin/clients` | `MODERATOR` | List clients and plan limits / create a client (`{"name","plan"}`). The key is returned once |
 | `POST` | `/api/admin/clients/{id}/rotate` \| `/revoke` \| `/plan` | `MODERATOR` | New key (old one stops working) / disable the key / change plan |
 | `GET` | `/api/stats` | public | Totals by decision |
@@ -547,7 +553,7 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 | `DECISION_FORGERY_AUTO_FLAG` / `DECISION_EXPLICIT_AUTO_FLAG` | `0.85` | At or above: `AUTO_FLAG` |
 | `DECISION_FORGERY_REVIEW` / `DECISION_EXPLICIT_REVIEW` | `0.50` (`.env.example`: forgery `0.05`) | At or above: `REVIEW` |
 | `MODERATOR_USERNAME` / `MODERATOR_PASSWORD` | `moderator` / `moderator` | Seeded dev moderator (team `core`). **Change for any public deployment.** |
-| `MODERATOR_EXTRA_ACCOUNTS` | `reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac` | Extra dev accounts as `username:password:ROLE:team`. Second review and appeals need a second person. **Change for any public deployment.** |
+| `MODERATOR_EXTRA_ACCOUNTS` | `reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac,investigator:investigator:INVESTIGATOR:cyber-cell` | Extra dev accounts as `username:password:ROLE:team` (`ROLE` is `MODERATOR`, `SENIOR_MODERATOR` or `INVESTIGATOR`; an investigator's team is their agency). Second review and appeals need a second person. **Change for any public deployment.** |
 | `VIDEO_FPS` / `VIDEO_TOP_K` | `1.0` / `3` | Backend: frame sampling rate sent to ml-service and k for the top-k mean |
 | `VIDEO_FORGERY_AGGREGATE` / `VIDEO_EXPLICIT_AGGREGATE` | `TOPK_MEAN` / `MAX` | Which aggregate each score is routed on (`MAX` or `TOPK_MEAN`) |
 | `VIDEO_MAX_FRAMES` / `VIDEO_MAX_BYTES` | `64` / 50 MB | ml-service: sampling cap (long clips are sampled at a lower rate to stay within it) and upload limit for `/infer-video` |
@@ -570,6 +576,7 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 | `API_DEMO_KEY` | empty (`.env.example`: a demo key) | Dev only: seeds a FREE "Demo Platform" client with this exact key (must start with `fmd_live_`). **Leave empty in production** |
 | `PRESCREEN_PHASH_MAX_DISTANCE` / `PRESCREEN_PDQ_MAX_DISTANCE` | `8` / `31` | Hamming distance (bits) at or below which a prescreen hash counts as a match |
 | `PRESCREEN_SEED_HASHES` | `c2423d3d3b783cc6` | Comma-separated pHashes seeded as `INTERNAL_CONFIRMED` on startup (default: the synthetic demo pattern) |
+| `HANDOVER_DOWNLOAD_WINDOW` / `HANDOVER_MAX_REQUEST_TERM` | `PT24H` / `P180D` | How long an evidence package can be downloaded after it is issued (never past the legal request's expiry), and the longest expiry a legal request may have |
 | `INVESTIGATION_PSEUDONYM_KEY` | `dev-only-account-pseudonym-key-change-me` | HMAC key that turns partner account IDs into pseudonyms. **Set 32+ random characters outside dev** (`openssl rand -hex 32`); the backend refuses to start outside `dev` with the demo value. Changing it breaks the links between old and new sightings of the same account |
 | `COMPLIANCE_DEFAULT_JURISDICTION` | `IN` | Jurisdiction used when a request doesn't set one |
 | `COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS` / `_GOVERNMENT_ORDER_HOURS` | `24` / `24` | Deadlines seeded for the `GENERIC` fallback rule |
@@ -604,7 +611,8 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 # Tests
-cd backend && mvn test                                   # decision engine, API, auth, SLA + jurisdiction rules, provenance, signed PDF reports, API keys, prescreen, public complaints, video routing, C2PA, appeals, teams + second review, wellbeing, transparency, investigations + sightings, custody chain + preservation + legal holds
+cd backend && mvn test                                   # decision engine, API, auth, SLA + jurisdiction rules, provenance, signed PDF reports, API keys, prescreen, public complaints, video routing, C2PA, appeals, teams + second review, wellbeing, transparency, investigations + sightings, custody chain + preservation + legal holds, legal requests + investigator access + evidence packages
+python3 -m unittest discover -s tools -p "test_*.py"    # offline package verifier: RFC 8032 vectors, and the package mvn test issued plus tampered copies
 cd ml-service && python -m pytest                        # health, /infer, NSFW, provenance manifests, forensic signature, generation family, /infer-video (no disk writes), C2PA read/write
 cd ml && python -m pytest tests data/tests               # pipeline, model, plots, poster, diffusion split + family head
 cd frontend && npm test                                  # on-device pHash parity, Hindi/English key coverage, case-number + contact validation, queue urgency order, near-duplicates, video/C2PA/appeal/investigation helpers
@@ -626,7 +634,7 @@ ml-service/         FastAPI inference (forgery, NSFW, Grad-CAM, pHash) + provena
 backend/            Spring Boot API, decision engine, compliance SLA engine, provenance audit trail, PDF reports,
                     API keys + rate limiting (/api/v1), security, JPA
   demo/             one-click demo story, reset, synthetic sample allowlist (Phase 25)
-  investigation/    investigation cases, partner sightings, account pseudonyms, hash linking (Phase 26); custody chain, preservation, legal holds (Phase 27)
+  investigation/    investigation cases, partner sightings, account pseudonyms, hash linking (Phase 26); custody chain, preservation, legal holds (Phase 27); legal requests, investigator access, evidence packages (Phase 28)
 frontend/           React + Tailwind UI (Landing, Tour, Analyze, Report, Case status, Appeal, Queue, Compliance,
                     Investigations, Verify, Dashboard, Transparency, Support, API access, Explained, Login)
 mock-social-feed/   static "platform" that calls /api/analyze on each post

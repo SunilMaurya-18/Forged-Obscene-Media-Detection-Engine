@@ -67,6 +67,8 @@ public class InvestigationService {
     private final CustodyLog custody;
     private final PreservationRepository preservations;
     private final LegalHoldRepository holds;
+    private final LegalRequestRepository legalRequests;
+    private final EvidencePackageRepository packages;
     private final PrescreenProperties prescreen;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
@@ -83,6 +85,8 @@ public class InvestigationService {
             CustodyLog custody,
             PreservationRepository preservations,
             LegalHoldRepository holds,
+            LegalRequestRepository legalRequests,
+            EvidencePackageRepository packages,
             PrescreenProperties prescreen,
             Clock clock) {
         this.cases = cases;
@@ -96,6 +100,8 @@ public class InvestigationService {
         this.custody = custody;
         this.preservations = preservations;
         this.holds = holds;
+        this.legalRequests = legalRequests;
+        this.packages = packages;
         this.prescreen = prescreen;
         this.clock = clock;
     }
@@ -362,8 +368,12 @@ public class InvestigationService {
         return body;
     }
 
-    /** Phase 27: the chain head, preservations and legal holds. The full log is at {@code /custody}. */
+    /**
+     * Phase 27: the chain head, preservations and legal holds. The full log is at {@code /custody}.
+     * Phase 28: legal requests naming the case and the evidence packages issued from it.
+     */
     private Map<String, Object> custodySummary(Investigation inv) {
+        Instant now = clock.instant();
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("length", inv.getCustodyLength());
         m.put("head", inv.getCustodyHead());
@@ -371,7 +381,40 @@ public class InvestigationService {
                 .map(PreservationService::view).toList());
         m.put("legalHolds", holds.findByInvestigationIdOrderByRequestedAtAscIdAsc(inv.getId()).stream()
                 .map(LegalHoldService::view).toList());
+        m.put("legalRequests", legalRequests.findCovering(inv.getId()).stream()
+                .map(r -> LegalRequestService.summary(r, now)).toList());
+        m.put("packages", packages.findByInvestigationIdOrderByIssuedAtAscIdAsc(inv.getId()).stream()
+                .map(p -> EvidencePackageService.view(p, now)).toList());
         return m;
+    }
+
+    /**
+     * Phase 28: what an investigator sees of a case they are authorised for. Uploads to this platform
+     * that aren't in the case are left out, an account's other cases are limited to cases the same
+     * investigator may read, its sighting count outside the case is dropped, and the custody block
+     * lists only this investigator's own requests and packages.
+     */
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> investigatorView(String caseNumber, String investigator, Set<Long> visibleCaseIds) {
+        Map<String, Object> body = detail(caseNumber);
+        Set<String> visible = cases.findByIdIn(visibleCaseIds).stream().map(Investigation::getCaseNumber).collect(Collectors.toSet());
+        body.remove("appearances");
+        body.remove("phashMaxDistance");
+        ((Map<String, Object>) body.get("counts")).remove("appearances");
+        body.put("timeline", ((List<Map<String, Object>>) body.get("timeline")).stream()
+                .filter(e -> !"appearance".equals(e.get("kind"))).toList());
+        for (Map<String, Object> account : (List<Map<String, Object>>) body.get("accounts")) {
+            account.remove("totalSightings");
+            account.put("otherCases", ((List<Map<String, Object>>) account.get("otherCases")).stream()
+                    .filter(o -> visible.contains((String) o.get("caseNumber"))).toList());
+        }
+        Map<String, Object> custodyBlock = (Map<String, Object>) body.get("custody");
+        custodyBlock.put("legalRequests", ((List<Map<String, Object>>) custodyBlock.get("legalRequests")).stream()
+                .filter(r -> investigator.equals(r.get("investigator"))).toList());
+        custodyBlock.put("packages", ((List<Map<String, Object>>) custodyBlock.get("packages")).stream()
+                .filter(p -> investigator.equals(p.get("investigator"))).toList());
+        return body;
     }
 
     private Map<String, Object> evidenceView(AnalysisResult a, InvestigationItem item) {
@@ -613,6 +656,11 @@ public class InvestigationService {
         }
         return results.findById(id).orElseThrow(() ->
                 new ModerationException(HttpStatus.NOT_FOUND, "analysis_not_found", "Analysis #" + id + " does not exist."));
+    }
+
+    public Investigation findById(Long id) {
+        return cases.findById(id).orElseThrow(() ->
+                new ModerationException(HttpStatus.NOT_FOUND, "case_not_found", "That investigation no longer exists."));
     }
 
     public Investigation find(String caseNumber) {

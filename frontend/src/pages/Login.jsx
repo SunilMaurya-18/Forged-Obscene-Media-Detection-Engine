@@ -22,7 +22,7 @@ function Field({ icon: Icon, label, trailing, ...props }) {
 }
 
 export default function Login() {
-  const { login, isAuthenticated, loading } = useAuth()
+  const { login, isAuthenticated, isInvestigator, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/queue'
@@ -33,8 +33,8 @@ export default function Login() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  if (!loading && isAuthenticated) {
-    return <Navigate to={from} replace />
+  if (!loading && (isAuthenticated || isInvestigator)) {
+    return <Navigate to={isAuthenticated ? from : '/investigator'} replace />
   }
 
   const onSubmit = async (e) => {
@@ -42,8 +42,9 @@ export default function Login() {
     setBusy(true)
     setError('')
     try {
-      await login(username, password)
-      navigate(from, { replace: true })
+      const me = await login(username, password)
+      const moderator = me?.roles?.includes('ROLE_MODERATOR')
+      navigate(moderator ? from : '/investigator', { replace: true })
     } catch (err) {
       setError(err.status === 401 ? 'That username and password combination was not recognised.' : err.message || 'Sign-in failed')
     } finally {
@@ -58,8 +59,10 @@ export default function Login() {
           <div className="absolute inset-0 rounded-2xl bg-brand-gradient opacity-30 blur-xl" />
           <LogoMark className="relative size-14" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Moderator sign in</h1>
-        <p className="text-sm text-muted mt-2">Access the review queue and act on flagged uploads.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+        <p className="text-sm text-muted mt-2">
+          Moderators review flagged uploads. Authorised investigators read the cases their approved legal requests cover.
+        </p>
       </div>
 
       <Card className="p-6">
@@ -100,22 +103,28 @@ export default function Login() {
           </Button>
         </form>
 
-        <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-dashed border-line-strong px-3.5 py-3">
-          <span className="flex items-center gap-2 text-xs text-muted">
-            <KeyRound className="size-3.5 text-brand" />
-            Demo: <span className="font-mono text-fg">moderator / moderator</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setUsername('moderator')
-              setPassword('moderator')
-            }}
-            className="text-xs font-medium text-brand hover:text-brand-2 transition"
+        {['moderator', 'investigator'].map((demo) => (
+          <div
+            key={demo}
+            className="mt-3 first-of-type:mt-5 flex items-center justify-between gap-3 rounded-xl border border-dashed border-line-strong px-3.5 py-3"
           >
-            Autofill
-          </button>
-        </div>
+            <span className="flex items-center gap-2 text-xs text-muted">
+              <KeyRound className="size-3.5 text-brand" />
+              Demo: <span className="font-mono text-fg">{demo} / {demo}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setUsername(demo)
+                setPassword(demo)
+              }}
+              aria-label={`Autofill the demo ${demo} account`}
+              className="text-xs font-medium text-brand hover:text-brand-2 transition"
+            >
+              Autofill
+            </button>
+          </div>
+        ))}
       </Card>
 
       <Link to="/" className="mt-6 flex items-center justify-center gap-1.5 text-sm text-muted hover:text-fg transition">

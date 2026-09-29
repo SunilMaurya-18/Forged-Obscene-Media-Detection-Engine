@@ -3,6 +3,8 @@ package com.forgeddetect.demo;
 import com.forgeddetect.investigation.Investigation;
 import com.forgeddetect.investigation.InvestigationService;
 import com.forgeddetect.investigation.LegalHoldService;
+import com.forgeddetect.investigation.LegalRequest;
+import com.forgeddetect.investigation.LegalRequestService;
 import com.forgeddetect.investigation.PreservationService;
 import com.forgeddetect.investigation.SightingService;
 import com.forgeddetect.investigation.SightingSource;
@@ -12,9 +14,11 @@ import com.forgeddetect.model.Appeal;
 import com.forgeddetect.model.ComplaintType;
 import com.forgeddetect.model.Decision;
 import com.forgeddetect.model.ModerationAction;
+import com.forgeddetect.model.ModeratorAccount;
 import com.forgeddetect.repository.AnalysisResultRepository;
 import com.forgeddetect.repository.ApiClientRepository;
 import com.forgeddetect.repository.AppealRepository;
+import com.forgeddetect.repository.ModeratorAccountRepository;
 import com.forgeddetect.security.DevModeratorProperties;
 import com.forgeddetect.service.AnalysisService;
 import com.forgeddetect.service.ApiKeyService;
@@ -42,6 +46,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -98,6 +103,8 @@ public class DemoScenarioService {
     private final SightingService sightings;
     private final PreservationService preservations;
     private final LegalHoldService legalHolds;
+    private final LegalRequestService legalRequests;
+    private final ModeratorAccountRepository accounts;
     private final ApiClientRepository apiClients;
     private final SharedState state;
     private final TransactionTemplate tx;
@@ -125,6 +132,8 @@ public class DemoScenarioService {
             SightingService sightings,
             PreservationService preservations,
             LegalHoldService legalHolds,
+            LegalRequestService legalRequests,
+            ModeratorAccountRepository accounts,
             ApiClientRepository apiClients,
             SharedState state,
             PlatformTransactionManager transactions,
@@ -146,6 +155,8 @@ public class DemoScenarioService {
         this.sightings = sightings;
         this.preservations = preservations;
         this.legalHolds = legalHolds;
+        this.legalRequests = legalRequests;
+        this.accounts = accounts;
         this.apiClients = apiClients;
         this.state = state;
         this.tx = new TransactionTemplate(transactions);
@@ -275,7 +286,24 @@ public class DemoScenarioService {
             legalHolds.request(spread.getCaseNumber(), "pixelgram", null,
                     "Demo: sent through pixelgram's law-enforcement portal (fictional)", moderator);
         }
+
+        // 8. Phase 28: an officer's order for the spread case, recorded by the moderator and approved by a
+        //    different senior, so the investigator account can read it and download a package
+        Optional<ModeratorAccount> investigator = accounts.findAllByOrderByTeamAscUsernameAsc().stream()
+                .filter(ModeratorAccount::isInvestigator).findFirst();
+        Optional<ModeratorAccount> approver = accounts.findAllByOrderByTeamAscUsernameAsc().stream()
+                .filter(a -> a.isSenior() && !a.getUsername().equals(moderator)).findFirst();
+        if (investigator.isPresent() && approver.isPresent()) {
+            LegalRequest request = legalRequests.file(new LegalRequestService.Filing(DEMO_AUTHORITY, DEMO_ORDER_REFERENCE,
+                    investigator.get().getUsername(), List.of(spread.getCaseNumber()), now.plus(Duration.ofDays(30)),
+                    "Demo: order received from the officer's official address and checked against the agency directory (fictional)"), moderator);
+            legalRequests.decide(request.getRequestNumber(), true, "Demo: order reference and issuing officer checked",
+                    approver.get().getUsername(), true);
+        }
     }
+
+    static final String DEMO_AUTHORITY = "Cyber Crime Cell, Demo City Police (fictional)";
+    static final String DEMO_ORDER_REFERENCE = "DEMO/CCC/2026/0142";
 
     /** A re-encoded copy: {@code flips} low bits of the hash differ, as they would after recompression. */
     private void sighting(AnalysisResult item, int flips, String platform, String postRef, String account,
@@ -340,6 +368,12 @@ public class DemoScenarioService {
         }
         if (s.getRelatedInvestigationNumber() != null) {
             investigations.summary(s.getRelatedInvestigationNumber()).ifPresent(m -> out.put("relatedInvestigation", m));
+        }
+        if (s.getInvestigationNumber() != null) {
+            List<Map<String, Object>> handover = legalRequests.covering(s.getInvestigationNumber());
+            if (!handover.isEmpty()) {
+                out.put("handover", handover.get(handover.size() - 1));
+            }
         }
         return out;
     }

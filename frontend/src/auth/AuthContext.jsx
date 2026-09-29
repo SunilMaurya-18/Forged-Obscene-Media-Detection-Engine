@@ -39,12 +39,21 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const roles = user?.authenticated ? user.roles || [] : []
+  const isModerator = roles.includes('ROLE_MODERATOR')
+
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
-        isAuthenticated: Boolean(user?.authenticated),
+        roles,
+        isSignedIn: Boolean(user?.authenticated),
+        // Moderator screens gate on this; investigators (Phase 28) sign in without it
+        isAuthenticated: isModerator,
+        isModerator,
+        isSenior: roles.includes('ROLE_SENIOR_MODERATOR'),
+        isInvestigator: roles.includes('ROLE_INVESTIGATOR'),
         login,
         logout,
         refresh,

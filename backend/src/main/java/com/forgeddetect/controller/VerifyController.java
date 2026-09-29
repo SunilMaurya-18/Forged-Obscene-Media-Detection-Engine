@@ -1,5 +1,6 @@
 package com.forgeddetect.controller;
 
+import com.forgeddetect.investigation.EvidencePackageService;
 import com.forgeddetect.service.ProvenanceService;
 import java.io.IOException;
 import java.util.Map;
@@ -17,7 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Phase 14: public provenance lookup. Anyone holding labelled media (or its ID) can check its
- * authenticity and audit history. Nothing is stored by these endpoints.
+ * authenticity and audit history. Phase 28: a ZIP upload is checked as an evidence package instead.
+ * Nothing is stored by these endpoints.
  */
 @RestController
 @RequestMapping("/api/verify")
@@ -26,9 +28,11 @@ public class VerifyController {
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9-]{1,64}");
 
     private final ProvenanceService provenance;
+    private final EvidencePackageService packages;
 
-    public VerifyController(ProvenanceService provenance) {
+    public VerifyController(ProvenanceService provenance, EvidencePackageService packages) {
         this.provenance = provenance;
+        this.packages = packages;
     }
 
     @GetMapping("/{provenanceId}")
@@ -46,8 +50,11 @@ public class VerifyController {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "file is required"));
         }
-        return ResponseEntity.ok(
-                provenance.verifyUpload(file.getBytes(), file.getOriginalFilename(), file.getContentType()));
+        byte[] bytes = file.getBytes();
+        if (EvidencePackageService.looksLikePackage(bytes)) {
+            return ResponseEntity.ok(packages.verifyUpload(bytes));
+        }
+        return ResponseEntity.ok(provenance.verifyUpload(bytes, file.getOriginalFilename(), file.getContentType()));
     }
 
     private static ResponseEntity<Map<String, Object>> notFound(String id) {

@@ -5,7 +5,7 @@ lists **mitigations in place** (with the code that enforces them) and **residual
 have not solved, stated plainly so an operator can decide whether it is acceptable for their
 deployment.
 
-Last reviewed: 2026-09-28 (Phase 25). Review again whenever an item in
+Last reviewed: 2026-09-29 (Phase 28). Review again whenever an item in
 [Assumptions](#assumptions-and-out-of-scope) stops being true, a new public endpoint is added, or
 before a production launch.
 
@@ -35,8 +35,10 @@ flowchart LR
     K[Vault Transit<br/>Ed25519 key]
   end
   MOD[Moderators<br/>HTTP Basic]
+  INV[Investigators<br/>HTTP Basic, read-only]
   V & U & P & A --> N --> B
   MOD --> N
+  INV --> N
   B --> M
   B --> D
   B --> R
@@ -46,7 +48,7 @@ flowchart LR
 | Boundary | Crosses it | Trusted? |
 |----------|-----------|----------|
 | Internet to edge | Uploads, hashes, complaints, appeals, PINs, API calls | No: anything from here may be hostile |
-| Edge to backend | The same, plus moderator credentials | Authenticated per request (Basic auth, API key, case PIN) |
+| Edge to backend | The same, plus moderator and investigator credentials | Authenticated per request (Basic auth, API key, case PIN) |
 | Backend to ml-service | Media bytes, in memory | Internal network only; not published in compose |
 | Backend to Postgres / Redis / Vault | Records, counters, signing requests | Internal network, credentials from env |
 
@@ -61,6 +63,8 @@ flowchart LR
 | Known-hash list | Warns people before they re-share abuse ([ADR 0004](adr/0004-hash-only-prescreen.md)) |
 | Moderator accounts | Can take content down, reverse takedowns, import hashes |
 | Case and appeal PINs | Let complainants and uploaders see their case without an account |
+| Investigation cases and the account graph | Pseudonymous accounts linked across cases; in the wrong hands, a map of who shared what |
+| Evidence packages | Signed ZIPs handed to law enforcement; outside the platform's control once downloaded |
 | Model availability | Takedown deadlines are hours, not days |
 
 ---
@@ -75,6 +79,7 @@ flowchart LR
 | [T4](#t4-moderator-account-compromise) | Moderator account compromise | Medium | High | **Medium**: no MFA or login throttling yet |
 | [T5](#t5-report-forgery) | Report forgery or tampering | Medium | High | **Low**: detectable by anyone who runs the check |
 | [T6](#t6-public-demo-abuse) | Abuse of the hosted public demo | High | Low | **Low**: synthetic-only, isolated, reset every few hours |
+| [T7](#t7-investigator-handover) | Investigator misuse, account-graph abuse, evidence-package leakage | Medium | High | **Medium**: access is narrow, four-eyes and logged, but a leaked package can't be recalled |
 
 Likelihood and impact are qualitative (Low / Medium / High) for a mid-sized platform deployment.
 
@@ -358,6 +363,86 @@ logins are printed on the tour, and anyone can reset it.
 
 ---
 
+## T7. Investigator handover
+
+Phase 28 lets an authorised investigator (a police or cyber-cell officer with an `INVESTIGATOR`
+account) read specific cases and download a signed evidence package, under a legal request that a
+moderator records and a second, senior moderator approves.
+
+**Who and why.** An investigator reading beyond what their order covers (curiosity, a personal
+interest, a request from someone else); an insider who files and approves a fake order to give a friend
+access; someone who uses one case to discover the rest of the account graph; a package copied, shared
+or altered after it leaves the platform.
+
+### Scenarios
+
+1. **Investigator misuse.** Browsing cases no order names, guessing case numbers, keeping access after
+   the order ends, or re-downloading packages long after the handover.
+2. **Fake or self-approved orders.** A moderator files a request for an investigator and approves it
+   themselves, or files one with no real order behind it.
+3. **Account-graph abuse.** Starting from one authorised case and following an account pseudonym to
+   the other cases it appears in, or counting its sightings platform-wide.
+4. **Package leakage and tampering.** A downloaded package is forwarded, leaked, or edited (a custody
+   entry deleted, a sighting removed, the timestamp changed) before it reaches a court.
+5. **Probing.** Using the investigator API to learn which case numbers exist.
+
+### Mitigations in place
+
+- **Narrow, read-only role.** `INVESTIGATOR` accounts get only that role: every moderator endpoint
+  (`/api/queue`, `/api/investigations`, `/api/legal-requests`, ...) returns 403, and the investigator
+  API (`/api/investigator/**`) has no write operations on cases. Investigators are excluded from
+  moderation teams and cannot be assigned queue items.
+- **Access exists only under an approved, unexpired request.** `LegalRequestService.authorise` runs on
+  every case read, package issue and download: the request must be `APPROVED`, name the case and the
+  investigator, and not have passed `expiresAt`. Expiry is capped (`HANDOVER_MAX_REQUEST_TERM`,
+  default 180 days) and revocation takes effect on the next request.
+- **Four eyes.** Any moderator can record a request (authority, order reference, investigator, cases,
+  expiry); only a senior moderator who did not file it can approve or reject it
+  (`403 conflict_of_interest`, `403 senior_required`). Rejections and revocations need a reason.
+- **Every step and every read is in the custody log.** Filing, approval, rejection and revocation are
+  custody events in each case the request names; so is every case view (`INVESTIGATOR_VIEWED`),
+  package issue (`PACKAGE_ISSUED`) and download (`PACKAGE_DOWNLOADED`, with the ZIP's SHA-256). The log
+  is hash-chained (Phase 27), so these entries can't be quietly removed.
+- **No probing.** The refusal is the same `403 no_legal_authority` with the same message whether the
+  case exists or not.
+- **The account graph is cut to the order.** In the investigator view an account's other cases are
+  limited to cases the investigator's own active requests cover; its platform-wide sighting count and
+  the on-platform upload list (`appearances`) are removed. Accounts are pseudonyms keyed per platform,
+  never the platform's IDs (Phase 26). Custody blocks show only the investigator's own requests and
+  packages.
+- **Downloads are time-limited.** A package can be downloaded until `HANDOVER_DOWNLOAD_WINDOW`
+  (default 24 hours) or the request's expiry, whichever is first (`410 package_expired`), only by the
+  investigator it was issued to (`404` for anyone else), and only while the request still authorises
+  them. Responses are `Cache-Control: no-store`.
+- **Packages are tamper-evident offline.** The manifest lists every file with its SHA-256 and size and
+  is signed (Ed25519) and timestamped (RFC 3161); a second signature seals the signature block itself.
+  The package carries the custody log up to the package, checked link by link against the head the
+  manifest commits to and the head the preservation signed. `tools/verify_evidence_package.py` checks
+  all of this with only the published keys and the Python standard library; `/api/verify` does the
+  same and also checks the TSA token and that the ZIP is byte for byte the one issued.
+- **No media in packages.** Only hashes, scores, pseudonyms and opaque post IDs (ADR 0001, ADR 0006).
+
+### Residual risk
+
+- **A leaked package can't be recalled.** Revocation stops further reads and downloads, not copies
+  already made. The package holds pseudonyms and post IDs, not media or raw account IDs, and names its
+  investigator and request on every page, which deters but does not prevent sharing.
+- **Two colluding senior moderators** can approve a fake order. Every request is attributable and in the
+  custody log of each case it names, but nothing checks the order against the issuing authority.
+  *Recommended:* verify orders through a separate channel (the agency's official address or portal)
+  and review active requests periodically.
+- **Investigator accounts have the same weaknesses as moderator accounts** (T4): HTTP Basic, no MFA, no
+  login throttling. A stolen investigator password gives what the order covers until it expires or is
+  revoked. *Recommended:* SSO with MFA before real handovers.
+- **Case titles and notes are the platform's words.** The investigator view drops the wider graph but
+  not free text a moderator wrote in the case; moderators should not name other cases or people there.
+- **The offline script doesn't check the TSA's own signature** (that needs the TSA's certificate); it
+  checks that the token was issued for this signature and writes it out for `openssl ts -verify`.
+  ZIP container bytes outside the files (for example entry timestamps) are covered only when the
+  recipient passes `--sha256` with the hash from the download, or uploads it to `/api/verify`.
+
+---
+
 ## Assumptions and out of scope
 
 - The operator runs the stack on infrastructure it controls, with TLS at the edge, and does not publish
@@ -366,5 +451,6 @@ logins are printed on the tour, and anyone can reset it.
   beyond what an edge rate limit or CDN handles.
 - The models' fairness, calibration and failure modes are covered in the [model card](MODEL_CARD.md),
   not here.
-- Legal process (which authority may order a takedown, evidentiary rules for a given court) is the
-  operator's responsibility; the system records and signs what happened.
+- Legal process (which authority may order a takedown or a handover, whether an order is genuine,
+  evidentiary rules for a given court) is the operator's responsibility; the system records and signs
+  what happened.

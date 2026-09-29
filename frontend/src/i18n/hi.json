@@ -682,7 +682,9 @@
         "related": "जुड़ा हुआ मामला",
         "open": "जाँच खोलें",
         "custody": "सबूत",
-        "custodyValue": "{{preservations}} बार सुरक्षित · {{holds}} लीगल होल्ड का अनुरोध"
+        "custodyValue": "{{preservations}} बार सुरक्षित · {{holds}} लीगल होल्ड का अनुरोध",
+        "handover": "जाँच अधिकारी की पहुँच",
+        "handoverValue": "{{authority}} का {{request}}, जिसे दूसरे वरिष्ठ मॉडरेटर ने मंज़ूरी दी: \"{{investigator}}\" {{until}} तक यह मामला पढ़ सकते हैं"
       }
     },
     "sla": {
@@ -701,7 +703,8 @@
       "signIn": "साइन इन पर जाएँ",
       "roles": {
         "MODERATOR": "मॉडरेटर",
-        "SENIOR_MODERATOR": "वरिष्ठ मॉडरेटर"
+        "SENIOR_MODERATOR": "वरिष्ठ मॉडरेटर",
+        "INVESTIGATOR": "जाँच अधिकारी (केवल पढ़ना)"
       }
     },
     "tryIt": {

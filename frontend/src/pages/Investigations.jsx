@@ -16,9 +16,11 @@ import {
   LockOpen,
   MapPin,
   NotebookPen,
+  PackageCheck,
   Plus,
   Radar,
   RefreshCw,
+  Scale,
   Search,
   ShieldCheck,
   ShieldX,
@@ -44,6 +46,7 @@ import {
 } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import FamilyChip from '../components/FamilyChip'
+import RequestStatusBadge from '../components/RequestStatusBadge'
 import { ErrorState, LoadingState } from '../components/Status'
 import { useToast } from '../components/Toast'
 import { Alert, Button, Card, CardHeader, CopyButton, DecisionBadge, EmptyState, PageHeader, StatTile } from '../components/ui'
@@ -1049,7 +1052,68 @@ function CustodyCard({ c, onDone, onReload, onUnauthorized }) {
           />
         )}
       </div>
+
+      <HandoverSection c={c} />
     </Card>
+  )
+}
+
+/** Phase 28: legal requests naming this case and the packages issued from it. Decisions happen on /legal-requests. */
+function HandoverSection({ c }) {
+  const requests = c.custody.legalRequests || []
+  const packages = c.custody.packages || []
+  return (
+    <div className="border-t border-line mt-5 pt-5">
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-medium">Investigator handover</p>
+        <Link to={`/legal-requests?case=${c.caseNumber}`} className="ml-auto text-xs font-medium text-brand hover:text-brand-2">
+          Record an order for this case
+        </Link>
+      </div>
+      {requests.length === 0 ? (
+        <p className="text-sm text-muted mt-1">
+          No legal requests name this case. An investigator can only read it under a request that a second senior moderator approved.
+        </p>
+      ) : (
+        <ul className="space-y-2 mt-3">
+          {[...requests].reverse().map((r) => (
+            <li key={r.requestNumber} className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white/[0.02] px-4 py-3 text-sm">
+              <Scale className="size-4 text-brand" />
+              <span className="font-mono font-semibold">{r.requestNumber}</span>
+              <RequestStatusBadge status={r.status} />
+              <span className="text-xs text-muted">
+                {r.authority} · ref <span className="font-mono">{r.orderReference}</span> · for {r.investigator}
+              </span>
+              <span className="text-xs text-subtle ml-auto" title={dateTime(r.expiresAt)}>
+                until {dateTime(r.expiresAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {packages.length > 0 && (
+        <ul className="space-y-2 mt-3">
+          {[...packages].reverse().map((p) => (
+            <li key={p.packageId} className="rounded-xl border border-line bg-white/[0.02] px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <PackageCheck className="size-4 text-brand" />
+                <span className="font-mono font-semibold">{p.packageId}</span>
+                <span className="text-xs text-muted">
+                  to {p.investigator} under {p.requestNumber} · from {p.preservationId}
+                </span>
+                <span className="text-xs text-subtle ml-auto" title={dateTime(p.issuedAt)}>
+                  issued {timeAgo(p.issuedAt)} · {p.downloads} {p.downloads === 1 ? 'download' : 'downloads'}
+                </span>
+              </div>
+              <p className="flex flex-wrap items-center gap-1.5 text-xs text-subtle mt-1">
+                ZIP SHA-256 <span className="font-mono text-muted">{shortHash(p.sha256, 16)}…</span>
+                <CopyButton value={p.sha256} className="size-6" />
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

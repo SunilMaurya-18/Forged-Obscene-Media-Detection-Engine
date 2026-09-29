@@ -682,7 +682,9 @@
         "related": "Linked case",
         "open": "Open the investigation",
         "custody": "Evidence",
-        "custodyValue": "Preserved {{preservations}}× · {{holds}} legal hold(s) requested"
+        "custodyValue": "Preserved {{preservations}}× · {{holds}} legal hold(s) requested",
+        "handover": "Investigator access",
+        "handoverValue": "{{request}} from {{authority}}, approved by a second senior moderator: \"{{investigator}}\" can read this case until {{until}}"
       }
     },
     "sla": {
@@ -701,7 +703,8 @@
       "signIn": "Go to sign in",
       "roles": {
         "MODERATOR": "Moderator",
-        "SENIOR_MODERATOR": "Senior moderator"
+        "SENIOR_MODERATOR": "Senior moderator",
+        "INVESTIGATOR": "Investigator (read-only)"
       }
     },
     "tryIt": {

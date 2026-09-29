@@ -101,6 +101,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/appeals/**", "/api/moderation/**").hasRole("MODERATOR")
                         .requestMatchers("/api/compliance/**").hasRole("MODERATOR")
                         .requestMatchers("/api/investigations", "/api/investigations/**").hasRole("MODERATOR")
+                        // Phase 28: requests are recorded by moderators; investigators reach only their own endpoints
+                        .requestMatchers("/api/legal-requests", "/api/legal-requests/**").hasRole("MODERATOR")
+                        .requestMatchers("/api/investigator", "/api/investigator/**").hasRole("INVESTIGATOR")
                         .requestMatchers("/api/admin/signing-keys/**").hasRole("SENIOR_MODERATOR")
                         .requestMatchers("/api/admin/**").hasRole("MODERATOR")
                         .anyRequest().authenticated()

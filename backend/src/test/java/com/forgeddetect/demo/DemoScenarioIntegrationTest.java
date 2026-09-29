@@ -50,7 +50,7 @@ import org.springframework.test.web.servlet.ResultActions;
             "ml.service.url=http://localhost:9",
             "app.security.moderator-username=moderator",
             "app.security.moderator-password=moderator",
-            "app.security.extra-moderators=senior:senior:SENIOR_MODERATOR:core",
+            "app.security.extra-moderators=senior:senior:SENIOR_MODERATOR:core,investigator:investigator:INVESTIGATOR:cyber-cell",
             "compliance.sla.check-interval=PT1H",
             "compliance.seed-demo=true",
             "compliance.default-jurisdiction=IN",
@@ -138,6 +138,19 @@ class DemoScenarioIntegrationTest {
         assertThat(verified.get("status").asText()).as(verified.toString()).isEqualTo("VALID");
         assertThat(caseView.at("/custody/legalHolds/0/platform").asText()).isEqualTo("pixelgram");
         assertThat(caseView.at("/custody/legalHolds/0/postRefs").get(0).asText()).isEqualTo("pg-7Q2X91");
+
+        // Phase 28: a fictional cyber cell's request, filed by moderator and approved by senior, opens it to the investigator
+        JsonNode handover = story.get("handover");
+        assertThat(handover.get("status").asText()).isEqualTo("APPROVED");
+        assertThat(handover.get("filedBy").asText()).isEqualTo("moderator");
+        assertThat(handover.get("decidedBy").asText()).isEqualTo("senior");
+        assertThat(handover.get("investigator").asText()).isEqualTo("investigator");
+        mockMvc.perform(get("/api/investigator/cases/" + investigation.get("caseNumber").asText())
+                        .with(httpBasic("investigator", "investigator")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/investigator/cases/" + related.get("caseNumber").asText())
+                        .with(httpBasic("investigator", "investigator")))
+                .andExpect(status().isForbidden());
 
         // Idempotent: a second visitor gets the same story
         JsonNode again = json(mockMvc.perform(post("/api/demo/story")).andExpect(status().isOk())).get("story");

@@ -169,6 +169,9 @@ Detection answers *is this manipulated?* An investigation answers the next quest
 | Custody chain (Phase 27) | Every case event stores `SHA-256(previous hash + canonical event)`, and the case row keeps the chain length and head. **Verify chain** names the first bad event: edited, deleted, trimmed from the end, inserted by hand, or rewritten after a preservation signed it. Cases opened before the chain existed are sealed once at startup |
 | Preserve evidence | Signs a canonical manifest of the case: per analysis the content SHA-256, pHash, scores, decision and signed report ID + SHA-256; per sighting the platform, post, account pseudonym and match; and the custody head. Ed25519 with the report key, RFC 3161 timestamp when a TSA is set. Verification rebuilds it from the records it names and reports `VALID` or `TAMPERED` with the changed fields; evidence added later doesn't affect it. Refused while the custody log fails verification |
 | Legal holds | A request to one partner platform to keep named posts (by default every linked sighting there). Requested, confirmed (with the platform's reference) and released are all custody events; the request event carries the SHA-256 of the post list. Sent to the platform out of band; the platform keeps the media ([ADR 0006](adr/0006-preserve-commitments-not-media.md)) |
+| Legal requests (Phase 28) | A moderator records a police or court order: authority, order reference, the named investigator, the cases it covers (up to 25) and its expiry (at most 180 days). A senior moderator who did not file it approves or rejects it; a senior can revoke it early. Each step is a custody event on every covered case |
+| Investigator access | An `INVESTIGATOR` account sees only cases covered by an approved, unexpired request naming them, read-only. Every other case, including ones that don't exist, returns the same `403`. Each case view is an `INVESTIGATOR_VIEWED` custody event, and the account graph lists other cases only when the same request covers them |
+| Evidence package | A ZIP of the latest preservation's manifest and signature, the case report (JSON + PDF), sightings, custody log, public keys and a README, plus a signed, timestamped package manifest. Downloadable for 24 hours (never past the request's expiry); issue and each download are custody events. `tools/verify_evidence_package.py` checks it offline with the Python standard library, and `POST /api/verify` checks an uploaded ZIP |
 
 ### 4.8 Experience
 
@@ -515,7 +518,8 @@ flowchart TD
 3. **Compliance:** live countdowns for every open complaint, escalation times, jurisdiction badges and the rules card. **Take down** or **Dismiss** stops the clock.
 4. **Evidence:** **Download report** produces the signed PDF; **Verify report integrity** confirms it.
 5. **Investigate:** **Investigate** on a queue item opens (or goes to) its case on `/investigations`. The case shows partner sightings by platform, the account pseudonyms involved and any other cases they appear in, and one timeline. Moderators can record a sighting someone told them about, add evidence and notes, and close or reopen the case. Under **Custody and preservation**: **Verify chain** checks the case log, **Preserve evidence** signs a manifest (download it, or **Verify** it later), and **Request hold** records a legal hold request to a platform, then its confirmation or release.
-6. **API:** issue and manage partner keys on `/api-access`.
+6. **Hand over:** **Legal requests** (`/legal-requests`, or **Legal request** from a case) records an order for a named investigator. A second senior moderator approves it. The investigator signs in to **My cases** (`/investigator`), sees only those cases, and downloads a signed evidence package that anyone can check on `/verify` or offline.
+7. **API:** issue and manage partner keys on `/api-access`.
 
 ### 6.4 Partner platform
 
@@ -681,6 +685,8 @@ Every setting is an environment variable with a safe default. The full table is 
 | Partner | `POST /api/v1/analyze`, `GET /api/v1/usage`, `POST /api/v1/sightings` | API key |
 | Investigations | `GET`/`POST /api/investigations`, `GET /api/investigations/{caseNumber}`, `POST …/items` · `/sightings` · `/notes` · `/close` · `/reopen` | Moderator |
 | Custody | `GET …/custody`, `POST`/`GET …/preservations`, `GET …/preservations/{id}` · `/manifest` · `/verify`, `POST …/legal-holds`, `…/legal-holds/{holdNumber}/acknowledge` · `/release` | Moderator |
+| Legal requests | `GET`/`POST /api/legal-requests`, `GET /api/legal-requests/investigators`, `POST …/{requestNumber}/approve` · `/reject` · `/revoke` | Moderator (deciding: a senior who didn't file it) |
+| Investigator | `GET /api/investigator/cases` · `/cases/{caseNumber}`, `POST …/cases/{caseNumber}/packages`, `GET /api/investigator/packages` · `/packages/{id}/download` | Investigator with an approved request |
 | Misc | `GET /api/stats`, `POST /api/auth/login`, `GET /api/auth/me` | Public |
 | Demo | `GET /api/demo`, `POST /api/demo/story`, `POST /api/demo/reset`, `GET /api/demo/samples/{name}`, `GET /api/demo/report.pdf` | Public (reset: senior moderator, or anyone in public mode) |
 
@@ -692,7 +698,8 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 
 | Suite | Command | Covers |
 |---|---|---|
-| Backend (162 tests) | `cd backend && mvn test` | Decision engine, API, auth, SLA and jurisdiction rules, provenance, PDF and signed reports, API keys and rate limits, prescreen, public complaints (case + PIN, lockout, notifications, queue order), appeals, second review, wellbeing, transparency, demo story, investigations and sightings (linking before and after opening, distance threshold, pseudonyms, cross-case accounts, closed cases, access control), custody chain (edits, deletions, truncation, inserted rows, rewrites caught by a signed anchor, legacy sealing), preservation (`VALID`, then `TAMPERED` per covered field, RFC 3161, no media bytes in a full database dump), legal holds |
+| Backend (166 tests) | `cd backend && mvn test` | Decision engine, API, auth, SLA and jurisdiction rules, provenance, PDF and signed reports, API keys and rate limits, prescreen, public complaints (case + PIN, lockout, notifications, queue order), appeals, second review, wellbeing, transparency, demo story, investigations and sightings (linking before and after opening, distance threshold, pseudonyms, cross-case accounts, closed cases, access control), custody chain (edits, deletions, truncation, inserted rows, rewrites caught by a signed anchor, legacy sealing), preservation (`VALID`, then `TAMPERED` per covered field, RFC 3161, no media bytes in a full database dump), legal holds, investigator handover (`403` without an approved, unexpired request; no self-approval; every package byte change caught) |
+| Package verifier | `python -m unittest discover -s tools -p "test_*.py"` | RFC 8032 Ed25519 vectors, canonical format, and the package the backend tests write: valid, tampered copies, wrong key, missing key |
 | ML service | `cd ml-service && python -m pytest` | Health, `/infer`, NSFW, provenance manifests, forensic signature, generation family |
 | ML pipeline | `cd ml && python -m pytest tests data/tests` | Data pipeline, model, plots, poster, diffusion split and family head |
 | Frontend | `cd frontend && npm test` | Browser pHash parity with Python, Hindi/English key coverage, case-number and contact validation, queue urgency order, near-duplicates |
@@ -724,6 +731,7 @@ Full parameters and responses: [README API table](../README.md#api) and [`API_DO
 - **Legal hours pending review.** EU, UK and AU deadlines and every appeal deadline are platform targets until counsel signs off.
 - **Sightings are only as complete as partners make them.** The platform does not search the web. An investigation shows what partners and moderators reported, and a pHash match within 8 bits means "very likely the same picture", not proof.
 - **Preservation proves what a file was, not where it is.** The platform hosting the post keeps the media under its legal hold; if it deletes it anyway, the signed hashes still identify the file but can't reproduce it. The custody chain can be recomputed end to end by someone with database write access; that is caught against the head on the case row and every signed preservation, but events after the latest preservation rely on the case row alone.
+- **An evidence package can be forwarded.** Once downloaded, it can't be recalled. Each download is logged with the ZIP's SHA-256, so a copy that turns up can be traced to its issue. The platform checks that a legal request was recorded and approved, not that the order is genuine.
 
 ---
 

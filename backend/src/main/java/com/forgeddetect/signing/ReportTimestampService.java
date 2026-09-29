@@ -122,20 +122,25 @@ public class ReportTimestampService {
 
     public Check verify(String tokenBase64, byte[] data) {
         TimeStampToken token;
+        TimeStampTokenInfo info;
+        Instant time;
+        String authority;
+        X509CertificateHolder cert;
         try {
             token = new TimeStampToken(new CMSSignedData(Base64.getDecoder().decode(tokenBase64)));
+            info = token.getTimeStampInfo();
+            time = info.getGenTime().toInstant();
+            authority = authority(token);
+            cert = signerCert(token);
         } catch (Exception ex) {
+            // BouncyCastle throws unchecked exceptions (IllegalStateException, ...) on a damaged token
             return new Check(CheckStatus.INVALID, null, null, false, "The timestamp token is not a readable RFC 3161 token.");
         }
-        TimeStampTokenInfo info = token.getTimeStampInfo();
-        Instant time = info.getGenTime().toInstant();
-        String authority = authority(token);
         if (!NISTObjectIdentifiers.id_sha256.equals(info.getMessageImprintAlgOID())
                 || !Arrays.equals(info.getMessageImprintDigest(), Ed25519Keys.sha256(data))) {
             return new Check(CheckStatus.MISMATCH, time, authority, false,
                     "The timestamp token was issued for different data than this report's signature.");
         }
-        X509CertificateHolder cert = signerCert(token);
         if (cert == null) {
             return new Check(CheckStatus.INVALID, time, authority, false, "The timestamp token carries no TSA certificate.");
         }

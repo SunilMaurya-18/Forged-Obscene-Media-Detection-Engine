@@ -8,9 +8,12 @@ import {
   History,
   ImageUp,
   Link2,
+  PackageCheck,
   Repeat2,
   Search,
+  ShieldCheck,
   ShieldQuestion,
+  ShieldX,
   Stamp,
   UploadCloud,
   X,
@@ -281,6 +284,98 @@ function Timeline({ events }) {
   )
 }
 
+/** Phase 28: an evidence package ZIP. The same checks as tools/verify_evidence_package.py, plus the TSA token and the issued bytes. */
+function PackageFileCard({ busy, fileName, onFile }) {
+  const inputRef = useRef(null)
+  return (
+    <Card className="p-5 md:p-6">
+      <CardHeader icon={PackageCheck} title="Check an evidence package" description="A signed ZIP issued to an investigator. Checked, not stored." />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          onFile(e.dataTransfer.files?.[0])
+        }}
+        disabled={busy}
+        className="w-full rounded-xl border border-dashed border-line-strong px-4 py-5 text-center transition-all duration-200 hover:border-white/25 hover:bg-white/[0.03]"
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={(e) => {
+            onFile(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
+        <p className="text-sm font-medium">{busy ? 'Checking…' : 'Drop a PKG-….zip'}</p>
+        <p className="text-xs text-subtle mt-1 truncate">{fileName || 'or click to browse'}</p>
+      </button>
+    </Card>
+  )
+}
+
+const PACKAGE_CHECK_LABELS = {
+  structure: 'Package structure',
+  signature: 'Signature and seal',
+  files: 'Every file',
+  preservation: 'Preserved manifest',
+  custody: 'Custody chain',
+  timestamp: 'RFC 3161 timestamp',
+  issued: 'Issued by this server',
+}
+
+function PackageResultCard({ result }) {
+  const valid = result.status === 'VALID'
+  const Icon = valid ? ShieldCheck : ShieldX
+  const tone = valid ? 'text-emerald-300' : 'text-rose-300'
+  return (
+    <Card className={cn('p-6 animate-fade-up', valid ? 'border-emerald-400/30' : 'border-rose-400/30')}>
+      <div className="flex items-start gap-4">
+        <span className={cn('grid place-items-center size-12 shrink-0 rounded-2xl border', valid ? 'border-emerald-400/30' : 'border-rose-400/30')}>
+          <Icon className={cn('size-6', tone)} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.16em] text-muted">Evidence package</p>
+          <p className={cn('text-2xl font-semibold tracking-tight mt-0.5', tone)}>
+            {valid ? 'Intact' : result.status === 'INVALID' ? 'Not a valid package' : 'Tampered'}
+          </p>
+          <p className="text-sm text-muted mt-1.5 leading-relaxed break-words">{result.message}</p>
+        </div>
+      </div>
+      {result.checks?.length > 0 && (
+        <ul className="space-y-2 mt-5">
+          {result.checks.map((c) => (
+            <li key={c.name} className="flex gap-2.5 text-sm">
+              {c.ok ? <Check className="size-4 mt-0.5 shrink-0 text-emerald-300" /> : <X className="size-4 mt-0.5 shrink-0 text-rose-300" />}
+              <span className="min-w-0">
+                <span className="font-medium">{PACKAGE_CHECK_LABELS[c.name] || c.name}</span>
+                <span className="block text-xs text-muted break-words">{c.detail}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {result.packageId && (
+        <dl className="grid sm:grid-cols-2 gap-2.5 mt-5">
+          <Fact label="Package" mono>{result.packageId}</Fact>
+          <Fact label="Case" mono>{result.caseNumber}</Fact>
+          <Fact label="Legal request" mono>{result.legalRequest}</Fact>
+          <Fact label="Authority">{result.authority}</Fact>
+          <Fact label="Issued to">{result.investigator}</Fact>
+          <Fact label="Issued at">{result.issuedAt ? dateTime(result.issuedAt) : '—'}</Fact>
+        </dl>
+      )}
+      <div className="mt-2.5">
+        <IdRow icon={Fingerprint} label="ZIP SHA-256" value={result.sha256} />
+      </div>
+    </Card>
+  )
+}
+
 function Skeleton() {
   return (
     <Card className="p-6 space-y-4">
@@ -331,12 +426,7 @@ export default function Verify() {
   const current = id && lookup?.id === id ? lookup : null
   const loadingId = Boolean(id) && !current && !check
 
-  const onFile = async (file) => {
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('That file is not an image.')
-      return
-    }
+  const checkFile = async (file) => {
     setError('')
     setChecking(true)
     try {
@@ -346,6 +436,18 @@ export default function Verify() {
     } finally {
       setChecking(false)
     }
+  }
+
+  const onFile = (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) setError('That file is not an image.')
+    else checkFile(file)
+  }
+
+  const onPackage = (file) => {
+    if (!file) return
+    if (!/\.zip$/i.test(file.name) && file.type !== 'application/zip') setError('An evidence package is a .zip file.')
+    else checkFile(file)
   }
 
   let content
@@ -362,7 +464,7 @@ export default function Verify() {
             Clear
           </Button>
         </div>
-        <ManifestCard check={check.data} />
+        {check.data.kind === 'evidence_package' ? <PackageResultCard result={check.data} /> : <ManifestCard check={check.data} />}
         {check.data.record && (
           <>
             <RecordCard record={check.data.record} />
@@ -397,12 +499,13 @@ export default function Verify() {
       <PageHeader
         eyebrow="Provenance"
         title="Verify media authenticity"
-        description="Look up a provenance ID or drop a labelled image. The signed manifest is read back, its signature and pixel hash are checked, and the item's audit trail is shown."
+        description="Look up a provenance ID or drop a labelled image. The signed manifest is read back, its signature and pixel hash are checked, and the item's audit trail is shown. Evidence packages issued to investigators are checked here too."
       />
       <div className="grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-6 items-start">
         <div className="space-y-5 lg:sticky lg:top-24">
           <LookupCard key={id || 'empty'} initial={id} />
-          <CheckFileCard busy={checking} fileName={check?.fileName} onFile={onFile} />
+          <CheckFileCard busy={checking} fileName={check?.data?.kind === 'evidence_package' ? null : check?.fileName} onFile={onFile} />
+          <PackageFileCard busy={checking} fileName={check?.data?.kind === 'evidence_package' ? check.fileName : null} onFile={onPackage} />
         </div>
         <div className="space-y-5 min-w-0">
           {error && <Alert title="Something went wrong">{error}</Alert>}

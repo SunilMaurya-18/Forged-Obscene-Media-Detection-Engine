@@ -148,6 +148,10 @@ prescreen:
 # at this demo value outside the dev profile; changing it unlinks every existing pseudonym.
 investigation:
   pseudonym-key: ${INVESTIGATION_PSEUDONYM_KEY:dev-only-account-pseudonym-key-change-me}
+  # Phase 28: evidence packages for investigators under an approved legal request
+  handover:
+    download-window: ${HANDOVER_DOWNLOAD_WINDOW:PT24H}
+    max-request-term: ${HANDOVER_MAX_REQUEST_TERM:P180D}
 
 # Phase 21: self-service reports (case number + PIN, no account)
 complaints:
@@ -184,6 +188,7 @@ app:
   security:
     moderator-username: ${MODERATOR_USERNAME:moderator}
     moderator-password: ${MODERATOR_PASSWORD:moderator}
-    # Phase 23: extra dev accounts, "username:password:ROLE:team" (ROLE = MODERATOR | SENIOR_MODERATOR).
-    # Needed for second review and appeals, which must be decided by a different person. Change in production.
-    extra-moderators: ${MODERATOR_EXTRA_ACCOUNTS:reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac}
+    # Phase 23: extra dev accounts, "username:password:ROLE:team" (ROLE = MODERATOR | SENIOR_MODERATOR | INVESTIGATOR).
+    # Needed for second review and appeals, which must be decided by a different person. Phase 28: an
+    # INVESTIGATOR's "team" is their agency. Change in production.
+    extra-moderators: ${MODERATOR_EXTRA_ACCOUNTS:reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac,investigator:investigator:INVESTIGATOR:cyber-cell}
