@@ -78,7 +78,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -125,7 +125,7 @@ jobs:
           grep -q '^http_server_requests_seconds_bucket{' backend-metrics.txt
           docker compose exec -T ml-service python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/metrics').read().decode())" | grep -q '^fmd_ml_requests_total{'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
