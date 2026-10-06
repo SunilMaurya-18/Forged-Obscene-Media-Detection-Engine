@@ -20,8 +20,8 @@ RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --home-dir /home/app --create-home app
 
 COPY ml-service/ /app/
-# calibration.json is optional (written by `ml/calibration.py --promote`); the bracket glob lets COPY match nothing
-COPY ml/models/checkpoint.pt ml/models/calibration.jso[n] /models/
+# calibration.json (`ml/calibration.py --promote`) and ensemble.json (`ml/phase29.py`) are optional; the bracket globs let COPY match nothing
+COPY ml/models/checkpoint.pt ml/models/calibration.jso[n] ml/models/ensemble.jso[n] /models/
 
 ENV FORGERY_CHECKPOINT=/models/checkpoint.pt
 ENV NSFW_BACKEND=heuristic

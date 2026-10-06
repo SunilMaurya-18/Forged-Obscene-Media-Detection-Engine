@@ -16,7 +16,7 @@ export default function ThemeToggle({ className = 'grid' }) {
       aria-label={label}
       title={label}
       className={cn(
-        'place-items-center size-9 shrink-0 rounded-xl border border-line text-muted hover:text-fg hover:bg-white/[0.05] transition',
+        'place-items-center size-8 shrink-0 rounded-lg border border-line text-muted hover:text-fg hover:bg-white/[0.05] transition',
         className,
       )}
     >

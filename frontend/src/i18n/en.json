@@ -18,7 +18,13 @@
       "benchmarks": "Research benchmarks: FaceForensics++ · DFDC · Celeb-DF",
       "terms": "Terms",
       "privacy": "Privacy",
-      "legal": "Legal"
+      "legal": "Legal",
+      "product": "Product",
+      "help": "Get help"
+    },
+    "menu": {
+      "open": "Open menu",
+      "close": "Close menu"
     },
     "theme": {
       "toLight": "Switch to light theme",

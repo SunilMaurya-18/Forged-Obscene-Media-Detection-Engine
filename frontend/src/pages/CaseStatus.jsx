@@ -5,7 +5,7 @@ import { Bell, BellOff, CircleCheck, CircleSlash, Eye, EyeOff, FilePlus2, Hourgl
 import { fetchCaseStatus } from '../api/client'
 import { ErrorState, LoadingState } from '../components/Status'
 import VerdictBadge from '../components/VerdictBadge'
-import { Button, Card, PageHeader, buttonClass } from '../components/ui'
+import { Button, Card, INPUT, PageHeader, buttonClass } from '../components/ui'
 import { formatWhen, isValidPin, normalizeCaseNumber } from '../lib/cases'
 import { cn } from '../lib/format'
 
@@ -15,8 +15,6 @@ const STAGES = {
   REMOVED: { icon: CircleCheck, tone: 'border-emerald-400/30 bg-emerald-400/[0.08] text-emerald-300' },
   NO_ACTION: { icon: CircleSlash, tone: 'border-sky-400/30 bg-sky-400/[0.08] text-sky-300' },
 }
-
-const INPUT = 'w-full rounded-xl border border-line bg-white/[0.03] px-3.5 py-2.5 text-sm placeholder:text-subtle focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
 
 function LookupForm({ initialCase, initialPin, onFound }) {
   const { t } = useTranslation()

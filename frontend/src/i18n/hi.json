@@ -18,7 +18,13 @@
       "benchmarks": "शोध बेंचमार्क: FaceForensics++ · DFDC · Celeb-DF",
       "terms": "नियम और शर्तें",
       "privacy": "गोपनीयता",
-      "legal": "कानूनी"
+      "legal": "कानूनी",
+      "product": "प्रोडक्ट",
+      "help": "मदद लें"
+    },
+    "menu": {
+      "open": "मेनू खोलें",
+      "close": "मेनू बंद करें"
     },
     "theme": {
       "toLight": "हल्की थीम पर जाएँ",

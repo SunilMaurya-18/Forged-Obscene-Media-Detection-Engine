@@ -4,13 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { CircleCheck, CircleSlash, Eye, EyeOff, FileText, Gavel, Hourglass, Lock, RefreshCw, Search, Send, Timer } from 'lucide-react'
 import { fetchAppealStatus, fileAppeal } from '../api/client'
 import { ErrorState, LoadingState } from '../components/Status'
-import { Button, Card, PageHeader, buttonClass } from '../components/ui'
+import { Button, Card, INPUT, PageHeader, buttonClass } from '../components/ui'
 import { STATEMENT_MAX, appealStage, normalizeNoticeNumber } from '../lib/appeals'
 import { formatWhen, isValidPin } from '../lib/cases'
 import { cn } from '../lib/format'
-
-const INPUT =
-  'w-full rounded-xl border border-line bg-white/[0.03] px-3.5 py-2.5 text-sm placeholder:text-subtle focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
 
 const STAGES = {
   OPEN: { icon: Hourglass, tone: 'border-amber-400/30 bg-amber-400/[0.08] text-amber-300' },

@@ -83,10 +83,6 @@ export async function fetchQueue(status = 'review', scope = 'all') {
   return apiFetch(`/api/queue?status=${encodeURIComponent(status)}&scope=${encodeURIComponent(scope)}`)
 }
 
-export async function fetchFlagged() {
-  return fetchQueue('flagged')
-}
-
 function dispositionFilename(header, fallback) {
   const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header || '')
   return match ? decodeURIComponent(match[1]) : fallback
@@ -260,10 +256,6 @@ export async function escalateItem(id, reason) {
 /** Logs (and counts toward the exposure limit) that the moderator chose to see the media unblurred. */
 export async function revealItem(id) {
   return postJson(`/api/queue/${id}/reveal`)
-}
-
-export async function fetchItemAudit(id) {
-  return apiFetch(`/api/queue/${id}/audit`)
 }
 
 export async function fetchModerationMe() {

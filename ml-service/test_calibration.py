@@ -57,14 +57,14 @@ def _raw_logit(raw: bytes) -> float:
 @pytest.mark.skipif(not CHECKPOINT.exists(), reason=f"Missing checkpoint: {CHECKPOINT}")
 def test_temperature_rescales_logit(tmp_path):
     raw = _jpeg()
-    inf.init_runtime(checkpoint=CHECKPOINT, device="cpu", calibration=tmp_path / "absent.json")
+    inf.init_runtime(checkpoint=CHECKPOINT, device="cpu", calibration=tmp_path / "absent.json", ensemble="off")
     assert inf.get_runtime().temperature is None
     z = _raw_logit(raw)
     assert inf.run_forgery_assessment(raw)["forgery_score"] == pytest.approx(1 / (1 + math.exp(-z)), abs=1e-6)
 
     calib = tmp_path / "calibration.json"
     calib.write_text(json.dumps({"temperature": 8.0}), encoding="utf-8")
-    inf.init_runtime(checkpoint=CHECKPOINT, device="cpu", calibration=calib)
+    inf.init_runtime(checkpoint=CHECKPOINT, device="cpu", calibration=calib, ensemble="off")
     assert inf.get_runtime().temperature == pytest.approx(8.0)
     scaled = inf.run_forgery_assessment(raw)["forgery_score"]
 

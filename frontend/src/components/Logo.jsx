@@ -18,14 +18,14 @@ export function LogoMark({ className = 'size-8' }) {
   )
 }
 
-/** `compact`: the signed-in nav is wider, so the wordmark only returns once there is room (2xl). */
-export function Logo({ compact = false }) {
+/** `always`: keep the wordmark at every width (the sidebar); otherwise it steps aside while the top nav needs the room. */
+export function Logo({ always = false }) {
   return (
     <span className="flex items-center gap-2.5">
-      <LogoMark className="size-8 drop-shadow-[0_4px_14px_rgb(239_68_68/0.4)]" />
-      <span className={compact ? 'leading-tight lg:max-2xl:hidden' : 'leading-tight lg:max-xl:hidden'}>
-        <span className="block text-[15px] font-semibold tracking-tight">Forged Media Detection</span>
-        <span className="block text-[11px] text-muted tracking-wide">Trust &amp; Safety Console</span>
+      <LogoMark className="size-8 shrink-0 drop-shadow-[0_4px_12px_rgb(239_68_68/0.3)]" />
+      <span className={always ? 'leading-tight min-w-0' : 'leading-tight lg:max-xl:hidden'}>
+        <span className="block text-[14px] font-semibold tracking-tight truncate">Forged Media Detection</span>
+        <span className="block text-[11px] text-subtle truncate">Trust &amp; Safety Console</span>
       </span>
     </span>
   )

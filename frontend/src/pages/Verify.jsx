@@ -86,7 +86,7 @@ function LookupCard({ initial }) {
           placeholder="e.g. 3f2b6c1e-…"
           spellCheck={false}
           aria-label="Provenance ID"
-          className="min-w-0 flex-1 h-10 rounded-xl border border-line-strong bg-white/[0.03] px-3.5 font-mono text-sm placeholder:text-subtle focus:outline-none focus:border-brand/60 focus:ring-2 focus:ring-brand/20"
+          className="field min-w-0 flex-1 font-mono"
         />
         <Button type="submit" icon={ArrowRight} disabled={!valid} aria-label="Look up" />
       </form>

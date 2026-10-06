@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -22,7 +23,8 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from dataset import CropCsvDataset, default_eval_transform, default_train_transform, read_split_csv  # noqa: E402
+from dataset import CropCsvDataset, default_train_transform, read_split_csv  # noqa: E402
+from degradations import DEFAULT_DEGRADE_P  # noqa: E402
 from evaluate import compute_metrics  # noqa: E402
 from evaluate_diffusion import predict  # noqa: E402
 from models.forgery_model import load_checkpoint, save_checkpoint  # noqa: E402
@@ -55,6 +57,8 @@ def run_training(
     family_weight: float = 0.5,
     seed: int = 17,
     device: str = "cpu",
+    degrade_p: float = DEFAULT_DEGRADE_P,
+    extra: dict | None = None,
 ) -> dict:
     torch.manual_seed(seed)
     device_t = torch.device(device)
@@ -70,7 +74,8 @@ def run_training(
     forgery_loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([n_real / max(n_fake, 1)], device=device_t))
     family_loss = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-    loader = DataLoader(CropCsvDataset(train_rows, crops, default_train_transform()), batch_size=batch_size, shuffle=True)
+    transform = default_train_transform(degrade_p, random.Random(seed))
+    loader = DataLoader(CropCsvDataset(train_rows, crops, transform), batch_size=batch_size, shuffle=True)
 
     history, best = [], None
     out_checkpoint.parent.mkdir(parents=True, exist_ok=True)
@@ -105,7 +110,8 @@ def run_training(
             best = score
             save_checkpoint(out_checkpoint, model, epoch=epoch,
                             metrics={"val_gan_era": gan_m, "val_diffusion_era": dm_m},
-                            extra={"trained_on": ["faceforensics++ (gan-era)", "diffusion"], "init": str(init_checkpoint)})
+                            extra={"trained_on": ["faceforensics++ (gan-era)", "diffusion"], "init": str(init_checkpoint),
+                                   "degrade_p": degrade_p, **(extra or {})})
 
     out_checkpoint.with_suffix(".train_log.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
     return {"history": history, "checkpoint": str(out_checkpoint), "train_counts": {"real": n_real, "fake": n_fake}}
@@ -126,9 +132,12 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--family-weight", type=float, default=0.5)
+    parser.add_argument("--degrade-p", type=float, default=DEFAULT_DEGRADE_P,
+                        help="share of training images re-encoded through a random JPEG/resize/blur chain (0 = off)")
     args = parser.parse_args()
     run_training(args.init.resolve(), args.crops.resolve(), args.splits.resolve(), args.out.resolve(),
-                 epochs=args.epochs, lr=args.lr, batch_size=args.batch_size, family_weight=args.family_weight)
+                 epochs=args.epochs, lr=args.lr, batch_size=args.batch_size, family_weight=args.family_weight,
+                 degrade_p=args.degrade_p)
 
 
 if __name__ == "__main__":

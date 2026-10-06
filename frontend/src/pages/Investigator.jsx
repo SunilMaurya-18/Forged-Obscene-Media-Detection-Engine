@@ -238,7 +238,7 @@ function Sightings({ sightings }) {
   if (sightings.length === 0) return <p className="text-sm text-muted">No partner sightings linked to this case.</p>
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm">
+      <table className="data-table w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-subtle">
             <th className="font-medium px-1 pb-2">Platform</th>

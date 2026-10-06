@@ -11,9 +11,9 @@ export default function LanguageToggle({ className = 'inline-flex', iconClassNam
       role="group"
       aria-label={t('common.language')}
       title={t('common.language')}
-      className={cn('items-center h-9 shrink-0 rounded-xl border border-line-strong bg-white/[0.03] p-0.5', className)}
+      className={cn('items-center h-8 shrink-0 rounded-lg border border-line bg-surface-2 p-0.5', className)}
     >
-      <Languages aria-hidden className={cn('size-4 text-fg mx-1.5', iconClassName)} />
+      <Languages aria-hidden className={cn('size-3.5 text-subtle mx-1.5', iconClassName)} />
       {LANGUAGES.map(({ code, label, short }) => {
         const active = i18n.resolvedLanguage === code
         return (
@@ -26,8 +26,8 @@ export default function LanguageToggle({ className = 'inline-flex', iconClassNam
             title={label}
             onClick={() => i18n.changeLanguage(code)}
             className={cn(
-              'h-7 min-w-9 px-2 rounded-lg text-xs font-semibold transition',
-              active ? 'bg-brand text-[#fff] shadow-sm' : 'text-muted hover:text-fg hover:bg-white/[0.06]',
+              'h-6 min-w-8 px-1.5 rounded-md text-[11px] font-semibold transition',
+              active ? 'bg-surface-3 text-fg shadow-[0_1px_2px_rgb(0_0_0/0.3)]' : 'text-subtle hover:text-fg',
             )}
           >
             {short}

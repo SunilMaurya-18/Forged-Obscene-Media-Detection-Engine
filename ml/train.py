@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dataset import CropCsvDataset, default_train_transform, default_eval_transform, read_split_csv
+from degradations import DEFAULT_DEGRADE_P
 from models.forgery_model import build_model, save_checkpoint
 
 
@@ -107,6 +108,7 @@ def run_training(
     pretrained: bool = True,
     device: str | None = None,
     num_workers: int = 0,
+    degrade_p: float = DEFAULT_DEGRADE_P,
 ) -> dict:
     device_t = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     train_rows = read_split_csv(splits_dir / "train.csv")
@@ -114,7 +116,7 @@ def run_training(
     if not train_rows:
         raise FileNotFoundError(f"No train rows in {splits_dir / 'train.csv'}")
 
-    train_ds = CropCsvDataset(train_rows, crops_root, default_train_transform())
+    train_ds = CropCsvDataset(train_rows, crops_root, default_train_transform(degrade_p))
     val_ds = CropCsvDataset(val_rows or train_rows[:1], crops_root, default_eval_transform())
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers
@@ -169,6 +171,8 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--no-pretrained", action="store_true")
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument("--degrade-p", type=float, default=DEFAULT_DEGRADE_P,
+                        help="share of training images re-encoded through a random JPEG/resize/blur chain (0 = off)")
     args = parser.parse_args()
     run_training(
         args.crops.resolve(),
@@ -179,6 +183,7 @@ def main() -> None:
         lr=args.lr,
         pretrained=not args.no_pretrained,
         device=args.device,
+        degrade_p=args.degrade_p,
     )
 
 

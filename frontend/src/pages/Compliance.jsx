@@ -148,7 +148,7 @@ function BreachLog({ breaches }) {
     <Card className="p-6 overflow-hidden">
       <CardHeader icon={Siren} title="Breach log" description="Every complaint that missed its statutory deadline, for audit." />
       <div className="overflow-x-auto -mx-6 px-6">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="data-table w-full text-sm min-w-[640px]">
           <thead>
             <tr className="text-left text-xs text-subtle border-b border-line">
               {['Item', 'Type', 'Rule', 'Reference', 'Deadline', 'Missed by', 'State'].map((h) => (
@@ -245,7 +245,7 @@ function RulesCard({ rules }) {
         description={`Deadlines come from this table, not code. Complaints without a jurisdiction use ${rules.defaultJurisdiction}. EU member states (DE, FR, …) use the EU rule; any other jurisdiction without its own rule falls back to GENERIC.`}
       />
       <div className="overflow-x-auto -mx-6 px-6">
-        <table className="w-full text-sm min-w-[720px]">
+        <table className="data-table w-full text-sm min-w-[720px]">
           <thead>
             <tr className="text-left text-xs text-subtle border-b border-line">
               {['Jurisdiction', 'Complaint type', 'Deadline', 'Badge', 'Legal reference'].map((h) => (
@@ -365,7 +365,7 @@ function FileComplaintDialog({ rules, onClose, onFiled }) {
             <select
               value={jurisdiction}
               onChange={(e) => setJurisdiction(e.target.value)}
-              className="w-full h-11 rounded-xl border border-line-strong bg-canvas/60 px-3 text-sm focus:outline-none focus:border-brand/60 focus:ring-4 focus:ring-brand/15"
+              className="field h-11"
             >
               {jurisdictions.map((j) => (
                 <option key={j} value={j}>
@@ -387,7 +387,7 @@ function FileComplaintDialog({ rules, onClose, onFiled }) {
               onChange={(e) => setReference(e.target.value)}
               maxLength={128}
               placeholder={type === 'GOVERNMENT_ORDER' ? 'MeitY/69A/2026/…' : 'NCII-2026-…'}
-              className="w-full h-11 rounded-xl border border-line-strong bg-canvas/60 px-3.5 text-sm font-mono placeholder:text-subtle focus:outline-none focus:border-brand/60 focus:ring-4 focus:ring-brand/15"
+              className="field h-11 font-mono"
             />
           </label>
 

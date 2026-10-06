@@ -1,87 +1,43 @@
 #!/usr/bin/env python3
 """Phase 22: forgery-score stability under the transforms real uploads go through.
 
-Each transform is applied to the image before the standard eval transform. For every transform we
-report AUC and accuracy, and against the untouched baseline: the mean absolute score shift and the
-decision flip rate at the routing threshold (how often re-encoding alone would change the outcome).
+Each transform is applied to the image before scoring. For every transform we report AUC and
+accuracy, and against the untouched baseline: the mean absolute score shift and the decision flip
+rate at the routing threshold (how often re-encoding alone would change the outcome).
+
+Since Phase 29 the score is the one ml-service serves (the CNN, or the CNN + spectral ensemble when
+``models/ensemble.json`` is next to the checkpoint), and only held-out test splits are used:
+``val.csv`` selects checkpoints and fits the ensemble, so it cannot back a robustness claim.
 """
 
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
-import torch
-from PIL import Image, ImageEnhance, ImageFilter
-from torch.utils.data import DataLoader, Dataset
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from dataset import LABEL_TO_IDX, default_eval_transform, read_split_csv  # noqa: E402
-from evaluate import collect_predictions, compute_metrics, resolve_eval_csvs  # noqa: E402
-from models.forgery_model import load_checkpoint  # noqa: E402
-
-Perturb = Callable[[Image.Image], Image.Image]
-
-
-def jpeg(quality: int) -> Perturb:
-    def apply(img: Image.Image) -> Image.Image:
-        buf = io.BytesIO()
-        img.convert("RGB").save(buf, format="JPEG", quality=quality)
-        buf.seek(0)
-        return Image.open(buf).convert("RGB")
-
-    return apply
-
-
-def rescale(factor: float) -> Perturb:
-    """Downscale then upscale back: the detail loss of a thumbnail or a low-resolution re-share."""
-
-    def apply(img: Image.Image) -> Image.Image:
-        w, h = img.size
-        small = img.resize((max(1, int(w * factor)), max(1, int(h * factor))), Image.BILINEAR)
-        return small.resize((w, h), Image.BILINEAR)
-
-    return apply
-
-
-def center_crop(fraction: float) -> Perturb:
-    def apply(img: Image.Image) -> Image.Image:
-        w, h = img.size
-        cw, ch = int(w * fraction), int(h * fraction)
-        left, top = (w - cw) // 2, (h - ch) // 2
-        return img.crop((left, top, left + cw, top + ch))
-
-    return apply
-
-
-def blur(radius: float) -> Perturb:
-    def apply(img: Image.Image) -> Image.Image:
-        return img.filter(ImageFilter.GaussianBlur(radius))
-
-    return apply
-
-
-def screenshot(img: Image.Image) -> Image.Image:
-    """Display-and-capture approximation: resample, slight brightness/contrast shift, PNG-then-JPEG."""
-    w, h = img.size
-    out = img.resize((int(w * 1.25), int(h * 1.25)), Image.BICUBIC).resize((w, h), Image.BICUBIC)
-    out = ImageEnhance.Brightness(out).enhance(1.06)
-    out = ImageEnhance.Contrast(out).enhance(0.94)
-    return jpeg(85)(out)
-
-
-def social_transcode(img: Image.Image) -> Image.Image:
-    """Typical platform re-encode: downscale to 75% and JPEG quality 75."""
-    return jpeg(75)(rescale(0.75)(img))
-
+from dataset import LABEL_TO_IDX, read_split_csv  # noqa: E402
+from degradations import (  # noqa: E402
+    Perturb,
+    blur,
+    center_crop,
+    jpeg,
+    rescale,
+    screenshot,
+    social_transcode,
+    webp,
+    webp_available,
+)
+from evaluate import compute_metrics, resolve_eval_csvs  # noqa: E402
+from scoring import ServedScorer  # noqa: E402
 
 TRANSFORMS: dict[str, Perturb] = {
     "jpeg_q90": jpeg(90),
@@ -93,24 +49,20 @@ TRANSFORMS: dict[str, Perturb] = {
     "screenshot": screenshot,
     "social_transcode": social_transcode,
 }
+if webp_available():
+    TRANSFORMS["webp_q60"] = webp(60)
+
+# Never applied by RandomDegradation during training
+HELD_OUT_TRANSFORMS = tuple(name for name in ("webp_q60", "center_crop_0.8") if name in TRANSFORMS)
 
 
-class PerturbedDataset(Dataset):
-    def __init__(self, rows: list[dict[str, str]], crops_root: Path, perturb: Perturb | None) -> None:
-        self.rows = rows
-        self.crops_root = Path(crops_root)
-        self.perturb = perturb
-        self.transform = default_eval_transform()
-
-    def __len__(self) -> int:
-        return len(self.rows)
-
-    def __getitem__(self, index: int):
-        row = self.rows[index]
-        image = Image.open(self.crops_root / row["path"]).convert("RGB")
-        if self.perturb is not None:
-            image = self.perturb(image)
-        return self.transform(image), LABEL_TO_IDX[row["label"].lower()], row
+def robustness_csvs(splits_dir: Path) -> dict[str, Path]:
+    """Held-out test splits (GAN-era ``test_*.csv`` and ``diffusion/test.csv``); val only as a last resort."""
+    held_out = {p.stem.removeprefix("test_"): p for p in sorted(splits_dir.glob("test_*.csv"))}
+    diffusion = splits_dir / "diffusion" / "test.csv"
+    if diffusion.exists():
+        held_out["diffusion"] = diffusion
+    return held_out or resolve_eval_csvs(splits_dir)
 
 
 def stability(baseline: np.ndarray, perturbed: np.ndarray, labels: np.ndarray, threshold: float) -> dict:
@@ -156,6 +108,24 @@ def robustness_report(
     }
 
 
+def score_rows(
+    scorer: ServedScorer,
+    rows: list[dict[str, str]],
+    crops_root: Path,
+    perturb: Perturb | None,
+    batch_size: int = 16,
+) -> tuple[np.ndarray, np.ndarray]:
+    probs: list[np.ndarray] = []
+    for start in range(0, len(rows), batch_size):
+        images = []
+        for row in rows[start : start + batch_size]:
+            image = Image.open(Path(crops_root) / row["path"]).convert("RGB")
+            images.append(perturb(image) if perturb is not None else image)
+        probs.append(scorer.score(images)["served"])
+    labels = np.asarray([LABEL_TO_IDX[r["label"].lower()] for r in rows], dtype=np.int64)
+    return (np.concatenate(probs) if probs else np.zeros(0)), labels
+
+
 def run_robustness(
     checkpoint: Path,
     crops_root: Path,
@@ -165,25 +135,28 @@ def run_robustness(
     batch_size: int = 16,
     device: str | None = None,
     transforms: dict[str, Perturb] | None = None,
+    ensemble: Path | None | bool = True,
 ) -> dict:
-    device_t = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
-    model, _ = load_checkpoint(checkpoint, device=device_t)
+    """``ensemble``: True picks up ``ensemble.json`` next to the checkpoint, False scores the CNN alone,
+    or a path to a specific ensemble file."""
+    scorer = ServedScorer.load(checkpoint, ensemble=ensemble, device=device)
+    csvs = robustness_csvs(splits_dir)
     rows: list[dict[str, str]] = []
-    for csv_path in resolve_eval_csvs(splits_dir).values():
+    for csv_path in csvs.values():
         rows.extend(read_split_csv(csv_path))
     if not rows:
         raise FileNotFoundError(f"No evaluation CSVs found under {splits_dir}")
 
-    def predict(perturb: Perturb | None) -> tuple[np.ndarray, np.ndarray]:
-        loader = DataLoader(PerturbedDataset(rows, crops_root, perturb), batch_size=batch_size)
-        return collect_predictions(model, loader, device_t)
-
-    baseline, labels = predict(None)
+    baseline, labels = score_rows(scorer, rows, crops_root, None, batch_size)
     perturbed = {}
     for name, fn in (transforms or TRANSFORMS).items():
-        perturbed[name], _ = predict(fn)
+        perturbed[name], _ = score_rows(scorer, rows, crops_root, fn, batch_size)
         print(f"{name}: flip_rate={np.mean((baseline >= threshold) != (perturbed[name] >= threshold)):.3f}")
-    return robustness_report(baseline, labels, perturbed, threshold)
+    report = robustness_report(baseline, labels, perturbed, threshold)
+    report["eval_set"] = {name: len(read_split_csv(p)) for name, p in csvs.items()}
+    report["held_out_transforms"] = [t for t in HELD_OUT_TRANSFORMS if t in perturbed]
+    report["model"] = scorer.describe()
+    return report
 
 
 def main() -> None:
@@ -194,6 +167,7 @@ def main() -> None:
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument("--cnn-only", action="store_true", help="ignore ensemble.json and score the CNN alone")
     args = parser.parse_args()
     report = run_robustness(
         args.checkpoint.resolve(),
@@ -202,6 +176,7 @@ def main() -> None:
         threshold=args.threshold,
         batch_size=args.batch_size,
         device=args.device,
+        ensemble=not args.cnn_only,
     )
     print(json.dumps(report, indent=2))
 

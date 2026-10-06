@@ -7,7 +7,7 @@
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "n": 10
+      "n": 12
     },
     "dfdc": {
       "accuracy": 1.0,
@@ -15,7 +15,7 @@
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "n": 10
+      "n": 12
     },
     "celeb-df": {
       "accuracy": 1.0,
@@ -23,7 +23,7 @@
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "n": 10
+      "n": 12
     }
   },
   "generalization_gap": {
@@ -43,7 +43,8 @@
     "confusion_matrix": "ml/results/confusion_matrix.png",
     "diffusion_robustness": "ml/results/diffusion_robustness.png",
     "reliability_diagram": "ml/results/reliability_diagram.png",
-    "robustness_chart": "ml/results/robustness_chart.png"
+    "robustness_chart": "ml/results/robustness_chart.png",
+    "robustness_before_after": "ml/results/robustness_before_after.png"
   },
   "latency": {
     "n": 5,
@@ -204,8 +205,8 @@
     "n_fit": 12,
     "n_eval": 24,
     "n_bins": 10,
-    "ece_before": 0.0022,
-    "ece_after": 0.0022,
+    "ece_before": 0.004,
+    "ece_after": 0.004,
     "brier_before": 0.0,
     "brier_after": 0.0,
     "reliability_before": [
@@ -213,7 +214,7 @@
         "lo": 0.0,
         "hi": 0.1,
         "n": 12,
-        "mean_prob": 8.20121108842562e-06,
+        "mean_prob": 0.0019027351572884906,
         "frac_fake": 0.0
       },
       {
@@ -276,7 +277,7 @@
         "lo": 0.9,
         "hi": 1.0,
         "n": 12,
-        "mean_prob": 0.995532033475098,
+        "mean_prob": 0.9938328563458176,
         "frac_fake": 1.0
       }
     ],
@@ -285,7 +286,7 @@
         "lo": 0.0,
         "hi": 0.1,
         "n": 12,
-        "mean_prob": 8.20121108842562e-06,
+        "mean_prob": 0.0019027351572884906,
         "frac_fake": 0.0
       },
       {
@@ -348,7 +349,7 @@
         "lo": 0.9,
         "hi": 1.0,
         "n": 12,
-        "mean_prob": 0.995532033475098,
+        "mean_prob": 0.9938328563458176,
         "frac_fake": 1.0
       }
     ],
@@ -359,7 +360,7 @@
   },
   "robustness": {
     "threshold": 0.5,
-    "n": 36,
+    "n": 104,
     "baseline": {
       "auc": 1.0,
       "accuracy": 1.0
@@ -369,76 +370,106 @@
         "auc": 1.0,
         "accuracy": 1.0,
         "auc_drop": 0.0,
-        "mean_abs_shift": 0.0016289383419803016,
+        "mean_abs_shift": 0.0005447337863645366,
         "flip_rate": 0.0,
-        "mean_shift_real": 7.771059839948673e-05,
-        "mean_shift_fake": -0.001316156652238634
+        "mean_shift_real": 4.8072077866312705e-05,
+        "mean_shift_fake": 0.0001075874153891513
       },
       "jpeg_q70": {
-        "auc": 0.11111111111111116,
-        "accuracy": 0.5555555555555556,
-        "auc_drop": 0.8888888888888888,
-        "mean_abs_shift": 0.44686593162825416,
-        "flip_rate": 0.4444444444444444,
-        "mean_shift_real": 0.8888815047212404,
-        "mean_shift_fake": -0.0027743279933929443
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.0017991163235910356,
+        "flip_rate": 0.0,
+        "mean_shift_real": -7.454054916785884e-05,
+        "mean_shift_fake": -0.00261838893828076
       },
       "jpeg_q50": {
-        "auc": 0.0,
-        "accuracy": 0.5,
-        "auc_drop": 1.0,
-        "mean_abs_shift": 0.5118122816781718,
-        "flip_rate": 0.5,
-        "mean_shift_real": 0.9999926032027638,
-        "mean_shift_fake": -0.023631960153579712
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.000927725315159659,
+        "flip_rate": 0.0,
+        "mean_shift_real": 0.0008591030529901666,
+        "mean_shift_fake": -0.00016974471614398758
       },
       "rescale_0.5": {
-        "auc": 0.0,
-        "accuracy": 0.5,
-        "auc_drop": 1.0,
-        "mean_abs_shift": 0.601760710679874,
-        "flip_rate": 0.5,
-        "mean_shift_real": 0.9999926032027638,
-        "mean_shift_fake": -0.20352881815698412
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.0173167372158647,
+        "flip_rate": 0.0,
+        "mean_shift_real": 0.033752631117206076,
+        "mean_shift_fake": -0.0008719995697967604
       },
       "center_crop_0.8": {
         "auc": 1.0,
         "accuracy": 1.0,
         "auc_drop": 0.0,
-        "mean_abs_shift": 0.08060224161509193,
+        "mean_abs_shift": 0.007765794530396447,
         "flip_rate": 0.0,
-        "mean_shift_real": 0.04948700413366522,
-        "mean_shift_fake": -0.11171747909651862
+        "mean_shift_real": 0.015334534188821204,
+        "mean_shift_fake": 0.0001739007287356918
       },
       "blur_r1.5": {
-        "auc": 0.0,
-        "accuracy": 0.5,
-        "auc_drop": 1.0,
-        "mean_abs_shift": 0.6139139255583801,
-        "flip_rate": 0.5,
-        "mean_shift_real": 0.9999926032027638,
-        "mean_shift_fake": -0.22783524791399637
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.02004321452403975,
+        "flip_rate": 0.0,
+        "mean_shift_real": 0.03943589093238526,
+        "mean_shift_fake": -0.0006228545651027719
       },
       "screenshot": {
         "auc": 1.0,
-        "accuracy": 0.8611111111111112,
+        "accuracy": 1.0,
         "auc_drop": 0.0,
-        "mean_abs_shift": 0.27633122891523954,
-        "flip_rate": 0.1388888888888889,
-        "mean_shift_real": 0.49322910024732713,
-        "mean_shift_fake": -0.05943335758315192
+        "mean_abs_shift": 0.0025675735328993,
+        "flip_rate": 0.0,
+        "mean_shift_real": 0.0010266659836799263,
+        "mean_shift_fake": -0.0036567536357852448
       },
       "social_transcode": {
-        "auc": 0.0,
-        "accuracy": 0.5,
-        "auc_drop": 1.0,
-        "mean_abs_shift": 0.5947084844808299,
-        "flip_rate": 0.5,
-        "mean_shift_real": 0.9999926032027638,
-        "mean_shift_fake": -0.18942436575889587
+        "auc": 1.0,
+        "accuracy": 1.0,
+        "auc_drop": 0.0,
+        "mean_abs_shift": 0.0011260569314543848,
+        "flip_rate": 0.0,
+        "mean_shift_real": 0.000471539956164397,
+        "mean_shift_fake": -0.0008653440215221033
+      },
+      "webp_q60": {
+        "auc": 0.9992603550295858,
+        "accuracy": 0.9807692307692307,
+        "auc_drop": 0.0007396449704142327,
+        "mean_abs_shift": 0.15066122168219123,
+        "flip_rate": 0.019230769230769232,
+        "mean_shift_real": 0.22300163818330002,
+        "mean_shift_fake": -0.07831368072047046
       }
     },
-    "worst_transform": "jpeg_q50",
+    "worst_transform": "webp_q60",
+    "eval_set": {
+      "celeb-df": 12,
+      "dfdc": 12,
+      "diffusion": 80
+    },
+    "held_out_transforms": [
+      "webp_q60",
+      "center_crop_0.8"
+    ],
+    "model": {
+      "experts": [
+        "cnn",
+        "spectral"
+      ],
+      "weights": {
+        "cnn": 0.9299,
+        "spectral": 0.5943
+      },
+      "checkpoint_sha256": "34e1beb0136f21b11d58d11f76d05db7848df80b8b57cf2a5f7b044d17343437",
+      "ensemble_sha256": "a78c9cc9c5d5daea2387513e1381f6c5155dcfb9171e0ac09b9751c27a937318"
+    },
     "data": "synthetic",
     "notes": "Synthetic smoke splits and the demo checkpoint: these blocks show the evaluation tooling works end to end, not real-world calibration or robustness. Re-run with --crops/--splits on licensed FF++/DFDC/Celeb-DF crops for report-quality figures."
   },
@@ -454,5 +485,274 @@
     "reason": "The evaluation split has no demographic annotations (columns: skin_tone, age_band, gender_presentation). Add them to the split CSVs from an annotated research set; no groups are inferred.",
     "data": "synthetic",
     "notes": "Synthetic smoke splits and the demo checkpoint: these blocks show the evaluation tooling works end to end, not real-world calibration or robustness. Re-run with --crops/--splits on licensed FF++/DFDC/Celeb-DF crops for report-quality figures."
+  },
+  "phase29": {
+    "data": "synthetic",
+    "training": {
+      "degrade_p": 0.5,
+      "epochs": 8,
+      "seed": 29,
+      "init": "Phase 17 checkpoint",
+      "held_out_transforms": [
+        "webp_q60",
+        "center_crop_0.8"
+      ]
+    },
+    "ensemble": {
+      "stacker": {
+        "cnn": 0.929925964340698,
+        "spectral": 0.5942894534210059,
+        "bias": 1.111120854557565,
+        "logit_clip": 15.0
+      },
+      "fitted": {
+        "data": "synthetic",
+        "spectral_fit": {
+          "images": 54,
+          "degraded_copies_per_image": 3,
+          "samples": 216
+        },
+        "stacker_fit": {
+          "images": 18,
+          "degraded_copies_per_image": 3,
+          "samples": 72
+        },
+        "l2": {
+          "spectral": 1.0,
+          "stacker": 1.0
+        },
+        "seed": 29
+      }
+    },
+    "before": {
+      "n": 104,
+      "baseline_auc": 1.0,
+      "flip_rate": {
+        "jpeg_q90": 0.0,
+        "jpeg_q70": 0.4712,
+        "jpeg_q50": 0.5096,
+        "rescale_0.5": 0.5,
+        "center_crop_0.8": 0.1442,
+        "blur_r1.5": 0.5096,
+        "screenshot": 0.2692,
+        "social_transcode": 0.4904,
+        "webp_q60": 0.3365
+      },
+      "worst_transform": "jpeg_q50",
+      "experts": [
+        "cnn"
+      ]
+    },
+    "after_cnn_only": {
+      "n": 104,
+      "baseline_auc": 1.0,
+      "flip_rate": {
+        "jpeg_q90": 0.0,
+        "jpeg_q70": 0.0,
+        "jpeg_q50": 0.0,
+        "rescale_0.5": 0.0,
+        "center_crop_0.8": 0.0,
+        "blur_r1.5": 0.0,
+        "screenshot": 0.0,
+        "social_transcode": 0.0,
+        "webp_q60": 0.0096
+      },
+      "worst_transform": "webp_q60",
+      "experts": [
+        "cnn"
+      ]
+    },
+    "after": {
+      "n": 104,
+      "baseline_auc": 1.0,
+      "flip_rate": {
+        "jpeg_q90": 0.0,
+        "jpeg_q70": 0.0,
+        "jpeg_q50": 0.0,
+        "rescale_0.5": 0.0,
+        "center_crop_0.8": 0.0,
+        "blur_r1.5": 0.0,
+        "screenshot": 0.0,
+        "social_transcode": 0.0,
+        "webp_q60": 0.0192
+      },
+      "worst_transform": "webp_q60",
+      "experts": [
+        "cnn",
+        "spectral"
+      ]
+    },
+    "clean_held_out": {
+      "celeb-df": {
+        "cnn": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 12
+        },
+        "spectral": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 12
+        },
+        "served": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 12
+        }
+      },
+      "dfdc": {
+        "cnn": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 12
+        },
+        "spectral": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 12
+        },
+        "served": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 12
+        }
+      },
+      "diffusion": {
+        "cnn": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 80
+        },
+        "spectral": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 80
+        },
+        "served": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "auc": 1.0,
+          "n": 80
+        }
+      }
+    },
+    "gate": {
+      "passed": true,
+      "policy": {
+        "max_flip_rate": {
+          "social_transcode": 0.05
+        },
+        "default_max_flip_rate": 0.1,
+        "min_baseline_auc": 0.9,
+        "min_n": 30
+      },
+      "checks": [
+        {
+          "name": "held-out images",
+          "value": 104,
+          "op": ">=",
+          "limit": 30,
+          "passed": true
+        },
+        {
+          "name": "clean AUC",
+          "value": 1.0,
+          "op": ">=",
+          "limit": 0.9,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 jpeg_q90",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 jpeg_q70",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 jpeg_q50",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 rescale_0.5",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 center_crop_0.8",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 blur_r1.5",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 screenshot",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 social_transcode",
+          "value": 0.0,
+          "op": "<=",
+          "limit": 0.05,
+          "passed": true
+        },
+        {
+          "name": "flip rate \u00b7 webp_q60",
+          "value": 0.019230769230769232,
+          "op": "<=",
+          "limit": 0.1,
+          "passed": true
+        }
+      ]
+    },
+    "promoted": true,
+    "notes": "Synthetic smoke splits: these numbers show that degradation-augmented training, the spectral ensemble and the release gate work end to end. They are not real-world robustness. Re-run with --crops/--splits on licensed FF++/DFDC/Celeb-DF crops (and real diffusion fakes) for report-quality figures."
   }
 }

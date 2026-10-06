@@ -98,41 +98,52 @@ function HeroPreview() {
   const { t } = useTranslation()
   return (
     <div aria-hidden className="relative">
-      <div className="absolute -inset-y-6 inset-x-0 sm:-inset-x-6 rounded-[32px] bg-brand-gradient opacity-[0.12] blur-3xl" />
-      <Card className="relative p-5 bg-surface-2/80 backdrop-blur-xl">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-subtle mb-4">{t('landing.preview.label')}</p>
-        <div className="flex gap-4">
-          <div className="relative size-24 shrink-0 rounded-xl overflow-hidden border border-line">
-            <div className="absolute -inset-2 blur-lg bg-[radial-gradient(circle_at_30%_30%,#8a8a8a,transparent_60%),radial-gradient(circle_at_70%_70%,#4a4a4a,transparent_60%),#1c1c1c]" />
-            <div className="absolute inset-0 grid place-items-center bg-black/25">
-              <EyeOff className="size-5 text-[#fff]/70" />
-            </div>
-          </div>
-          <div className="min-w-0 space-y-2">
-            <p className="text-xs text-muted">{t('landing.preview.item')}</p>
-            <VerdictBadge verdict="LIKELY_FORGED" />
-            <div className="flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/[0.08] px-2 py-0.5 text-[11px] font-medium text-amber-200">
-                <AlarmClock className="size-3" />
-                {t('landing.preview.deadline')}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/[0.07] px-2 py-0.5 text-[11px] text-sky-200">
-                {t('landing.preview.rule')}
-              </span>
-            </div>
-          </div>
+      <div className="absolute -inset-y-8 inset-x-0 sm:-inset-x-8 rounded-[40px] bg-brand-gradient opacity-[0.1] blur-3xl" />
+      <Card className="relative overflow-hidden p-0 shadow-[0_30px_80px_-40px_rgb(0_0_0/0.8)]">
+        <div className="flex items-center gap-1.5 h-10 px-4 border-b border-line bg-surface-2">
+          <span className="size-2.5 rounded-full bg-white/15" />
+          <span className="size-2.5 rounded-full bg-white/15" />
+          <span className="size-2.5 rounded-full bg-white/15" />
+          <span className="mx-auto flex items-center gap-1.5 rounded-md border border-line bg-canvas px-3 py-0.5 font-mono text-[10.5px] text-subtle">
+            <LockKeyhole className="size-3" /> console / queue
+          </span>
+          <span className="w-10" />
         </div>
-        <div className="mt-5 space-y-2">
-          {[
-            { icon: FileLock2, text: t('landing.preview.sealed') },
-            { icon: UserCheck, text: t('landing.preview.human') },
-          ].map(({ icon: Icon, text }) => (
-            <div key={text} className="flex items-center gap-2.5 rounded-xl border border-line bg-white/[0.02] px-3 py-2 text-[13px]">
-              <Icon className="size-4 text-emerald-300" />
-              {text}
-              <BadgeCheck className="size-4 ml-auto text-emerald-300" />
+        <div className="p-5">
+          <p className="label-caps mb-4">{t('landing.preview.label')}</p>
+          <div className="flex gap-4">
+            <div className="relative size-24 shrink-0 rounded-xl overflow-hidden border border-line">
+              <div className="absolute -inset-2 blur-lg bg-[radial-gradient(circle_at_30%_30%,#8a8a8a,transparent_60%),radial-gradient(circle_at_70%_70%,#4a4a4a,transparent_60%),#1c1c1c]" />
+              <div className="absolute inset-0 grid place-items-center bg-black/25">
+                <EyeOff className="size-5 text-[#fff]/70" />
+              </div>
             </div>
-          ))}
+            <div className="min-w-0 space-y-2">
+              <p className="text-xs text-muted">{t('landing.preview.item')}</p>
+              <VerdictBadge verdict="LIKELY_FORGED" />
+              <div className="flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/[0.08] px-2 py-0.5 text-[11px] font-medium text-amber-200">
+                  <AlarmClock className="size-3" />
+                  {t('landing.preview.deadline')}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/[0.07] px-2 py-0.5 text-[11px] text-sky-200">
+                  {t('landing.preview.rule')}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 space-y-2">
+            {[
+              { icon: FileLock2, text: t('landing.preview.sealed') },
+              { icon: UserCheck, text: t('landing.preview.human') },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-[13px]">
+                <Icon className="size-4 text-emerald-300" />
+                {text}
+                <BadgeCheck className="size-4 ml-auto text-emerald-300" />
+              </div>
+            ))}
+          </div>
         </div>
       </Card>
     </div>
@@ -382,13 +393,13 @@ export default function Landing() {
       {/* Numbers */}
       <section aria-labelledby="landing-numbers">
         <SectionHeading id="landing-numbers" title={t('landing.numbers.title')} />
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {numbers.map(({ value, label, icon: Icon }) => (
-            <Card key={label} className="p-5">
+        <div className="card grid grid-cols-2 lg:grid-cols-5 gap-px overflow-hidden bg-line p-0">
+          {numbers.map(({ value, label, icon: Icon }, i) => (
+            <div key={label} className={cn('bg-surface p-5 md:p-6', i === numbers.length - 1 && 'col-span-2 lg:col-span-1')}>
               <Icon aria-hidden className="size-4 text-brand" />
-              <p className="mt-3 text-[30px] leading-none font-semibold tracking-tight tabular-nums">{value}</p>
+              <p className="mt-4 text-[32px] leading-none font-semibold tracking-tight tabular-nums">{value}</p>
               <p className="mt-2 text-xs text-muted leading-relaxed">{label}</p>
-            </Card>
+            </div>
           ))}
         </div>
         <p className="mt-4 max-w-3xl text-xs text-subtle leading-relaxed">
@@ -424,8 +435,9 @@ export default function Landing() {
 
       {/* Final CTA */}
       <section aria-labelledby="landing-final">
-        <Card className="relative overflow-hidden px-6 py-12 md:px-12 text-center">
-          <div aria-hidden className="absolute -top-24 left-1/2 -translate-x-1/2 h-48 w-[640px] rounded-full bg-brand/20 blur-3xl" />
+        <Card className="relative overflow-hidden px-6 py-14 md:px-12 text-center">
+          <div aria-hidden className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_60%_80%_at_50%_0%,black,transparent)]" />
+          <div aria-hidden className="absolute -top-32 left-1/2 -translate-x-1/2 h-56 w-[560px] rounded-full bg-brand/15 blur-3xl" />
           <h2 id="landing-final" className="relative text-2xl md:text-[32px] font-semibold tracking-[-0.02em]">
             {t('landing.final.title')}
           </h2>

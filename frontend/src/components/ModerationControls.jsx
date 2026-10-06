@@ -4,10 +4,7 @@ import { assignItem, escalateItem, secondReview, unassignItem, updateQueueDecisi
 import { cn } from '../lib/format'
 import { inTeamPool } from '../lib/queue'
 import { useToast } from './Toast'
-import { Button } from './ui'
-
-const INPUT =
-  'w-full rounded-lg border border-line bg-white/[0.03] px-3 py-2 text-sm placeholder:text-subtle focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
+import { Button, INPUT } from './ui'
 
 /** Runs a moderation call with a busy flag and a plain-language toast on failure. */
 function useAction({ onChanged, onError }) {
@@ -93,7 +90,7 @@ export function AssignmentControls({ item, me, teams = [], disabled, onChanged, 
                 const team = e.target.value
                 if (team) run('route', () => assignItem(item.id, null, team), `#${item.id} routed to the ${team} team`)
               }}
-              className="h-8 rounded-lg border border-line bg-white/[0.03] px-2 text-xs text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              className="field w-auto h-8 min-h-8 py-0 px-2 text-xs rounded-lg"
             >
               <option value="" className="bg-surface-2">
                 Route to team…

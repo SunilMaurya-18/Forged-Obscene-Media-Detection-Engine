@@ -1,0 +1,74 @@
+# Production: real accounts and secrets, no demo data, HTTPS via Caddy. See docs/DEPLOY.md.
+#   cp .env.production.example .env   # then fill in every value marked REQUIRED
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+# DNS: point DOMAIN at the server. Only Caddy publishes ports (80/443); everything else is internal.
+# Compose stops with a clear message if a required value is missing, and the backend and ml-service
+# refuse to start under the prod profile while any demo secret is still configured.
+
+services:
+  redis:
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD (openssl rand -hex 24)}
+
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD (openssl rand -hex 24)}
+
+  ml-service:
+    environment:
+      APP_PROFILE: prod
+      PROVENANCE_SIGNING_KEY: ${PROVENANCE_SIGNING_KEY:?Set PROVENANCE_SIGNING_KEY (openssl rand -hex 32)}
+      LOG_FORMAT: json
+
+  backend:
+    ports: !reset []
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      MODERATOR_USERNAME: ${MODERATOR_USERNAME:?Set MODERATOR_USERNAME}
+      MODERATOR_PASSWORD: ${MODERATOR_PASSWORD:?Set MODERATOR_PASSWORD (12+ characters)}
+      # username:password:ROLE:team, comma-separated. Blank seeds no extra accounts.
+      MODERATOR_EXTRA_ACCOUNTS: ${MODERATOR_EXTRA_ACCOUNTS:-}
+      INVESTIGATION_PSEUDONYM_KEY: ${INVESTIGATION_PSEUDONYM_KEY:?Set INVESTIGATION_PSEUDONYM_KEY (openssl rand -hex 32)}
+      # Demo features and sample data are always off in production
+      DEMO_ENABLED: "false"
+      DEMO_PUBLIC: "false"
+      COMPLIANCE_SEED_DEMO: "false"
+      API_DEMO_KEY: ""
+      PRESCREEN_SEED_HASHES: ""
+
+  frontend:
+    build:
+      args:
+        VITE_LEGAL_OPERATOR: ${VITE_LEGAL_OPERATOR:?Set VITE_LEGAL_OPERATOR (shown in the Terms and Privacy Policy)}
+        VITE_LEGAL_CONTACT_EMAIL: ${VITE_LEGAL_CONTACT_EMAIL:?Set VITE_LEGAL_CONTACT_EMAIL}
+        VITE_LEGAL_EFFECTIVE_DATE: ${VITE_LEGAL_EFFECTIVE_DATE:-}
+    ports: !reset []
+
+  # The mock social feed is a demo prop; it only starts with --profile demo
+  mock-social-feed:
+    profiles: ["demo"]
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN to the public host name, e.g. fmd.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./ops/prod/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

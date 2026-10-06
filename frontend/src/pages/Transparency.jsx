@@ -22,7 +22,7 @@ function Stat({ label, value, hint }) {
 
 function Table({ head, rows, caption }) {
   return (
-    <table className="w-full text-sm">
+    <table className="data-table w-full text-sm">
       <caption className="sr-only">{caption}</caption>
       <thead>
         <tr className="text-left text-xs text-muted border-b border-line">
@@ -117,7 +117,7 @@ export default function Transparency() {
               id="tr-period"
               value={period}
               onChange={(e) => setParams({ period: e.target.value }, { replace: true })}
-              className="rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm"
+              className="field w-auto"
             >
               {!known && <option value={period}>{period}</option>}
               {options.map((o) => (

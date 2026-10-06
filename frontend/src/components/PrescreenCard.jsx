@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleCheck, Cpu, Fingerprint, ImageUp, Loader2, OctagonAlert, Send, ShieldCheck, Sparkles } from 'lucide-react'
 import { prescreenHash } from '../api/client'
+import { useDemo } from '../context/DemoContext'
 import { ALGORITHM, hashImageOnDevice } from '../utils/onDeviceHash'
 import { ErrorState, LoadingLine } from './Status'
 import { Card, CardHeader, buttonClass } from './ui'
@@ -32,6 +33,7 @@ function Step({ icon: Icon, label, detail, state }) {
  */
 export default function PrescreenCard() {
   const { t } = useTranslation()
+  const { enabled: demoEnabled } = useDemo()
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(null)
   const [phase, setPhase] = useState('idle')
@@ -97,13 +99,15 @@ export default function PrescreenCard() {
               <Cpu aria-hidden className="size-3" /> {t('prescreen.onDevice')}
             </span>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className={cn('mt-4 grid gap-2', demoEnabled && 'grid-cols-2')}>
             <button type="button" onClick={() => inputRef.current?.click()} className={buttonClass('primary', 'md')}>
               <ImageUp aria-hidden className="size-4" /> {t('prescreen.choose')}
             </button>
-            <button type="button" onClick={tryDemo} className={buttonClass('secondary', 'md')} title={t('prescreen.demoTitle')}>
-              <Sparkles aria-hidden className="size-4" /> {t('prescreen.demo')}
-            </button>
+            {demoEnabled && (
+              <button type="button" onClick={tryDemo} className={buttonClass('secondary', 'md')} title={t('prescreen.demoTitle')}>
+                <Sparkles aria-hidden className="size-4" /> {t('prescreen.demo')}
+              </button>
+            )}
           </div>
           <input
             ref={inputRef}

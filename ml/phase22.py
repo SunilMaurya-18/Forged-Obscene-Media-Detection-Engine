@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "data"))
 
+from build_diffusion_split import run as build_diffusion_split  # noqa: E402
 from calibration import run_calibration  # noqa: E402
 from evaluate import _json_safe  # noqa: E402
 from fairness import DEFAULT_ATTRIBUTES, DEFAULT_MIN_N, run_fairness  # noqa: E402
@@ -123,6 +124,8 @@ def main() -> None:
     if synthetic:
         data = ensure_eval_data(args.work.resolve())
         crops, splits = Path(data["crops"]), Path(data["splits"])
+        if not (splits / "diffusion" / "test.csv").exists():
+            build_diffusion_split(crops, splits)
     else:
         crops, splits = args.crops.resolve(), args.splits.resolve()
     checkpoint = args.checkpoint.resolve()

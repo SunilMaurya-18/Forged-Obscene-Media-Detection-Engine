@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import RequestStatusBadge from '../components/RequestStatusBadge'
 import { ErrorState, LoadingState } from '../components/Status'
 import { useToast } from '../components/Toast'
-import { Alert, Button, Card, CardHeader, PageHeader, StatTile } from '../components/ui'
+import { Alert, Button, Card, CardHeader, INPUT, PageHeader, StatTile } from '../components/ui'
 import { cn, dateTime, timeAgo } from '../lib/format'
 import {
   AUTHORITY_MAX,
@@ -20,9 +20,6 @@ import {
   timeLeft,
 } from '../lib/handover'
 import { NOTE_MAX } from '../lib/investigations'
-
-const INPUT =
-  'w-full h-10 rounded-xl border border-line-strong bg-canvas/60 px-3.5 text-sm placeholder:text-subtle focus:outline-none focus:border-brand/60 focus:ring-4 focus:ring-brand/15'
 
 function Field({ label, hint, children }) {
   return (

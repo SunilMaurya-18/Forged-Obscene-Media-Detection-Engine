@@ -69,6 +69,9 @@ jobs:
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -r ml/requirements.txt
       - run: python -m pytest -q -p no:cacheprovider ml/tests
+      # Phase 29: the shipped checkpoint + ensemble must be the ones measured, and must pass the robustness gate
+      - name: Forgery-model release gate
+        run: python ml/release_gate.py
 
   frontend:
     name: Frontend (lint, test, build)

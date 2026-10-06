@@ -90,9 +90,9 @@ function NewClientForm({ onCreated, onCancel }) {
           onChange={(e) => setName(e.target.value)}
           maxLength={80}
           placeholder="Client name, e.g. Acme Social"
-          className="h-10 rounded-xl border border-line-strong bg-canvas/60 px-3.5 text-sm placeholder:text-subtle focus:outline-none focus:border-brand/60 focus:ring-4 focus:ring-brand/15"
+          className="field"
         />
-        <div role="radiogroup" aria-label="Plan" className="inline-flex p-1 rounded-xl border border-line bg-white/[0.02]">
+        <div role="radiogroup" aria-label="Plan" className="segmented h-10">
           {PLANS.map((p) => (
             <button
               key={p}
@@ -100,10 +100,7 @@ function NewClientForm({ onCreated, onCancel }) {
               role="radio"
               aria-checked={plan === p}
               onClick={() => setPlan(p)}
-              className={cn(
-                'h-8 px-3 rounded-lg text-xs font-semibold tracking-wide transition',
-                plan === p ? 'bg-white/[0.08] text-fg' : 'text-muted hover:text-fg',
-              )}
+              className="segment text-xs font-semibold tracking-wide"
             >
               {p}
             </button>
@@ -333,7 +330,7 @@ export default function ApiAccess() {
         <Card className="p-6 overflow-hidden">
           <CardHeader icon={KeyRound} title="Clients" description="Keys are shown once at creation or rotation. Only a SHA-256 hash and the prefix are kept." />
           <div className="overflow-x-auto -mx-6 px-6">
-            <table className="w-full text-sm min-w-[860px]">
+            <table className="data-table w-full text-sm min-w-[860px]">
               <thead>
                 <tr className="text-left text-xs text-subtle border-b border-line">
                   {['Client', 'Plan', 'Requests', 'Throttled', 'Analyses', 'Last used', 'Status', ''].map((h) => (

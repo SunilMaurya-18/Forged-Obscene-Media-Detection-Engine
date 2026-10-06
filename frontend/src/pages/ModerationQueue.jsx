@@ -38,6 +38,7 @@ import { useToast } from '../components/Toast'
 import { Button, Card, CopyButton, DecisionBadge, EmptyState, Kbd, PageHeader, ScoreMeter, buttonClass } from '../components/ui'
 import { BreakScreen, WellbeingMeter } from '../components/Wellbeing'
 import { useDecisions } from '../context/DecisionContext'
+import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
 import { useNow } from '../hooks/useNow'
 import { cn, dateTime, mockFeedUrl, timeAgo } from '../lib/format'
@@ -88,7 +89,7 @@ function DeadlineChip({ info }) {
 
 function ShortcutLegend() {
   return (
-    <Card className="px-4 py-3 mb-6 animate-fade-up">
+    <Card className="max-md:hidden px-4 py-3 mb-6 animate-fade-up">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
         <span className="inline-flex items-center gap-1.5 font-medium text-fg">
           <Keyboard aria-hidden className="size-4 text-brand" />
@@ -298,6 +299,7 @@ const EMPTY = {
 export default function ModerationQueue() {
   const { isAuthenticated, loading: authLoading, logout } = useAuth()
   const { thresholds } = useStats()
+  const { enabled: demoEnabled } = useDemo()
   const { decide, undo, pendingIds, committed } = useDecisions()
   const toast = useToast()
   const location = useLocation()
@@ -568,9 +570,11 @@ export default function ModerationQueue() {
             <Link to="/analyze" className={buttonClass('primary')}>
               <ScanSearch aria-hidden className="size-4" /> Analyze media
             </Link>
-            <a href={mockFeedUrl()} target="_blank" rel="noreferrer" className={buttonClass('secondary')}>
-              Open mock feed
-            </a>
+            {demoEnabled && (
+              <a href={mockFeedUrl()} target="_blank" rel="noreferrer" className={buttonClass('secondary')}>
+                Open mock feed
+              </a>
+            )}
           </EmptyState>
         )
       }
@@ -635,7 +639,7 @@ export default function ModerationQueue() {
       {decisionTab && !onBreak && <ShortcutLegend />}
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div role="tablist" aria-label="Queue" onKeyDown={onTabKey} className="inline-flex flex-wrap p-1 rounded-xl border border-line bg-white/[0.02]">
+        <div role="tablist" aria-label="Queue" onKeyDown={onTabKey} className="segmented">
           {tabs.map(({ key, label, icon: Icon, n, tone }) => (
             <button
               key={key}
@@ -647,14 +651,11 @@ export default function ModerationQueue() {
               aria-controls="queue-panel"
               tabIndex={tab === key ? 0 : -1}
               onClick={() => switchTab(key)}
-              className={cn(
-                'inline-flex items-center gap-2 h-9 px-3.5 rounded-lg text-sm font-medium transition',
-                tab === key ? 'bg-white/[0.08] text-fg shadow-sm' : 'text-muted hover:text-fg',
-              )}
+              className="segment h-8"
             >
               <Icon aria-hidden className={cn('size-4', tab === key && tone)} />
               {label}
-              <span className="tabular-nums text-xs text-subtle">{n ?? '–'}</span>
+              <span className="tabular-nums text-[11px] rounded-md bg-white/[0.06] px-1.5 py-px text-subtle">{n ?? '–'}</span>
             </button>
           ))}
         </div>
@@ -665,7 +666,7 @@ export default function ModerationQueue() {
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value)}
-                className="h-9 rounded-xl border border-line bg-white/[0.03] px-3 text-sm text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                className="field w-auto h-9 min-h-9 py-0 px-3"
               >
                 {SCOPES.map(([value, label]) => (
                   <option key={value} value={value} className="bg-surface-2">
@@ -680,7 +681,7 @@ export default function ModerationQueue() {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
-                className="h-9 rounded-xl border border-line bg-white/[0.03] px-3 text-sm text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                className="field w-auto h-9 min-h-9 py-0 px-3"
               >
                 <option value="deadline" className="bg-surface-2">
                   Nearest deadline first

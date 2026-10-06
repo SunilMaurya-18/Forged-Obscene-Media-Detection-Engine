@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import { AlertTriangle, Check, Copy, Loader2 } from 'lucide-react'
+import { useId, useState } from 'react'
+import { AlertTriangle, Check, CheckCircle2, Copy, Info, Loader2 } from 'lucide-react'
 import { decisionMeta, scoreBand } from '../lib/decision'
 import { cn, score as fmtScore } from '../lib/format'
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-brand-gradient text-[#fff] font-semibold shadow-[0_8px_24px_-8px_rgb(220_38_38/0.55)] hover:brightness-110',
-  secondary: 'border border-line-strong bg-white/[0.04] text-fg hover:bg-white/[0.08] hover:border-white/20',
+    'bg-brand text-[#fff] font-semibold shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(0_0_0/0.3),0_6px_16px_-8px_rgb(220_38_38/0.6)] hover:brightness-110',
+  secondary:
+    'border border-line-strong bg-surface-2 text-fg shadow-[0_1px_1px_rgb(0_0_0/0.12)] hover:bg-surface-3 hover:border-white/20',
   ghost: 'text-muted hover:text-fg hover:bg-white/[0.05]',
   success:
     'border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20 hover:border-emerald-400/50',
@@ -15,13 +16,13 @@ const BUTTON_VARIANTS = {
 
 const BUTTON_SIZES = {
   sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
-  md: 'h-10 px-4 text-sm gap-2 rounded-xl',
-  lg: 'h-12 px-6 text-[15px] gap-2.5 rounded-xl',
+  md: 'h-10 px-4 text-sm gap-2 rounded-[10px]',
+  lg: 'h-11 px-5 text-[15px] gap-2 rounded-xl',
 }
 
 export function buttonClass(variant = 'primary', size = 'md', className = '') {
   return cn(
-    'inline-flex items-center justify-center font-medium whitespace-nowrap transition-all duration-200',
+    'inline-flex items-center justify-center font-medium whitespace-nowrap transition-all duration-150',
     'disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]',
     BUTTON_VARIANTS[variant],
     BUTTON_SIZES[size],
@@ -38,6 +39,35 @@ export function Button({ variant, size, icon: Icon, loading, disabled, className
   )
 }
 
+/** Class for text inputs, selects and textareas; extra classes (padding, height, font) still win. */
+export const INPUT = 'field'
+
+/** Label, control and an optional hint or error, wired together for screen readers. */
+export function Field({ label, hint, error, optional, className, children }) {
+  const id = useId()
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="flex items-baseline justify-between gap-2 mb-1.5 text-[13px] font-medium text-fg/90">
+        {label}
+        {optional && <span className="text-[11px] font-normal text-subtle">{optional}</span>}
+      </label>
+      {children({ id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
+      {error ? (
+        <p id={`${id}-error`} className="mt-1.5 text-xs text-rose-300">
+          {error}
+        </p>
+      ) : (
+        hint && (
+          <p id={`${id}-hint`} className="mt-1.5 text-xs text-subtle leading-relaxed">
+            {hint}
+          </p>
+        )
+      )}
+    </div>
+  )
+}
+
 export function Card({ className, children, ...props }) {
   return (
     <div className={cn('card', className)} {...props}>
@@ -51,13 +81,13 @@ export function CardHeader({ icon: Icon, title, description, action }) {
     <div className="flex items-start justify-between gap-4 mb-5 print:mb-2">
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <span className="grid place-items-center size-9 shrink-0 rounded-xl border border-line bg-white/[0.04] text-brand print:hidden">
-            <Icon className="size-[18px]" />
+          <span className="grid place-items-center size-8 shrink-0 rounded-lg border border-line bg-surface-2 text-brand print:hidden">
+            <Icon className="size-4" />
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-tight print:text-[12.5px]">{title}</h2>
-          {description && <p className="text-sm text-muted mt-0.5 print:hidden">{description}</p>}
+          <h2 className="text-[15px] font-semibold tracking-tight leading-8 print:text-[12.5px] print:leading-normal">{title}</h2>
+          {description && <p className="text-[13px] text-muted leading-relaxed -mt-0.5 print:hidden">{description}</p>}
         </div>
       </div>
       {action}
@@ -67,21 +97,45 @@ export function CardHeader({ icon: Icon, title, description, action }) {
 
 export function PageHeader({ eyebrow, title, description, actions }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 animate-fade-up print:mb-3">
-      <div className="max-w-2xl print:max-w-none">
+    <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 pb-6 border-b border-line animate-fade-up print:mb-3 print:pb-2">
+      <div className="max-w-3xl print:max-w-none">
         {eyebrow && (
-          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand mb-3 print:mb-1 print:text-[9px]">
-            <span className="size-1.5 rounded-full bg-brand-gradient" />
+          <p className="label-caps text-brand inline-flex items-center gap-2 mb-2.5 print:mb-1 print:text-[9px]">
+            <span aria-hidden className="size-1.5 rounded-full bg-brand" />
             {eyebrow}
           </p>
         )}
-        <h1 className="text-3xl md:text-[40px] md:leading-[1.1] font-semibold tracking-[-0.03em] text-gradient print:text-[22px]">
-          {title}
-        </h1>
-        {description && <p className="text-muted mt-3 text-[15px] leading-relaxed print:mt-1 print:text-[11px]">{description}</p>}
+        <h1 className="text-2xl md:text-[30px] md:leading-[1.15] font-semibold tracking-[-0.025em] print:text-[22px]">{title}</h1>
+        {description && (
+          <p className="text-muted mt-2.5 text-[14.5px] leading-relaxed print:mt-1 print:text-[11px]">{description}</p>
+        )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2 md:shrink-0">{actions}</div>}
-    </div>
+      {actions && <div className="flex flex-wrap items-center gap-2 md:shrink-0 print:hidden">{actions}</div>}
+    </header>
+  )
+}
+
+const BADGE_TONES = {
+  neutral: 'border-line-strong bg-white/[0.04] text-muted',
+  brand: 'border-brand/30 bg-brand/10 text-rose-300',
+  danger: 'border-rose-400/30 bg-rose-400/10 text-rose-200',
+  warning: 'border-amber-400/30 bg-amber-400/[0.08] text-amber-200',
+  success: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
+  info: 'border-sky-400/30 bg-sky-400/[0.08] text-sky-200',
+}
+
+export function Badge({ tone = 'neutral', icon: Icon, className, children }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium leading-4 whitespace-nowrap',
+        BADGE_TONES[tone],
+        className,
+      )}
+    >
+      {Icon && <Icon aria-hidden className="size-3" />}
+      {children}
+    </span>
   )
 }
 
@@ -156,29 +210,36 @@ export function ScoreMeter({ label, value, review, autoFlag, icon: Icon, compact
 export function StatTile({ icon: Icon, label, value, hint, accent = 'text-brand', loading }) {
   return (
     <Card className="p-5 overflow-hidden">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[13px] text-muted">{label}</span>
-        {Icon && <Icon className={cn('size-4', accent)} />}
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-[13px] font-medium text-muted leading-8">{label}</span>
+        {Icon && (
+          <span className="grid place-items-center size-8 shrink-0 rounded-lg border border-line bg-surface-2">
+            <Icon aria-hidden className={cn('size-4', accent)} />
+          </span>
+        )}
       </div>
       {loading ? (
-        <div className="skeleton h-8 w-24" />
+        <div className="skeleton h-8 w-24 mt-2" />
       ) : (
-        <p className="text-[28px] leading-none font-semibold tracking-tight tabular-nums">{value}</p>
+        <p className="mt-2 text-[28px] leading-none font-semibold tracking-tight tabular-nums">{value}</p>
       )}
-      {hint && <p className="text-xs text-subtle mt-2.5">{hint}</p>}
+      {hint && <p className="text-xs text-subtle mt-2.5 leading-relaxed">{hint}</p>}
     </Card>
   )
 }
 
+const ALERT_TONES = {
+  error: { cls: 'border-rose-400/25 bg-rose-400/[0.07] text-rose-200', icon: AlertTriangle },
+  warning: { cls: 'border-amber-400/25 bg-amber-400/[0.06] text-amber-100', icon: AlertTriangle },
+  info: { cls: 'border-line-strong bg-white/[0.03] text-fg', icon: Info },
+  success: { cls: 'border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-100', icon: CheckCircle2 },
+}
+
 export function Alert({ tone = 'error', title, children }) {
-  const tones = {
-    error: 'border-rose-400/25 bg-rose-400/[0.07] text-rose-200',
-    warning: 'border-amber-400/25 bg-amber-400/[0.06] text-amber-100',
-    info: 'border-brand/25 bg-brand/[0.06] text-indigo-100',
-  }
+  const { cls, icon: Icon } = ALERT_TONES[tone] || ALERT_TONES.error
   return (
-    <div role="alert" className={cn('flex gap-3 rounded-xl border px-4 py-3 text-sm animate-fade-up', tones[tone])}>
-      <AlertTriangle className="size-4 mt-0.5 shrink-0 opacity-80" />
+    <div role="alert" className={cn('flex gap-3 rounded-xl border px-4 py-3 text-sm animate-fade-up', cls)}>
+      <Icon className="size-4 mt-0.5 shrink-0 opacity-80" />
       <div>
         {title && <p className="font-medium mb-0.5">{title}</p>}
         <div className="opacity-90 leading-relaxed">{children}</div>
@@ -189,15 +250,12 @@ export function Alert({ tone = 'error', title, children }) {
 
 export function EmptyState({ icon: Icon, title, description, children }) {
   return (
-    <Card className="px-6 py-16 text-center">
-      <div className="relative mx-auto mb-5 size-14">
-        <div className="absolute inset-0 rounded-2xl bg-brand-gradient opacity-20 blur-xl" />
-        <div className="relative grid place-items-center size-14 rounded-2xl border border-line-strong bg-surface-2">
-          <Icon className="size-6 text-brand" />
-        </div>
+    <Card className="px-6 py-14 text-center border-dashed bg-transparent shadow-none">
+      <div className="mx-auto mb-4 grid place-items-center size-12 rounded-xl border border-line-strong bg-surface-2 shadow-[0_0_0_6px_var(--color-surface)]">
+        <Icon className="size-5 text-brand" />
       </div>
-      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-      {description && <p className="text-sm text-muted mt-1.5 max-w-sm mx-auto">{description}</p>}
+      <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      {description && <p className="text-sm text-muted mt-1.5 max-w-md mx-auto leading-relaxed">{description}</p>}
       {children && <div className="flex flex-wrap justify-center gap-2 mt-6">{children}</div>}
     </Card>
   )
@@ -229,7 +287,7 @@ export function CopyButton({ value, className }) {
 
 export function Kbd({ children }) {
   return (
-    <kbd className="inline-flex items-center rounded-md border border-line-strong bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-muted">
+    <kbd className="inline-flex items-center rounded-md border border-line-strong bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted shadow-[inset_0_-1px_0_var(--color-line-strong)]">
       {children}
     </kbd>
   )

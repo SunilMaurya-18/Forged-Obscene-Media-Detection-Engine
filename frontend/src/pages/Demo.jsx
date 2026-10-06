@@ -39,6 +39,7 @@ import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingLine } from '../components/Status'
 import { VerdictPanel } from '../components/VerdictBadge'
 import { Button, Card, CardHeader, CopyButton, Kbd, PageHeader, ScoreMeter, buttonClass } from '../components/ui'
+import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
 import { decisionMeta } from '../lib/decision'
 import { verdictFor } from '../lib/verdict'
@@ -207,11 +208,8 @@ function Dropzone({ preview, video, busy, shown, onFile }) {
       ) : (
         <div className="absolute inset-0 grid place-items-center p-6 text-center">
           <div>
-            <div className="relative mx-auto mb-5 size-16">
-              <div className="absolute inset-0 rounded-2xl bg-brand-gradient opacity-25 blur-xl group-hover:opacity-40 transition-opacity" />
-              <div className="relative grid place-items-center size-16 rounded-2xl border border-line-strong bg-surface-2 group-hover:-translate-y-0.5 transition-transform">
-                <UploadCloud className="size-7 text-brand" />
-              </div>
+            <div className="mx-auto mb-5 grid place-items-center size-14 rounded-2xl border border-line-strong bg-surface-2 shadow-[0_0_0_8px_var(--color-surface),0_0_0_9px_var(--color-line)] group-hover:-translate-y-0.5 group-hover:border-brand/40 transition">
+              <UploadCloud className="size-6 text-brand" />
             </div>
             <p className="font-medium">{dragging ? 'Release to upload' : 'Drop an image or video here'}</p>
             <p className="text-sm text-muted mt-1.5">
@@ -556,6 +554,7 @@ function ResultView({ result, preview, file, thresholds, shown }) {
 
 export default function Demo() {
   const { thresholds, refresh: refreshStats } = useStats()
+  const { enabled: demoEnabled } = useDemo()
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [result, setResult] = useState(null)
@@ -643,17 +642,21 @@ export default function Demo() {
             icon={ImageUp}
             title="Source media"
             description={
-              <>
-                Use stills or clips from research datasets such as FaceForensics++, DFDC or Celeb-DF, or the synthetic{' '}
-                <a href="/sample-clip.mp4" download className="text-brand hover:underline">
-                  sample clip
-                </a>{' '}
-                and{' '}
-                <a href="/c2pa-sample.jpg" download className="text-brand hover:underline">
-                  C2PA-signed sample
-                </a>
-                .
-              </>
+              demoEnabled ? (
+                <>
+                  Use stills or clips from research datasets such as FaceForensics++, DFDC or Celeb-DF, or the synthetic{' '}
+                  <a href="/sample-clip.mp4" download className="text-brand hover:underline">
+                    sample clip
+                  </a>{' '}
+                  and{' '}
+                  <a href="/c2pa-sample.jpg" download className="text-brand hover:underline">
+                    C2PA-signed sample
+                  </a>
+                  .
+                </>
+              ) : (
+                'An image or a short video. It is checked in memory and never stored.'
+              )
             }
           />
           {!file && <PrivacyNote compact className="mb-4" />}

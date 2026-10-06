@@ -24,8 +24,6 @@ export const SLA_STATUS = {
   },
 }
 
-export const SLA_ORDER = ['ON_TRACK', 'AT_RISK', 'BREACHED']
-
 export const COMPLAINT_TYPES = {
   USER_COMPLAINT: { label: 'User complaint', detail: 'Non-consensual / deepfake imagery reported by a user' },
   GOVERNMENT_ORDER: { label: 'Government order', detail: 'Takedown order issued by a government agency' },

@@ -49,7 +49,7 @@ import FamilyChip from '../components/FamilyChip'
 import RequestStatusBadge from '../components/RequestStatusBadge'
 import { ErrorState, LoadingState } from '../components/Status'
 import { useToast } from '../components/Toast'
-import { Alert, Button, Card, CardHeader, CopyButton, DecisionBadge, EmptyState, PageHeader, StatTile } from '../components/ui'
+import { Alert, Button, Card, CardHeader, CopyButton, DecisionBadge, EmptyState, INPUT, PageHeader, StatTile } from '../components/ui'
 import { cn, dateTime, score, timeAgo } from '../lib/format'
 import {
   ACCOUNT_ID_MAX,
@@ -67,9 +67,6 @@ import {
   postRefProblem,
   shortHash,
 } from '../lib/investigations'
-
-const INPUT =
-  'w-full h-10 rounded-xl border border-line-strong bg-canvas/60 px-3.5 text-sm placeholder:text-subtle focus:outline-none focus:border-brand/60 focus:ring-4 focus:ring-brand/15'
 
 const STATUS_FILTERS = [
   { key: 'open', label: 'Open' },
@@ -278,11 +275,13 @@ function CaseList({ onUnauthorized }) {
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        {STATUS_FILTERS.map((f) => (
-          <Button key={f.key} size="sm" variant={status === f.key ? 'primary' : 'secondary'} onClick={() => filter(f.key)}>
-            {f.label}
-          </Button>
-        ))}
+        <div role="group" aria-label="Case status" className="segmented">
+          {STATUS_FILTERS.map((f) => (
+            <button key={f.key} type="button" aria-pressed={status === f.key} onClick={() => filter(f.key)} className="segment">
+              {f.label}
+            </button>
+          ))}
+        </div>
         <Button size="sm" variant="ghost" icon={RefreshCw} onClick={load} className="ml-auto">
           Refresh
         </Button>
@@ -466,7 +465,7 @@ function SightingsTable({ sightings }) {
   }
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm">
+      <table className="data-table w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-subtle">
             <th className="font-medium px-1 pb-2">Platform</th>

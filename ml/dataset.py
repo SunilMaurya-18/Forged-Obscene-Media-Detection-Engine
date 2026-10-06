@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import csv
+import random
 from pathlib import Path
 
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+
+from degradations import RandomDegradation
 
 LABEL_TO_IDX = {"real": 0, "fake": 1}
 IDX_TO_LABEL = {0: "real", 1: "fake"}
@@ -17,9 +20,13 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def default_train_transform() -> transforms.Compose:
+def default_train_transform(degrade_p: float = 0.0, rng: random.Random | None = None) -> transforms.Compose:
+    """``degrade_p`` > 0 re-encodes that share of training images through a random re-share chain
+    (resample, blur, JPEG) at their native size, before the resize to 224."""
+    degrade = [RandomDegradation(degrade_p, rng)] if degrade_p > 0 else []
     return transforms.Compose(
         [
+            *degrade,
             transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),

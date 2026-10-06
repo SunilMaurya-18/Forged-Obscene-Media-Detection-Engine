@@ -23,7 +23,7 @@ import { fileReport } from '../api/client'
 import PrivacyNote from '../components/PrivacyNote'
 import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingLine } from '../components/Status'
-import { Button, Card, CopyButton, PageHeader, buttonClass } from '../components/ui'
+import { Button, Card, CopyButton, INPUT, PageHeader, buttonClass } from '../components/ui'
 import { DETAILS_MAX, REGIONS, composeDetails, contactChannel, formatWhen } from '../lib/cases'
 import { IMAGE_SAMPLES } from '../lib/demo'
 import { errorText } from '../lib/errors'
@@ -49,23 +49,31 @@ function Stepper({ step }) {
   const { t } = useTranslation()
   return (
     <nav aria-label={t('wizard.progress', { n: step + 1, total: STEPS.length })} className="mb-6">
-      <p className="text-xs text-muted mb-3">{t('wizard.progress', { n: step + 1, total: STEPS.length })}</p>
-      <ol className="grid grid-cols-4 gap-2">
+      <p className="label-caps mb-3">{t('wizard.progress', { n: step + 1, total: STEPS.length })}</p>
+      <ol className="flex items-center gap-2 sm:gap-3">
         {STEPS.map((name, i) => {
           const done = i < step
           const current = i === step
           return (
-            <li key={name} aria-current={current ? 'step' : undefined}>
-              <div className={cn('h-1.5 rounded-full transition-colors', done || current ? 'bg-brand' : 'bg-white/[0.08]')} />
-              <p className={cn('mt-2 flex items-center gap-1.5 text-xs', current ? 'text-fg font-medium' : 'text-subtle')}>
-                {done ? (
-                  <Check aria-hidden className="size-3.5 text-emerald-300" />
-                ) : (
-                  <span aria-hidden className="font-mono">{i + 1}</span>
+            <li key={name} aria-current={current ? 'step' : undefined} className={cn('flex items-center gap-2 min-w-0', i < STEPS.length - 1 && 'flex-1')}>
+              <span
+                aria-hidden
+                className={cn(
+                  'grid place-items-center size-7 shrink-0 rounded-full border text-xs font-semibold transition-colors',
+                  done && 'border-brand bg-brand text-[#fff]',
+                  current && 'border-brand text-fg bg-brand/10 shadow-[0_0_0_4px_rgb(239_68_68/0.12)]',
+                  !done && !current && 'border-line-strong text-subtle',
                 )}
-                <span className="truncate">{t(`wizard.steps.${name}`)}</span>
-                {done && <span className="sr-only">({t('common.done')})</span>}
-              </p>
+              >
+                {done ? <Check className="size-3.5" /> : i + 1}
+              </span>
+              <span className={cn('truncate text-[13px]', current ? 'text-fg font-medium' : 'text-subtle', !current && 'max-sm:sr-only')}>
+                {t(`wizard.steps.${name}`)}
+                {done && <span className="sr-only"> ({t('common.done')})</span>}
+              </span>
+              {i < STEPS.length - 1 && (
+                <span aria-hidden className={cn('h-px flex-1 min-w-3', done ? 'bg-brand/60' : 'bg-line-strong')} />
+              )}
             </li>
           )
         })}
@@ -257,8 +265,6 @@ function TextField({ id, label, hint, error, optional, children }) {
     </div>
   )
 }
-
-const INPUT = 'w-full rounded-xl border border-line bg-white/[0.03] px-3.5 py-2.5 text-sm placeholder:text-subtle focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
 
 function DetailsStep({ form, set, errors }) {
   const { t } = useTranslation()

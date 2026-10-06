@@ -36,10 +36,12 @@ export default function LegalDocument({ eyebrow, title, description, sections, o
       </p>
 
       <div className="space-y-3 mb-10">
-        <Card className="p-4 flex gap-3 text-sm border-amber-400/30 bg-amber-400/[0.06]">
-          <Info aria-hidden className="size-5 shrink-0 text-amber-300 mt-0.5" />
-          <p className="text-muted leading-relaxed">{t('legal.templateNotice')}</p>
-        </Card>
+        {!LEGAL.configured && (
+          <Card className="p-4 flex gap-3 text-sm border-amber-400/30 bg-amber-400/[0.06]">
+            <Info aria-hidden className="size-5 shrink-0 text-amber-300 mt-0.5" />
+            <p className="text-muted leading-relaxed">{t('legal.templateNotice')}</p>
+          </Card>
+        )}
         {i18n.resolvedLanguage !== 'en' && (
           <Card lang={i18n.resolvedLanguage} className="p-4 text-sm text-muted">
             {t('legal.englishOnly')}

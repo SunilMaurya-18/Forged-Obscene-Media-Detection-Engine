@@ -92,7 +92,7 @@ function AppealCard({ appeal, thresholds, now, disabled, onDecided, onError }) {
                 maxLength={1000}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full rounded-lg border border-line bg-white/[0.03] px-3 py-2 text-sm focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                className="field resize-y"
               />
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="secondary" icon={CircleSlash} disabled={disabled || !reason.trim() || busy} loading={busy === 'UPHOLD'} onClick={() => decide('UPHOLD')}>
@@ -143,7 +143,7 @@ export default function AppealsPanel({ thresholds, disabled, refreshKey, onCount
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4 text-sm">
+      <div role="group" aria-label="Appeal status" className="segmented mb-4">
         {['open', 'decided'].map((s) => (
           <button
             key={s}
@@ -153,7 +153,7 @@ export default function AppealsPanel({ thresholds, disabled, refreshKey, onCount
               setAppeals(null)
               setStatus(s)
             }}
-            className={cn('h-8 px-3 rounded-lg border transition', status === s ? 'border-brand/50 bg-brand/[0.08] text-fg' : 'border-line text-muted hover:text-fg')}
+            className="segment"
           >
             {s === 'open' ? 'Open' : 'Decided'}
           </button>

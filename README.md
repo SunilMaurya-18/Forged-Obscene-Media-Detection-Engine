@@ -17,7 +17,7 @@
 
 [Quick start](#quick-start) · [One-click demo](#one-click-demo) · [Features](#what-it-does) · [Architecture](#architecture) · [Results](#results) · [API](#api-reference) · [Full documentation](docs/PROJECT_DOCUMENTATION.md) · [Partner API guide](API_DOCS.md)
 
-[Research report](docs/RESEARCH_REPORT.md) · [Design decisions (ADRs)](docs/adr/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Model card](docs/MODEL_CARD.md) · [Host a public demo](docs/PUBLIC_DEMO.md)
+[Research report](docs/RESEARCH_REPORT.md) · [Design decisions (ADRs)](docs/adr/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Model card](docs/MODEL_CARD.md) · [Deploy to production](docs/DEPLOY.md) · [Host a public demo](docs/PUBLIC_DEMO.md)
 
 <br>
 
@@ -181,6 +181,13 @@ The story is created on the first click, not at startup, and is idempotent: ever
 
 ```bash
 DEMO_DOMAIN=demo.example.org docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build --wait
+```
+
+**Production.** `docker-compose.prod.yml` runs the real thing: the prod profile, your own accounts and secrets, HTTPS through Caddy, and no demo story, sample data or demo logins. It refuses to start while any demo secret is still configured. Step by step in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+```bash
+cp .env.production.example .env   # fill in the REQUIRED values
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
 ```
 
 <details>
@@ -375,7 +382,9 @@ The detector was retrained with diffusion-style fakes mixed in, and `/infer` now
 | Generation-family head accuracy on fakes | 40/40 diffusion · 15/15 GAN-era |
 
 | Calibration (temperature scaling, Phase 22) | **Not fitted**: the synthetic validation set is perfectly separable, so scores are a ranking, not probabilities |
-| Robustness: decision flip rate under social-app transcoding (0.75× + JPEG 75) | **0.50**: genuine images re-encoded this way are scored as forged (see the [model card](docs/MODEL_CARD.md#7-robustness-phase-22)) |
+| Robustness: decision flip rate under social-app transcoding (0.75× + JPEG 75), n=104 held-out | **0.49 → 0.00** after degradation-augmented training (Phase 29); every JPEG / resize / blur / screenshot transform 0.00; WebP, never seen in training, 0.02 (see the [model card](docs/MODEL_CARD.md#7-robustness-phases-22-and-29)) |
+| Forgery ensemble | EfficientNet-B0 + an independent spectral / noise-residual expert, stacked; `/infer` returns both expert scores |
+| Release gate (CI) | Social transcode flip rate ≤ 0.05, others ≤ 0.10, clean AUC ≥ 0.90, and the measured model hashes must match the shipped files |
 | Fairness audit (per-group FPR / FNR) | **Not run**: the synthetic splits carry no demographic annotations |
 
 The full picture, including intended use, limitations and every metric's source, is in the **[model card](docs/MODEL_CARD.md)**. Live moderator agreement with the model's routing (REVIEW confirm rate, AUTO_FLAG overturn rate) is served by `GET /api/stats` under `moderation` and shown on the dashboard.
@@ -393,6 +402,7 @@ Artifacts in `ml/results/`:
 | `diffusion_robustness.png` | GAN-era vs. diffusion-era AUC, before and after retraining |
 | `reliability_diagram.png` | Predicted vs observed P(fake), before and after temperature scaling |
 | `robustness_chart.png` | Decision flip rate and score shift under JPEG, resize, blur, screenshot and transcode |
+| `robustness_before_after.png` | Flip rate on held-out images before and after Phase 29, with the release gate |
 | `metrics.json` | All metrics, latency, FPR, calibration, robustness and fairness (source for everything above) |
 | `failure_gallery/` | Hard / failure cases (research-style crops only) |
 
@@ -426,6 +436,8 @@ docker run --rm --add-host=host.docker.internal:host-gateway \
 `phase11_eval.py` rewrites `metrics.json`, the ROC and confusion charts, and the failure gallery. `poster.py` rebuilds `generalization_chart.png` and `poster.png` from `metrics.json`. Copy `metrics.json` and the PNGs into `frontend/public/` to refresh the dashboard.
 
 Credibility re-run (Phase 22): `cd ml && python phase22.py` runs calibration, robustness and fairness on the same splits and merges them into `metrics.json`. On licensed data use `python phase22.py --crops <dir> --splits <dir> --promote-calibration`. Promotion writes `models/calibration.json`, which ml-service applies at startup (see `/health` → `calibration`); rebuild with `docker compose build ml-service`. Fairness needs `skin_tone`, `age_band` or `gender_presentation` columns in the split CSVs.
+
+Robustness re-run (Phase 29): `cd ml && python phase29.py` measures the served model on held-out images, fine-tunes the checkpoint with random JPEG / resize / blur degradations (`ml/degradations.py`), fits the spectral expert and stacker (`ml/train_ensemble.py` → `models/ensemble.json`), re-measures, and promotes both only if `ml/release_gate.py` passes (exit code 1 otherwise). Use `--crops <dir> --splits <dir>` on licensed data (after `phase17.py --source import`). Then re-run `phase22.py` and `python ml/release_gate.py`, and rebuild with `docker compose build ml-service`. `FORGERY_ENSEMBLE=off` serves the CNN alone.
 
 Diffusion-era re-run: `cd ml && python phase17.py`. This builds the split, evaluates the current checkpoint as the baseline (backed up locally as `models/checkpoint.gan_era.pt`), fine-tunes to `models/checkpoint.diffusion_aug.pt`, re-evaluates everything, writes both blocks and the chart, and promotes the checkpoint (`--no-promote` to skip). Then run `docker compose build ml-service`.
 
@@ -641,12 +653,13 @@ mock-social-feed/   static "platform" that calls /api/analyze on each post
 docs/               PROJECT_DOCUMENTATION.md: the complete project guide · MODEL_CARD.md: intended use, metrics, limits
   adr/              architecture decision records (no raw media, two models, Ed25519, hash-only prescreen, no geo-IP, preserve commitments not media)
   THREAT_MODEL.md   threats, mitigations and residual risk
+  DEPLOY.md         deploying to production
   PUBLIC_DEMO.md    hosting the public demo
 API_DOCS.md         third-party integration guide for /api/v1
 brag-output/        launch video (brag.mp4) and poster (brag.jpg)
 e2e/                Playwright suite for the demo script
 load/               k6 load test and measured throughput
-ops/                Prometheus config + alerts, Grafana dashboard, two-instance rate-limit check, demo Caddyfile
+ops/                Prometheus config + alerts, Grafana dashboard, two-instance rate-limit check, demo and production Caddyfiles
 .github/            CI workflow and Dependabot
 docker-compose.yml                one-command demo stack
 docker-compose.dev.yml            dev overlay (extra ports + live mounts)
@@ -654,6 +667,7 @@ docker-compose.observability.yml  Prometheus + Grafana
 docker-compose.ha.yml             second backend sharing Redis
 docker-compose.gpu.yml            CUDA ml-service
 docker-compose.demo.yml           hosted public demo (Caddy + HTTPS, synthetic samples only)
+docker-compose.prod.yml           production (prod profile, Caddy + HTTPS, no demo data)
 ```
 
 ### Troubleshooting
@@ -689,7 +703,7 @@ The [threat model](docs/THREAT_MODEL.md) covers adversarial uploads, key theft, 
 This is a working, end-to-end prototype, not a production deployment. The main gaps before real use:
 
 - **Model numbers are from synthetic smoke splits.** Retrain on licensed FaceForensics++ / DFDC / Celeb-DF crops for report-quality figures. Diffusion-era detection remains an open research problem.
-- **The demo checkpoint is fragile to compression.** JPEG re-encoding, blur and resampling push genuine images towards "forged" (flip rate 0.50 under social-app transcoding). Train with compression augmentation and re-run `ml/phase22.py` before trusting scores on re-shared media. Scores are also uncalibrated until fitted on real validation data. See the [model card](docs/MODEL_CARD.md).
+- **Compression robustness is shown on synthetic data only.** Phase 29's augmented training took the social-transcode flip rate from 0.49 to 0.00 and CI enforces it, but codecs outside the augmentation set (WebP: 0.02, genuine-image scores +0.22) still move scores, and none of it is proven on real faces until `ml/phase29.py` is re-run on licensed data. Scores are also uncalibrated until fitted on real validation data. See the [model card](docs/MODEL_CARD.md).
 - **The demo runs with dev keys and secrets.** The compose stack uses the file keyring, no timestamp authority, and demo passwords and HMAC key. Any non-`dev` profile refuses to start like that; production needs Vault Transit (or another KMS behind `SigningKeyProvider`), an RFC 3161 TSA and real secrets. The Vault and TSA integrations are tested against local fakes, not a live service.
 - **StopNCII matching is compatible, not connected.** A live integration needs formal approval as a participating organisation.
 - **Some pieces are stubs.** Notifications are log/webhook only. Throughput was measured on one laptop CPU (about 8 req/s); GPU numbers are not measured.

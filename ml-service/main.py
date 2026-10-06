@@ -1,5 +1,6 @@
 """FastAPI ML inference microservice — Phases 4–5, provenance (14), forensic signatures (15),
-generation family (17), video and C2PA Content Credentials (23), observability (24)."""
+generation family (17), video and C2PA Content Credentials (23), observability (24), forgery
+ensemble (29)."""
 
 from __future__ import annotations
 
@@ -53,7 +54,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="Forged Media ML Service",
-    version="0.24.0",
+    version="0.29.0",
     lifespan=lifespan,
 )
 observability.install(app)
@@ -64,18 +65,21 @@ def health() -> dict:
     ready = False
     loads = 0
     temperature = None
+    ensemble = {"active": False, "experts": ["cnn"]}
     try:
         rt = get_runtime()
         ready = rt.forgery_model is not None
         loads = rt.load_count
         temperature = rt.temperature
+        ensemble = rt.ensemble_info()
     except RuntimeError:
         pass
     return {
         "status": "ok" if ready else "starting",
         "models_loaded": ready,
         "forgery_loads": loads,
-        "calibration": {"active": temperature is not None, "temperature": temperature},
+        "calibration": {"active": temperature is not None and not ensemble["active"], "temperature": temperature},
+        "ensemble": ensemble,
         "c2pa": content_credentials.signer_info(),
     }
 
@@ -107,6 +111,7 @@ async def infer(file: UploadFile = File(...)) -> dict:
     return {
         "media_type": "image",
         "forgery_score": assessment["forgery_score"],
+        "forgery_experts": assessment["experts"],
         "generation_family": assessment["generation_family"],
         "family_confidence": assessment["family_confidence"],
         "explicit_score": explicit_score,

@@ -30,6 +30,7 @@ const CHARTS = [
   { src: '/confusion_matrix.png', title: 'Confusion matrices', caption: 'Predictions at a 0.5 forgery threshold', wide: true },
   { src: '/reliability_diagram.png', title: 'Reliability diagram', caption: 'Predicted P(fake) vs observed fraction fake, before and after temperature scaling' },
   { src: '/robustness_chart.png', title: 'Robustness', caption: 'Decision flip rate and score shift under JPEG, resize, blur and transcode' },
+  { src: '/robustness_before_after.png', title: 'Robustness before vs after', caption: 'Flip rate on held-out images: the old CNN vs the augmented CNN + spectral ensemble, with the release gate', wide: true },
 ]
 
 const TRANSFORM_LABELS = {
@@ -41,6 +42,7 @@ const TRANSFORM_LABELS = {
   'blur_r1.5': 'Blur r1.5',
   screenshot: 'Screenshot',
   social_transcode: 'Social transcode',
+  webp_q60: 'WebP q60',
 }
 
 function StatusPill({ tone, children }) {
@@ -99,7 +101,10 @@ function Robustness({ data }) {
       <ul className="mt-3 space-y-1.5">
         {rows.map(([name, t]) => (
           <li key={name} className="grid grid-cols-[7.5rem_1fr_3rem] items-center gap-2 text-xs">
-            <span className="text-muted truncate">{TRANSFORM_LABELS[name] || name}</span>
+            <span className="text-muted truncate" title={data.held_out_transforms?.includes(name) ? 'Never used in training augmentation' : undefined}>
+              {TRANSFORM_LABELS[name] || name}
+              {data.held_out_transforms?.includes(name) && <span className="text-subtle"> *</span>}
+            </span>
             <span className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden" aria-hidden="true">
               <span
                 className={cn('block h-full rounded-full', t.flip_rate > 0.05 ? 'bg-rose-400' : 'bg-emerald-400')}
@@ -111,7 +116,8 @@ function Robustness({ data }) {
         ))}
       </ul>
       <p className="text-[11px] text-muted mt-3 leading-relaxed">
-        Share of {data.n} held-out images whose routing flips from re-encoding alone. Target: at most 5% on social transcode.
+        Share of {data.n} held-out images whose routing flips from re-encoding alone. Release gate: at most 5% on social transcode, 10% elsewhere.
+        {data.held_out_transforms?.length > 0 && ' * Never seen in training.'}
       </p>
     </div>
   )
@@ -246,7 +252,7 @@ function DiffusionEra({ gan, diffusion, notes }) {
         }
       />
       <div className="overflow-x-auto -mx-6 px-6">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="data-table w-full text-sm min-w-[640px]">
           <thead>
             <tr className="text-left text-xs text-subtle border-b border-line">
               <th className="font-medium py-3 pr-4">Era</th>
@@ -407,7 +413,7 @@ function DatasetTable({ datasets, gaps }) {
         description="Trained on FaceForensics++ only. DFDC and Celeb-DF are never seen in training."
       />
       <div className="overflow-x-auto -mx-6 px-6">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="data-table w-full text-sm min-w-[640px]">
           <thead>
             <tr className="text-left text-xs text-subtle border-b border-line">
               <th className="font-medium py-3 pr-4">Dataset</th>

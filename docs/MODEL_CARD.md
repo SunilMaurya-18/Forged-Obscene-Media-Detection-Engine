@@ -13,8 +13,10 @@ This card covers the two scoring components behind `POST /api/analyze`. Every nu
 | Output | `forgery_score` in [0, 1]; `generation_family` + `family_confidence` (only when the image is judged fake and the family head is decisive) | `explicit_score` in [0, 1] |
 | Explainability | Grad-CAM on the last conv block; coarse FFT and ELA signatures for reports | None |
 | Independence | Separate model, weights and code path from the explicit score | Never reads the forgery score |
-| Checkpoint | `ml/models/checkpoint.pt` (Phase 17 diffusion-augmented, promoted) | — |
-| Serving | `ml-service` (FastAPI, CPU), loaded once at startup | Same service |
+| Checkpoint | `ml/models/checkpoint.pt` (Phase 29: Phase 17 model fine-tuned with degradation augmentation, promoted after passing the release gate) | — |
+| Second expert (Phase 29) | Spectral expert: logistic regression over the radially averaged log spectrum (32 bins) and 5 noise-residual statistics. No learned convolutional features, so it fails differently from the CNN | — |
+| Combination (Phase 29) | Stacker `sigmoid(w_cnn·z_cnn + w_spectral·z_spectral + b)` fitted on the validation split; both experts and the stacker live in `ml/models/ensemble.json` (plain JSON), which is refused unless it was fitted against the loaded checkpoint | — |
+| Serving | `ml-service` (FastAPI, CPU), loaded once at startup. `/infer` returns the served `forgery_score` plus `forgery_experts` (per-expert scores); `/health` → `ensemble` | Same service |
 
 **Demo configuration note.** The Docker image sets `NSFW_BACKEND=heuristic`, so the demo stack's explicit score is the heuristic fallback, **not** a trained classifier. Set `NSFW_BACKEND=auto` (with network access for the weights) to use the pretrained model.
 
@@ -65,29 +67,36 @@ Method: temperature scaling fitted on the validation split (`ml/calibration.py`)
 |---|---|---|
 | Status | **Degenerate**: the synthetic validation set is perfectly separable, so no finite temperature minimises NLL | `calibration.degenerate` |
 | Temperature applied | 1.0 (none); not promoted to the runtime | `calibration.temperature` |
-| ECE / Brier on held-out splits (fit n=12, eval n=24) | 0.0022 / 0.0000 (4 d.p.) | `calibration.ece_before`, `calibration.brier_before` |
+| ECE / Brier on held-out splits (fit n=12, eval n=24) | 0.0040 / 0.0000 (4 d.p.) | `calibration.ece_before`, `calibration.brier_before` |
 | Chart | `ml/results/reliability_diagram.png` | `artifacts.reliability_diagram` |
 
-**What this means:** a forgery score of 0.67 from the demo checkpoint is **not** a calibrated 67% probability. Treat scores as a ranking until calibration is fitted on real validation data. The review band (0.50–0.85) exists so that uncertain items reach a human.
+**What this means:** a forgery score of 0.67 from the demo checkpoint is **not** a calibrated 67% probability. Treat scores as a ranking until calibration is fitted on real validation data. The review band (0.50–0.85) exists so that uncertain items reach a human. When `ensemble.json` is active the temperature is not applied: the stacker is itself a logistic fit on the validation split, but on separable synthetic data it is regularised, not calibrated.
 
-## 7. Robustness (Phase 22)
+## 7. Robustness (Phases 22 and 29)
 
-Score stability under the transforms real uploads go through (`ml/robustness.py`, n=36 held-out images, threshold 0.5). *Flip rate* is the share of images whose routing changes because of the transform alone.
+Score stability of the **served** model (augmented CNN + spectral ensemble) under the transforms real uploads go through (`ml/robustness.py`, threshold 0.5). *Flip rate* is the share of images whose routing changes because of the transform alone. Since Phase 29 it is measured on **held-out test splits only** (DFDC-style 12, Celeb-DF-style 12, diffusion test 80; n=104). `val.csv` selects checkpoints and fits the stacker, so it is excluded.
 
-| Transform | Flip rate | AUC | Direction |
+| Transform | Before (Phase 17 CNN) | After (Phase 29, served) | AUC after |
 |---|---|---|---|
-| JPEG quality 90 | 0.00 | 1.00 | stable |
-| Centre crop 80% | 0.00 | 1.00 | stable |
-| Screenshot (resample + tone + JPEG 85) | 0.14 | 1.00 | real images pushed up |
-| JPEG quality 70 | 0.44 | 0.11 | real images pushed to *fake* |
-| JPEG quality 50 | 0.50 | 0.00 | real images pushed to *fake* |
-| Downscale-upscale 0.5 | 0.50 | 0.00 | real images pushed to *fake* |
-| Gaussian blur r=1.5 | 0.50 | 0.00 | real images pushed to *fake* |
-| Social transcode (0.75× + JPEG 75) | 0.50 | 0.00 | real images pushed to *fake* |
+| JPEG quality 90 | 0.00 | 0.00 | 1.00 |
+| JPEG quality 70 | 0.47 | 0.00 | 1.00 |
+| JPEG quality 50 | 0.51 | 0.00 | 1.00 |
+| Downscale-upscale 0.5 | 0.50 | 0.00 | 1.00 |
+| Gaussian blur r=1.5 | 0.51 | 0.00 | 1.00 |
+| Screenshot (resample + tone + JPEG 85) | 0.27 | 0.00 | 1.00 |
+| **Social transcode (0.75× + JPEG 75)** | **0.49** | **0.00** | 1.00 |
+| Centre crop 80% *(never in training)* | 0.14 | 0.00 | 1.00 |
+| WebP quality 60 *(never in training)* | 0.34 | 0.02 | 1.00 |
 
-Source: `robustness.transforms`; chart `ml/results/robustness_chart.png`.
+Sources: `phase29.before`, `robustness.transforms`; charts `ml/results/robustness_before_after.png` and `robustness_chart.png`.
 
-**Finding:** the demo checkpoint learned "blocky, high-frequency texture means fake". Ordinary JPEG compression and resampling add exactly that texture, so **a genuine photo re-shared through a social app is likely to be scored as forged**. Real-image scores shift by +0.89 to +1.00 under these transforms, while fakes barely move. This is the most important known failure mode. The mitigations are in section 10.
+**Finding (Phase 22):** the Phase 17 checkpoint had learned "blocky, high-frequency texture means fake". Ordinary JPEG compression and resampling add exactly that texture, so a genuine photo re-shared through a social app was likely to be scored as forged.
+
+**Fix (Phase 29):** `ml/phase29.py` fine-tunes the checkpoint with `RandomDegradation` (`ml/degradations.py`): half of the training images of *both* classes go through a random resample, blur, tone and (double) JPEG chain, so compression stops being evidence of forgery. It then fits the spectral expert and the stacker on degraded copies too, re-measures, and promotes only if the release gate passes. The augmented CNN alone already reaches 0.00 on every gated transform (0.01 on WebP); the ensemble scores 0.02 on WebP, so on this data its value is a second, independent signal (for example, on a flat-colour image the CNN alone says 0.60 and the ensemble 0.0006), not extra robustness.
+
+**Release gate** (`ml/release_gate.py`, run in CI): social transcode flip rate ≤ 0.05, every other transform ≤ 0.10, clean AUC ≥ 0.90, at least 30 held-out images, and the measured checkpoint and ensemble hashes must match the files in `ml/models/`. A model swapped in without re-running the suite fails CI.
+
+**Remaining signal:** WebP, which training never uses, still raises genuine-image scores by +0.22 on average (fakes −0.08). Only 2% of decisions flip, but codecs outside the augmentation set remain the place to watch. All of this is on synthetic data (section 4).
 
 ## 8. Fairness (Phase 22)
 
@@ -107,7 +116,7 @@ A false *forged* verdict harms the person pictured, so **FPR disparity is the he
 ## 10. Known limitations and recommendations
 
 1. **Synthetic training data.** Retrain on licensed FF++ / DFDC / Celeb-DF and real diffusion fakes before any real use (Phase 22 task 1).
-2. **Compression fragility** (section 7). Add JPEG, blur, rescale and transcode augmentation to training, then re-run `phase22.py` and require flip rate ≤ 0.05 on `social_transcode` before promoting a checkpoint.
+2. **Compression fragility** (section 7). Addressed on synthetic data in Phase 29 (social transcode flip rate 0.49 → 0.00) and enforced by the release gate in CI. Re-run `python ml/phase29.py --crops <dir> --splits <dir>` on licensed data to confirm, and consider adding codecs outside the augmentation set (WebP, HEIC, AVIF) to the robustness suite.
 3. **Uncalibrated scores** (section 6). Fit and promote a temperature on real validation data.
 4. **Unknown group performance** (section 8). Annotate an evaluation set and run the audit. Treat any FPR disparity above a few points as a release blocker.
 5. **Generalisation.** Detectors trained on one generator family degrade on new ones. Diffusion-era detection remains an open research problem.

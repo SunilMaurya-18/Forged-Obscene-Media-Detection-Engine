@@ -1,4 +1,5 @@
-"""Inference runtime — models loaded once at startup (Phase 5), optional calibration (Phase 22)."""
+"""Inference runtime — models loaded once at startup (Phase 5), optional calibration (Phase 22),
+optional CNN + spectral expert ensemble (Phase 29)."""
 
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+import ensemble as ensemble_lib
 from forgery_runtime import (
     GradCAM,
     bytes_to_rgb,
@@ -47,13 +49,19 @@ def load_temperature(path: Path) -> float | None:
 
 
 class InferenceRuntime:
-    """Holds cold-started forgery + NSFW models for the process lifetime."""
+    """Holds cold-started forgery + NSFW models for the process lifetime.
+
+    With an ``ensemble.json`` fitted against this checkpoint, the forgery score is the stacked CNN +
+    spectral expert score and the temperature is not applied (the stacker is fitted on raw logits).
+    ``FORGERY_ENSEMBLE=off`` serves the CNN alone.
+    """
 
     def __init__(
         self,
         checkpoint: Path | None = None,
         device: str | None = None,
         calibration: Path | None = None,
+        ensemble: Path | str | None = None,
     ) -> None:
         requested = device or os.getenv("ML_DEVICE", "auto").strip().lower()
         if requested in ("", "auto"):
@@ -64,6 +72,10 @@ class InferenceRuntime:
             calibration or os.getenv("FORGERY_CALIBRATION") or self.checkpoint.parent / "calibration.json"
         )
         self.temperature = load_temperature(self.calibration_path)
+        ensemble_setting = str(ensemble or os.getenv("FORGERY_ENSEMBLE") or self.checkpoint.parent / "ensemble.json")
+        self.ensemble = None
+        if ensemble_setting.strip().lower() != "off" and self.checkpoint.exists():
+            self.ensemble = ensemble_lib.load(Path(ensemble_setting), ensemble_lib.file_sha256(self.checkpoint))
         self.forgery_model = None
         self.nsfw = NSFWClassifier()
         self._lock = threading.Lock()
@@ -78,26 +90,33 @@ class InferenceRuntime:
         self.forgery_model = load_forgery_model(self.checkpoint, self.device)
         self._load_count += 1
         logger.info(
-            "Runtime ready (device=%s, nsfw_mode=%s, forgery_loads=%s, temperature=%s)",
+            "Runtime ready (device=%s, nsfw_mode=%s, forgery_loads=%s, temperature=%s, ensemble=%s)",
             self.device,
             self.nsfw.mode,
             self._load_count,
             self.temperature,
+            self.ensemble.describe()["weights"] if self.ensemble else None,
         )
 
     @property
     def load_count(self) -> int:
         return self._load_count
 
+    def ensemble_info(self) -> dict:
+        return self.ensemble.describe() if self.ensemble else {"active": False, "experts": ["cnn"]}
+
 
 _runtime: InferenceRuntime | None = None
 
 
 def init_runtime(
-    checkpoint: Path | None = None, device: str | None = None, calibration: Path | None = None
+    checkpoint: Path | None = None,
+    device: str | None = None,
+    calibration: Path | None = None,
+    ensemble: Path | str | None = None,
 ) -> InferenceRuntime:
     global _runtime
-    _runtime = InferenceRuntime(checkpoint=checkpoint, device=device, calibration=calibration)
+    _runtime = InferenceRuntime(checkpoint=checkpoint, device=device, calibration=calibration, ensemble=ensemble)
     return _runtime
 
 
@@ -125,18 +144,26 @@ def classify_family(forgery_score: float, p_diffusion: float | None) -> tuple[st
     return ("diffusion" if p_diffusion >= 0.5 else "gan"), confidence
 
 
+def _sigmoid(z: float) -> float:
+    return 1.0 / (1.0 + math.exp(-max(-60.0, min(60.0, z))))
+
+
+def _assess(rt: InferenceRuntime, rgb: np.ndarray, cnn_logit: float, p_diffusion: float | None) -> dict:
+    if rt.ensemble is not None:
+        spectral_logit = rt.ensemble.spectral_logit(rgb)
+        score = _sigmoid(rt.ensemble.combine(cnn_logit, spectral_logit))
+        experts = {"cnn": _sigmoid(cnn_logit), "spectral": _sigmoid(spectral_logit)}
+    else:
+        score = _sigmoid(cnn_logit / rt.temperature if rt.temperature is not None else cnn_logit)
+        experts = {"cnn": score}
+    family, confidence = classify_family(score, p_diffusion)
+    return {"forgery_score": score, "generation_family": family, "family_confidence": confidence, "experts": experts}
+
+
 @torch.no_grad()
 def run_forgery_assessment(image_bytes: bytes) -> dict:
-    """Forgery confidence plus best-effort generation family (gan / diffusion / unknown)."""
-    rt = get_runtime()
-    tensor = rgb_to_tensor(bytes_to_rgb(image_bytes), rt.device)
-    forgery_logits, family_logits = rt.forgery_model.forward_all(tensor)
-    if rt.temperature is not None:
-        forgery_logits = forgery_logits / rt.temperature
-    score = float(torch.sigmoid(forgery_logits).item())
-    p_diffusion = float(torch.sigmoid(family_logits).item()) if family_logits is not None else None
-    family, confidence = classify_family(score, p_diffusion)
-    return {"forgery_score": score, "generation_family": family, "family_confidence": confidence}
+    """Forgery confidence, per-expert scores, and best-effort generation family (gan / diffusion / unknown)."""
+    return run_forgery_assessments([image_bytes])[0]
 
 
 @torch.no_grad()
@@ -145,17 +172,12 @@ def run_forgery_assessments(images: list[bytes]) -> list[dict]:
     if not images:
         return []
     rt = get_runtime()
-    batch = torch.cat([rgb_to_tensor(bytes_to_rgb(b), rt.device) for b in images])
+    rgbs = [bytes_to_rgb(b) for b in images]
+    batch = torch.cat([rgb_to_tensor(rgb, rt.device) for rgb in rgbs])
     forgery_logits, family_logits = rt.forgery_model.forward_all(batch)
-    if rt.temperature is not None:
-        forgery_logits = forgery_logits / rt.temperature
-    scores = torch.sigmoid(forgery_logits).reshape(-1).tolist()
-    diffusion = torch.sigmoid(family_logits).reshape(-1).tolist() if family_logits is not None else [None] * len(scores)
-    out = []
-    for score, p_diffusion in zip(scores, diffusion, strict=True):
-        family, confidence = classify_family(score, p_diffusion)
-        out.append({"forgery_score": score, "generation_family": family, "family_confidence": confidence})
-    return out
+    logits = forgery_logits.reshape(-1).tolist()
+    diffusion = torch.sigmoid(family_logits).reshape(-1).tolist() if family_logits is not None else [None] * len(logits)
+    return [_assess(rt, rgb, z, p) for rgb, z, p in zip(rgbs, logits, diffusion, strict=True)]
 
 
 def run_forgery_check(image_bytes: bytes) -> float:
