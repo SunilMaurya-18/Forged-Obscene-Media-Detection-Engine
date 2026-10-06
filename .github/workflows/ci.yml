@@ -34,7 +34,7 @@ jobs:
             --keys backend/target/phase28/keys.json --sha256 "$(cat backend/target/phase28/package.sha256)"
           python3 -m unittest discover -v -s tools -p "test_*.py"
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-surefire-reports
           path: backend/target/surefire-reports
@@ -143,7 +143,7 @@ jobs:
         env:
           CI: "true"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -217,7 +217,7 @@ jobs:
           format: cyclonedx-json
           output-file: sbom-ml-service.cdx.json
           upload-artifact: false
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom-*.cdx.json
