@@ -4,26 +4,24 @@ import { decisionMeta, scoreBand } from '../lib/decision'
 import { cn, score as fmtScore } from '../lib/format'
 
 const BUTTON_VARIANTS = {
-  primary:
-    'bg-brand text-[#fff] font-semibold shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(0_0_0/0.3),0_6px_16px_-8px_rgb(220_38_38/0.6)] hover:brightness-110',
-  secondary:
-    'border border-line-strong bg-surface-2 text-fg shadow-[0_1px_1px_rgb(0_0_0/0.12)] hover:bg-surface-3 hover:border-white/20',
+  primary: 'btn-chrome font-semibold',
+  secondary: 'btn-steel',
   ghost: 'text-muted hover:text-fg hover:bg-white/[0.05]',
   success:
-    'border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20 hover:border-emerald-400/50',
-  danger: 'border border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/20 hover:border-rose-400/50',
+    'border border-emerald-400/45 bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/25 hover:border-emerald-400/60',
+  danger: 'border border-rose-400/45 bg-rose-400/15 text-rose-200 hover:bg-rose-400/25 hover:border-rose-400/60',
 }
 
 const BUTTON_SIZES = {
   sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
-  md: 'h-10 px-4 text-sm gap-2 rounded-[10px]',
-  lg: 'h-11 px-5 text-[15px] gap-2 rounded-xl',
+  md: 'h-10 px-4 text-sm gap-2 rounded-lg',
+  lg: 'h-11 px-5 text-[15px] gap-2 rounded-lg',
 }
 
 export function buttonClass(variant = 'primary', size = 'md', className = '') {
   return cn(
     'inline-flex items-center justify-center font-medium whitespace-nowrap transition-all duration-150',
-    'disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]',
+    'disabled:opacity-50 disabled:pointer-events-none active:translate-y-px',
     BUTTON_VARIANTS[variant],
     BUTTON_SIZES[size],
     className,
@@ -78,16 +76,16 @@ export function Card({ className, children, ...props }) {
 
 export function CardHeader({ icon: Icon, title, description, action }) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-5 print:mb-2">
-      <div className="flex items-start gap-3 min-w-0">
+    <div className="flex items-start justify-between gap-5 mb-6 print:mb-2">
+      <div className="flex items-start gap-3.5 min-w-0">
         {Icon && (
-          <span className="grid place-items-center size-8 shrink-0 rounded-lg border border-line bg-surface-2 text-brand print:hidden">
+          <span className="grid place-items-center size-9 shrink-0 rounded-lg border border-line bg-surface-2 text-brand print:hidden">
             <Icon className="size-4" />
           </span>
         )}
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-tight leading-8 print:text-[12.5px] print:leading-normal">{title}</h2>
-          {description && <p className="text-[13px] text-muted leading-relaxed -mt-0.5 print:hidden">{description}</p>}
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-[16px] font-semibold tracking-tight leading-snug print:text-[12.5px] print:leading-normal">{title}</h2>
+          {description && <p className="text-[14px] text-muted leading-[1.65] print:hidden">{description}</p>}
         </div>
       </div>
       {action}
@@ -97,30 +95,30 @@ export function CardHeader({ icon: Icon, title, description, action }) {
 
 export function PageHeader({ eyebrow, title, description, actions }) {
   return (
-    <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 pb-6 border-b border-line animate-fade-up print:mb-3 print:pb-2">
-      <div className="max-w-3xl print:max-w-none">
+    <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10 pb-7 border-b border-line animate-fade-up print:mb-3 print:pb-2">
+      <div className="max-w-2xl print:max-w-none">
         {eyebrow && (
-          <p className="label-caps text-brand inline-flex items-center gap-2 mb-2.5 print:mb-1 print:text-[9px]">
+          <p className="label-caps text-brand inline-flex items-center gap-2 mb-3 print:mb-1 print:text-[9px]">
             <span aria-hidden className="size-1.5 rounded-full bg-brand" />
             {eyebrow}
           </p>
         )}
-        <h1 className="text-2xl md:text-[30px] md:leading-[1.15] font-semibold tracking-[-0.025em] print:text-[22px]">{title}</h1>
+        <h1 className="font-serif text-[30px] md:text-[38px] leading-[1.2] font-medium tracking-[-0.012em] print:text-[22px]">{title}</h1>
         {description && (
-          <p className="text-muted mt-2.5 text-[14.5px] leading-relaxed print:mt-1 print:text-[11px]">{description}</p>
+          <p className="text-muted mt-3.5 text-[15.5px] leading-[1.7] print:mt-1 print:text-[11px]">{description}</p>
         )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2 md:shrink-0 print:hidden">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2.5 md:shrink-0 print:hidden">{actions}</div>}
     </header>
   )
 }
 
 const BADGE_TONES = {
   neutral: 'border-line-strong bg-white/[0.04] text-muted',
-  brand: 'border-brand/30 bg-brand/10 text-rose-300',
-  danger: 'border-rose-400/30 bg-rose-400/10 text-rose-200',
-  warning: 'border-amber-400/30 bg-amber-400/[0.08] text-amber-200',
-  success: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
+  brand: 'border-brand/30 bg-brand/10 text-brand',
+  danger: 'border-rose-400/45 bg-rose-400/15 text-rose-200',
+  warning: 'border-amber-400/35 bg-amber-400/[0.1] text-amber-200',
+  success: 'border-emerald-400/45 bg-emerald-400/15 text-emerald-200',
   info: 'border-sky-400/30 bg-sky-400/[0.08] text-sky-200',
 }
 
@@ -229,10 +227,10 @@ export function StatTile({ icon: Icon, label, value, hint, accent = 'text-brand'
 }
 
 const ALERT_TONES = {
-  error: { cls: 'border-rose-400/25 bg-rose-400/[0.07] text-rose-200', icon: AlertTriangle },
-  warning: { cls: 'border-amber-400/25 bg-amber-400/[0.06] text-amber-100', icon: AlertTriangle },
+  error: { cls: 'border-rose-400/40 bg-rose-400/12 text-rose-200', icon: AlertTriangle },
+  warning: { cls: 'border-amber-400/35 bg-amber-400/[0.1] text-amber-100', icon: AlertTriangle },
   info: { cls: 'border-line-strong bg-white/[0.03] text-fg', icon: Info },
-  success: { cls: 'border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-100', icon: CheckCircle2 },
+  success: { cls: 'border-emerald-400/40 bg-emerald-400/12 text-emerald-100', icon: CheckCircle2 },
 }
 
 export function Alert({ tone = 'error', title, children }) {
@@ -250,7 +248,7 @@ export function Alert({ tone = 'error', title, children }) {
 
 export function EmptyState({ icon: Icon, title, description, children }) {
   return (
-    <Card className="px-6 py-14 text-center border-dashed bg-transparent shadow-none">
+    <Card className="px-6 py-14 text-center border-dashed bg-transparent bg-none shadow-none">
       <div className="mx-auto mb-4 grid place-items-center size-12 rounded-xl border border-line-strong bg-surface-2 shadow-[0_0_0_6px_var(--color-surface)]">
         <Icon className="size-5 text-brand" />
       </div>

@@ -6,21 +6,21 @@ export const SLA_STATUS = {
     icon: CircleCheck,
     text: 'text-emerald-300',
     bar: 'bg-emerald-400',
-    ring: 'border-emerald-400/25 bg-emerald-400/[0.07]',
+    ring: 'border-emerald-400/45 bg-emerald-400/12',
   },
   AT_RISK: {
     label: 'At risk',
     icon: AlarmClock,
     text: 'text-amber-300',
     bar: 'bg-amber-400',
-    ring: 'border-amber-400/30 bg-amber-400/[0.08]',
+    ring: 'border-amber-400/35 bg-amber-400/[0.1]',
   },
   BREACHED: {
     label: 'Breached',
     icon: Siren,
     text: 'text-rose-300',
     bar: 'bg-rose-400',
-    ring: 'border-rose-400/30 bg-rose-400/[0.08]',
+    ring: 'border-rose-400/45 bg-rose-400/12',
   },
 }
 

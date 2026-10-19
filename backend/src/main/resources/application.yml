@@ -11,9 +11,9 @@ server:
 spring:
   application:
     name: forged-media
-  # Phase 24: any other profile (e.g. SPRING_PROFILES_ACTIVE=prod) refuses to start with demo secrets
+  # ProductionSecretsGuard refuses weak secrets outside the test profile
   profiles:
-    default: dev
+    default: prod
   main:
     web-application-type: servlet
   # Phase 24: only used when app.state.store=redis
@@ -87,7 +87,6 @@ compliance:
     check-interval: ${COMPLIANCE_SLA_CHECK_INTERVAL:PT15S}
   escalation:
     webhook-url: ${COMPLIANCE_ESCALATION_WEBHOOK_URL:}
-  seed-demo: ${COMPLIANCE_SEED_DEMO:false}
   # Phase 19: jurisdiction applied when a complaint doesn't name one (platform config; never geo-IP)
   default-jurisdiction: ${COMPLIANCE_DEFAULT_JURISDICTION:IN}
   # Seeded GENERIC rules (fallback for any jurisdiction without its own rule). Edit the DB row afterwards.
@@ -141,13 +140,13 @@ report:
 prescreen:
   phash-max-distance: ${PRESCREEN_PHASH_MAX_DISTANCE:8}
   pdq-max-distance: ${PRESCREEN_PDQ_MAX_DISTANCE:31}
-  # pHash of frontend/public/prescreen-demo.png (a synthetic test pattern), seeded as INTERNAL_CONFIRMED
-  seed-hashes: ${PRESCREEN_SEED_HASHES:c2423d3d3b783cc6}
+  # Optional known-hash seeds (hex pHashes), comma-separated. Empty in production.
+  seed-hashes: ${PRESCREEN_SEED_HASHES:}
 
-# Phase 26: partner account IDs are stored only as HMAC-SHA256(key, platform + account). Refused
-# at this demo value outside the dev profile; changing it unlinks every existing pseudonym.
+# Phase 26: partner account IDs are stored only as HMAC-SHA256(key, platform + account).
+# Changing the key unlinks every existing pseudonym.
 investigation:
-  pseudonym-key: ${INVESTIGATION_PSEUDONYM_KEY:dev-only-account-pseudonym-key-change-me}
+  pseudonym-key: ${INVESTIGATION_PSEUDONYM_KEY:}
   # Phase 28: evidence packages for investigators under an approved legal request
   handover:
     download-window: ${HANDOVER_DOWNLOAD_WINDOW:PT24H}
@@ -160,35 +159,22 @@ complaints:
   # Optional: JSON POST on every case status change, for an email/SMS gateway (blank = log only)
   notify-webhook-url: ${COMPLAINTS_NOTIFY_WEBHOOK_URL:}
 
-# Phase 16: third-party API (/api/v1). Requests per minute per key, by plan.
+# Third-party API (/api/v1). Requests per minute per key, by plan.
 api:
   rate-limits:
     FREE: ${API_RATE_LIMIT_FREE:10}
     PRO: ${API_RATE_LIMIT_PRO:60}
     ENTERPRISE: ${API_RATE_LIMIT_ENTERPRISE:600}
-  # Dev only: seeds a FREE "Demo Platform" client with this exact key (must start with fmd_live_)
-  demo-key: ${API_DEMO_KEY:}
+  # Test profile only: seeds a FREE bootstrap client. Leave empty in production.
+  bootstrap-key: ${API_BOOTSTRAP_KEY:}
 
-# Phase 25: one-click demo story (/api/demo) and the hosted public demo. Dev profile only.
-demo:
-  enabled: ${DEMO_ENABLED:false}
-  # Hosted for strangers: anyone may reset, logins are shown, uploads limited to the bundled synthetic samples
-  public-mode: ${DEMO_PUBLIC:false}
-  reset-interval: ${DEMO_RESET_INTERVAL:PT6H}
-  reset-cooldown: ${DEMO_RESET_COOLDOWN:PT2M}
-  # Public mode: uploads per minute shared by every visitor (0 = unlimited)
-  uploads-per-minute: ${DEMO_UPLOADS_PER_MINUTE:60}
-  jurisdiction: ${DEMO_JURISDICTION:IN}
-
-# Dev-only seeded moderator (Phase 8). Change in production.
 app:
-  # Phase 24: memory (one instance) or redis (rate limits, PIN lockouts, exposure counters shared by all instances)
   state:
     store: ${STATE_STORE:memory}
   security:
-    moderator-username: ${MODERATOR_USERNAME:moderator}
-    moderator-password: ${MODERATOR_PASSWORD:moderator}
-    # Phase 23: extra dev accounts, "username:password:ROLE:team" (ROLE = MODERATOR | SENIOR_MODERATOR | INVESTIGATOR).
-    # Needed for second review and appeals, which must be decided by a different person. Phase 28: an
-    # INVESTIGATOR's "team" is their agency. Change in production.
-    extra-moderators: ${MODERATOR_EXTRA_ACCOUNTS:reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac,investigator:investigator:INVESTIGATOR:cyber-cell}
+    moderator-username: ${MODERATOR_USERNAME:}
+    moderator-password: ${MODERATOR_PASSWORD:}
+    # Primary account role. ADMIN opens /admin and can manage staff.
+    moderator-role: ${MODERATOR_ROLE:ADMIN}
+    # Extra accounts, "username:password:ROLE:team". Prefer creating staff from /admin.
+    extra-moderators: ${MODERATOR_EXTRA_ACCOUNTS:}

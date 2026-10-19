@@ -42,8 +42,13 @@ public class ModerationService {
 
     public record Moderator(String username, String displayName, ModeratorRole role, String team) {
 
+        public boolean admin() {
+            return role == ModeratorRole.ADMIN;
+        }
+
+        /** Seniors and the owner admin may decide escalated work and approve legal requests. */
         public boolean senior() {
-            return role == ModeratorRole.SENIOR_MODERATOR;
+            return role == ModeratorRole.SENIOR_MODERATOR || role == ModeratorRole.ADMIN;
         }
 
         public Map<String, Object> view() {
@@ -53,6 +58,7 @@ public class ModerationService {
             m.put("role", role.name());
             m.put("team", team);
             m.put("senior", senior());
+            m.put("admin", admin());
             return m;
         }
     }
@@ -309,6 +315,10 @@ public class ModerationService {
         if (item.isSeniorEscalated() && !me.senior()) {
             return new ModerationException(HttpStatus.FORBIDDEN, "senior_required",
                     "This item is escalated to a senior moderator, so its second review needs a senior too.");
+        }
+        // Owner admin may solo-operate four-eyes checks; the audit log still names them.
+        if (me.admin()) {
+            return null;
         }
         if (confirm && actor.equals(item.getPendingProposedBy())) {
             return new ModerationException(HttpStatus.FORBIDDEN, "conflict_of_interest",

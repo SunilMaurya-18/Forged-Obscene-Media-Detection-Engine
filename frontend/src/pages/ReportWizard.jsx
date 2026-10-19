@@ -21,11 +21,9 @@ import {
 } from 'lucide-react'
 import { fileReport } from '../api/client'
 import PrivacyNote from '../components/PrivacyNote'
-import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingLine } from '../components/Status'
 import { Button, Card, CopyButton, INPUT, PageHeader, buttonClass } from '../components/ui'
 import { DETAILS_MAX, REGIONS, composeDetails, contactChannel, formatWhen } from '../lib/cases'
-import { IMAGE_SAMPLES } from '../lib/demo'
 import { errorText } from '../lib/errors'
 import { cn, fileSize } from '../lib/format'
 
@@ -60,8 +58,8 @@ function Stepper({ step }) {
                 aria-hidden
                 className={cn(
                   'grid place-items-center size-7 shrink-0 rounded-full border text-xs font-semibold transition-colors',
-                  done && 'border-brand bg-brand text-[#fff]',
-                  current && 'border-brand text-fg bg-brand/10 shadow-[0_0_0_4px_rgb(239_68_68/0.12)]',
+                  done && 'border-brand bg-brand text-canvas',
+                  current && 'border-brand text-fg bg-brand/10 shadow-[0_0_0_4px_rgb(217_119_87/0.14)]',
                   !done && !current && 'border-line-strong text-subtle',
                 )}
               >
@@ -163,7 +161,6 @@ function SelectStep({ form, preview, onFile, error }) {
           e.target.value = ''
         }}
       />
-      {!preview && <SamplePicker kinds={IMAGE_SAMPLES} onPick={onFile} />}
       {error && <FieldError>{error}</FieldError>}
     </div>
   )

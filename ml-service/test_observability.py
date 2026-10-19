@@ -78,14 +78,15 @@ def test_json_formatter_carries_request_id():
     assert "@timestamp" in line
 
 
-def test_guard_allows_demo_key_in_dev(monkeypatch):
-    monkeypatch.setenv("APP_PROFILE", "dev")
+@pytest.mark.parametrize("profile", ["test", "dev"])
+def test_guard_allows_demo_key_in_relaxed_profiles(monkeypatch, profile):
+    monkeypatch.setenv("APP_PROFILE", profile)
     monkeypatch.setenv("PROVENANCE_SIGNING_KEY", "dev-only-provenance-signing-key")
     startup_guard.enforce()
 
 
 @pytest.mark.parametrize("key", [None, "dev-only-provenance-signing-key", "short-secret"])
-def test_guard_refuses_demo_or_weak_key_outside_dev(monkeypatch, key):
+def test_guard_refuses_weak_key_outside_relaxed(monkeypatch, key):
     monkeypatch.setenv("APP_PROFILE", "prod")
     if key is None:
         monkeypatch.delenv("PROVENANCE_SIGNING_KEY", raising=False)

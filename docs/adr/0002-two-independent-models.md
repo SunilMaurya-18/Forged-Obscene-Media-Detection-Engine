@@ -28,7 +28,7 @@ on either score:
   generation-family head (GAN or diffusion) on the same features, so the report can say what kind of
   generator likely produced the image.
 - **Explicit model:** `Falconsai/nsfw_image_detection` from Hugging Face, with a colour-heuristic
-  fallback for machines without the weights (`NSFW_BACKEND=heuristic`, used by the compose demo).
+  fallback for machines without the weights (`NSFW_BACKEND=heuristic`, the compose default).
 
 `DecisionEngineService.route` treats the scores independently:
 
@@ -57,7 +57,7 @@ separately before routing.
   and human confirmation exist to absorb that.
 - Neither model knows consent. "Real, explicit, consensual" and "real, explicit, non-consensual" look
   identical to both. Consent comes only from the complaint flow and human review, never from a score.
-- The heuristic explicit backend in the demo is much weaker than the real model. It is labelled as such
+- The heuristic explicit backend is much weaker than the real model. It is labelled as such
   in the model card and must not be used in production.
 
 ## Enforced by

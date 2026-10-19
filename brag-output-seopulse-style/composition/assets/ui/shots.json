@@ -1,0 +1,12 @@
+{
+  "shots": [
+    "landing-hero",
+    "analyze-empty",
+    "analyze-result",
+    "report",
+    "verify",
+    "queue",
+    "compliance"
+  ],
+  "capturedAt": "2026-10-19T15:57:15.319Z"
+}

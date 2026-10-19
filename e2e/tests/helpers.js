@@ -1,7 +1,7 @@
 export const FEED_URL = process.env.E2E_FEED_URL || 'http://localhost:3001'
 export const MODERATOR = {
-  username: process.env.E2E_MODERATOR_USERNAME || 'moderator',
-  password: process.env.E2E_MODERATOR_PASSWORD || 'moderator',
+  username: process.env.E2E_MODERATOR_USERNAME || '',
+  password: process.env.E2E_MODERATOR_PASSWORD || '',
 }
 
 /**

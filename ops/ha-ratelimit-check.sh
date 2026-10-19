@@ -1,12 +1,13 @@
 #!/usr/bin/env sh
-# Phase 24 DoD: two backend instances share one rate-limit bucket through Redis.
+# Two backend instances share one rate-limit bucket through Redis.
 #   docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --wait
-#   sh ops/ha-ratelimit-check.sh
-# Spends a FREE-plan key's budget (API_RATE_LIMIT_FREE, default 10/min) alternately on both instances,
-# then expects the next request to be refused on either. An empty POST costs a token without running a model.
+#   API_KEY=<partner key> sh ops/ha-ratelimit-check.sh
+# Issue a FREE-plan key from /api-access (or POST /api/admin/clients), then spend its budget
+# (API_RATE_LIMIT_FREE, default 10/min) alternately on both instances and expect the next
+# request to be refused on either. An empty POST costs a token without running a model.
 set -eu
 
-KEY="${API_KEY:-fmd_live_demo_local_only_do_not_use_in_prod}"
+KEY="${API_KEY:?Set API_KEY to a FREE-plan partner key}"
 A="${BACKEND_A:-http://localhost:8081}"
 B="${BACKEND_B:-http://localhost:8082}"
 LIMIT="${LIMIT:-10}"

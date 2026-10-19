@@ -15,7 +15,7 @@ A complete guide to the project: what it is, why it exists, who it serves, how e
 | Safety, limits, future | [15](#15-ethics-safety-and-data-policy)–[17](#17-roadmap) |
 | Terms and questions | [18. Glossary](#18-glossary) and [19. FAQ](#19-faq) |
 
-Companion documents: [`README.md`](../README.md) (setup and demo script), [`API_DOCS.md`](../API_DOCS.md) (partner API), [`ONE_PAGER.md`](../ONE_PAGER.md) (plain-language summary, also at `/explained`), [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) (phase-by-phase build plan).
+Companion documents: [`README.md`](../README.md) (setup), [`API_DOCS.md`](../API_DOCS.md) (partner API), [`ONE_PAGER.md`](../ONE_PAGER.md) (plain-language summary, also at `/explained`), [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) (phase-by-phase build plan).
 
 ---
 
@@ -452,9 +452,9 @@ Nothing in this model can hold image bytes.
 | Partner API (`/api/v1/**`) | API key only (`X-API-Key` or Bearer) | Separate stateless security chain; moderator credentials are rejected there and keys never open moderator endpoints |
 | ml-service, PostgreSQL | Not exposed | Internal Docker network only |
 
-Secrets that must be changed outside development: moderator password, `PROVENANCE_SIGNING_KEY`, the report-signing keypair (use a KMS/HSM), and `API_DEMO_KEY` (leave empty).
+Secrets that must be changed outside development: moderator password, `PROVENANCE_SIGNING_KEY`, the report-signing keypair (use a KMS/HSM), and leave partner API bootstrap keys empty (issue keys from the console).
 
-Threats, mitigations and residual risks (adversarial uploads, key theft, hash-list poisoning, moderator account compromise, report forgery, public-demo abuse) are in the [threat model](THREAT_MODEL.md). The reasoning behind the core design choices is in the [architecture decision records](adr/README.md).
+Threats, mitigations and residual risks (adversarial uploads, key theft, hash-list poisoning, moderator account compromise, report forgery, abuse of exposed endpoints) are in the [threat model](THREAT_MODEL.md). The reasoning behind the core design choices is in the [architecture decision records](adr/README.md).
 
 ### 5.13 Privacy design
 
@@ -635,10 +635,10 @@ frontend/
   src/utils/              onDeviceHash.js (browser pHash)
   src/i18n/               en.json, hi.json
 mock-social-feed/         Static "platform" calling /api/analyze on each post
-docs/                     This document, MODEL_CARD.md, THREAT_MODEL.md, PUBLIC_DEMO.md,
+docs/                     This document, MODEL_CARD.md, THREAT_MODEL.md,
   adr/                    Architecture decision records
 API_DOCS.md · ONE_PAGER.md · IMPLEMENTATION_PLAN.md · README.md
-docker-compose.yml · docker-compose.dev.yml · docker-compose.demo.yml · .env.example
+docker-compose.yml · docker-compose.dev.yml · docker-compose.prod.yml · .env.example
 ```
 
 ---
@@ -654,7 +654,6 @@ docker compose ps             # wait for "healthy"; ml-service may take 1–3 mi
 | URL | Page |
 |---|---|
 | http://localhost:3000 | Landing page |
-| http://localhost:3000/tour | One-click demo: a seeded, live story (flagged upload, appeal, signed report, at-risk and breached complaints) |
 | http://localhost:3000/analyze | Check an image (and Check before you post) |
 | http://localhost:3000/report | Report wizard |
 | http://localhost:3000/status | Case status |
@@ -688,7 +687,6 @@ Every setting is an environment variable with a safe default. The full table is 
 | Legal requests | `GET`/`POST /api/legal-requests`, `GET /api/legal-requests/investigators`, `POST …/{requestNumber}/approve` · `/reject` · `/revoke` | Moderator (deciding: a senior who didn't file it) |
 | Investigator | `GET /api/investigator/cases` · `/cases/{caseNumber}`, `POST …/cases/{caseNumber}/packages`, `GET /api/investigator/packages` · `/packages/{id}/download` | Investigator with an approved request |
 | Misc | `GET /api/stats`, `POST /api/auth/login`, `GET /api/auth/me` | Public |
-| Demo | `GET /api/demo`, `POST /api/demo/story`, `POST /api/demo/reset`, `GET /api/demo/samples/{name}`, `GET /api/demo/report.pdf` | Public (reset: senior moderator, or anyone in public mode) |
 
 Full parameters and responses: [README API table](../README.md#api) and [`API_DOCS.md`](../API_DOCS.md).
 

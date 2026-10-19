@@ -102,7 +102,7 @@ A platform receiving user uploads, complaints and government orders needs to:
 3. **A hash-only prescreen** whose browser implementation is a bit-exact port of the server's pHash, with an oracle that reveals only match/no-match.
 4. **A data-driven compliance engine** where deadlines are rows, not constants, resolved from an explicitly declared jurisdiction (never geo-IP), with a frozen rule label per case for auditability.
 5. **An evaluation toolkit** (calibration, robustness, fairness) that refuses to publish misleading numbers: it flags degenerate calibration, reports fairness as `not_run` without annotations, and surfaced a real compression-fragility failure mode in the demo checkpoint.
-6. **A complete, reproducible implementation** with a one-click demo, architecture decision records and a threat model.
+6. **A complete, reproducible implementation** with architecture decision records and a threat model.
 
 ### 1.5 Scope
 
@@ -336,7 +336,6 @@ Every entity holds identifiers, hashes, scores, timestamps and text. **None can 
 | `docker-compose.ha.yml` | Second backend sharing Redis (demonstrates shared rate limits) |
 | `docker-compose.observability.yml` | Prometheus (with alert rules) and a provisioned Grafana dashboard |
 | `docker-compose.gpu.yml` | CUDA build of the ml-service |
-| `docker-compose.demo.yml` | Hosted public demo behind Caddy with automatic HTTPS |
 
 ---
 
@@ -633,7 +632,7 @@ The integration guide is [`API_DOCS.md`](../API_DOCS.md).
 | ml-service (pytest) | 58 | Health, `/infer`, explicit scoring, provenance manifests, forensic signature, generation family, calibration loading, `/infer-video` (no disk writes, batching equivalence), C2PA read and write, logging |
 | ML pipeline (pytest) | 24 | Data pipeline, model, plots, poster, diffusion split, family head, calibration, robustness and fairness tooling |
 | Frontend (Node test runner, oxlint) | 29 | On-device pHash parity with the server, Hindi/English key coverage, case-number and contact validation, queue urgency order, near-duplicates, media, appeal and demo helpers |
-| End-to-end (Playwright) | 4 | The README demo script through the UI (analyse → REVIEW → approve → SLA countdown → provenance verify → report VALID), the mock feed, request IDs through nginx, the one-click tour |
+| End-to-end (Playwright) | 3 | Smoke flow through the UI (analyse → REVIEW → approve → SLA countdown → provenance verify → report VALID), the mock feed, request IDs through nginx |
 
 ### 12.2 Continuous integration and supply chain
 
@@ -645,17 +644,14 @@ Micrometer exposes decision counts, latency histograms, SLA breaches and ml-serv
 
 ### 12.4 Horizontal scaling
 
-A `SharedState` interface (atomic token buckets, set-if-absent with TTL, counters) has a Redis implementation (Lua scripts) and an in-memory one for a single instance. It carries rate limits, PIN lockouts, exposure counters, the SLA scheduler lock, the demo locks and cooldowns. `ops/ha-ratelimit-check.sh` shows that ten requests alternated across two backends empty one shared bucket, and the eleventh is refused by both.
+A `SharedState` interface (atomic token buckets, set-if-absent with TTL, counters) has a Redis implementation (Lua scripts) and an in-memory one for a single instance. It carries rate limits, PIN lockouts, exposure counters, the SLA scheduler lock, distributed locks. `ops/ha-ratelimit-check.sh` shows that ten requests alternated across two backends empty one shared bucket, and the eleventh is refused by both.
 
-### 12.5 One-click demo and public demo
-
-`/tour` seeds, on the first click, a complete story from synthetic images drawn on the server: an auto-flagged upload, the uploader's appeal, a signed report (verifiable in place), a complaint close to its deadline and a breached government order. Seeding is idempotent and lock-protected across instances. `docker-compose.demo.yml` hosts it publicly behind Caddy. In public mode every multipart upload on every route must be a bundled synthetic sample (or a labelled copy the demo issued), uploads share an instance-wide budget, visitors may reset with a cooldown, and everything is wiped every six hours ([`PUBLIC_DEMO.md`](PUBLIC_DEMO.md)).
 
 ---
 
 ## 13. Evaluation and results
 
-> **How to read this section.** §13.1 to §13.5 use the **demo checkpoint trained on synthetic data**. They show that the training and evaluation pipeline works, and they expose real failure modes. They are **not** evidence of real-world deepfake detection accuracy. §13.6 and §13.7 measure the software itself and are real measurements.
+> **How to read this section.** §13.1 to §13.5 use the **research checkpoint trained on synthetic data**. They show that the training and evaluation pipeline works, and they expose real failure modes. They are **not** evidence of real-world deepfake detection accuracy. §13.6 and §13.7 measure the software itself and are real measurements.
 
 ### 13.1 Detection accuracy (synthetic splits)
 
@@ -887,7 +883,6 @@ The most valuable next step is therefore not more features but better evidence: 
 | Transparency | `GET /api/transparency?period=` | Public |
 | Admin | `/api/admin/clients…`, `/api/admin/known-hashes…`, `POST /api/admin/signing-keys/rotate` | Moderator / Senior |
 | Partner | `POST /api/v1/analyze`, `GET /api/v1/usage` | API key |
-| Demo | `GET /api/demo`, `POST /api/demo/story`, `POST /api/demo/reset`, `GET /api/demo/samples/{name}`, `GET /api/demo/report.pdf` | Public (reset: senior, or anyone in public mode) |
 
 Full parameters are in the [README API reference](../README.md#api-reference) and [`API_DOCS.md`](../API_DOCS.md).
 
@@ -907,7 +902,6 @@ Full parameters are in the [README API reference](../README.md#api-reference) an
 | `API_RATE_LIMIT_FREE` / `_PRO` / `_ENTERPRISE` | 10 / 60 / 600 | Partner requests per minute |
 | `REPORT_SIGNING_PROVIDER` / `REPORT_TSA_URL` | file / none | Signing key provider and timestamp authority |
 | `STATE_STORE` | redis (compose) | Shared state backend |
-| `DEMO_ENABLED` / `DEMO_PUBLIC` / `DEMO_RESET_INTERVAL` | true (compose) / false / PT6H | One-click and public demo |
 
 The complete list is in the [README configuration section](../README.md#configuration).
 

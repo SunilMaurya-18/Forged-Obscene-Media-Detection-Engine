@@ -149,7 +149,7 @@ public class PrescreenService {
                 continue;
             }
             try {
-                if (add(hash.trim(), "phash", KnownHashSource.INTERNAL_CONFIRMED, "Demo seed: synthetic test pattern")) {
+                if (add(hash.trim(), "phash", KnownHashSource.INTERNAL_CONFIRMED, "Startup seed hash")) {
                     added++;
                 }
             } catch (IllegalArgumentException ex) {
@@ -157,7 +157,7 @@ public class PrescreenService {
             }
         }
         if (added > 0) {
-            log.info("Known-hash list: seeded {} demo hash(es)", added);
+            log.info("Known-hash list: seeded {} hash(es) from PRESCREEN_SEED_HASHES", added);
         }
     }
 

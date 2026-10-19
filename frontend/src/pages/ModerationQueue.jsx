@@ -38,10 +38,9 @@ import { useToast } from '../components/Toast'
 import { Button, Card, CopyButton, DecisionBadge, EmptyState, Kbd, PageHeader, ScoreMeter, buttonClass } from '../components/ui'
 import { BreakScreen, WellbeingMeter } from '../components/Wellbeing'
 import { useDecisions } from '../context/DecisionContext'
-import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
 import { useNow } from '../hooks/useNow'
-import { cn, dateTime, mockFeedUrl, timeAgo } from '../lib/format'
+import { cn, dateTime, timeAgo } from '../lib/format'
 import { byNewest, byUrgency, deadlineInfo, inTeamPool, similarIds } from '../lib/queue'
 
 const POLL_MS = 15000
@@ -50,7 +49,7 @@ const DEADLINE_TONE = {
   none: { icon: Clock, cls: 'border-line text-subtle' },
   ok: { icon: Timer, cls: 'border-sky-400/30 bg-sky-400/[0.07] text-sky-200' },
   soon: { icon: AlarmClock, cls: 'border-amber-400/35 bg-amber-400/[0.08] text-amber-200' },
-  overdue: { icon: Siren, cls: 'border-rose-400/40 bg-rose-400/[0.1] text-rose-200' },
+  overdue: { icon: Siren, cls: 'border-rose-400/50 bg-rose-400/15 text-rose-200' },
 }
 
 const VERB = { ALLOW: 'Approved', AUTO_FLAG: 'Rejected' }
@@ -150,7 +149,7 @@ function QueueItem({
       onClick={(e) => !e.target.closest('button, a, input, textarea, video') && onActivate()}
       className={cn(
         'card p-5 transition-all duration-200 outline-none',
-        active && 'ring-2 ring-brand/70 shadow-[0_0_0_4px_rgb(239_68_68/0.12)]',
+        active && 'ring-2 ring-brand/70 shadow-[0_0_0_4px_rgb(217_119_87/0.14)]',
         selected && 'border-brand/50 bg-brand/[0.05]',
       )}
     >
@@ -292,14 +291,13 @@ const EMPTY = {
   flagged: {
     icon: ShieldBan,
     title: 'No takedowns yet',
-    description: 'Items the model auto-flags, or that a moderator rejects, appear here with an evidentiary report ready to download.',
+    description: 'Items the model auto-flags, or that a moderator rejects. Download the signed report for a plain-language summary, forensic panels and a verifiable technical record.',
   },
 }
 
 export default function ModerationQueue() {
   const { isAuthenticated, loading: authLoading, logout } = useAuth()
   const { thresholds } = useStats()
-  const { enabled: demoEnabled } = useDemo()
   const { decide, undo, pendingIds, committed } = useDecisions()
   const toast = useToast()
   const location = useLocation()
@@ -570,11 +568,6 @@ export default function ModerationQueue() {
             <Link to="/analyze" className={buttonClass('primary')}>
               <ScanSearch aria-hidden className="size-4" /> Analyze media
             </Link>
-            {demoEnabled && (
-              <a href={mockFeedUrl()} target="_blank" rel="noreferrer" className={buttonClass('secondary')}>
-                Open mock feed
-              </a>
-            )}
           </EmptyState>
         )
       }

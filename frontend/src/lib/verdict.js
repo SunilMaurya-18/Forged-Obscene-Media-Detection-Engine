@@ -9,22 +9,22 @@ export const VERDICTS = {
   LIKELY_FORGED: {
     icon: ShieldX,
     text: 'text-rose-300',
-    ring: 'border-rose-400/35 bg-rose-400/[0.09]',
-    glow: 'from-rose-400/20',
+    ring: 'border-rose-400/50 bg-rose-400/15',
+    glow: 'from-rose-400/30',
     light: 'bg-rose-400',
   },
   NEEDS_REVIEW: {
     icon: ShieldAlert,
     text: 'text-amber-300',
-    ring: 'border-amber-400/35 bg-amber-400/[0.08]',
+    ring: 'border-amber-400/40 bg-amber-400/[0.1]',
     glow: 'from-amber-400/20',
     light: 'bg-amber-400',
   },
   LOOKS_GENUINE: {
     icon: ShieldCheck,
     text: 'text-emerald-300',
-    ring: 'border-emerald-400/35 bg-emerald-400/[0.08]',
-    glow: 'from-emerald-400/20',
+    ring: 'border-emerald-400/50 bg-emerald-400/15',
+    glow: 'from-emerald-400/30',
     light: 'bg-emerald-400',
   },
 }

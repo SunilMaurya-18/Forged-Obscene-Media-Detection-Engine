@@ -1,11 +1,9 @@
-# One-command demo stack:  cp .env.example .env && docker compose up --build
-# Host ports: frontend :3000, mock feed :3001, backend API :8081.
-# postgres, redis, ml-service and the backend management port (8090: health, Prometheus) are
-# internal-only; use docker-compose.dev.yml to expose them.
-# Overlays: docker-compose.observability.yml (Prometheus + Grafana), docker-compose.ha.yml (second
-# backend sharing Redis), docker-compose.gpu.yml (CUDA ml-service).
+# Production-grade stack. Copy .env.production.example to .env, fill every REQUIRED value, then:
+#   docker compose up --build
+# Host ports: frontend :3000, backend API :8081. Overlay docker-compose.dev.yml to expose DB/Redis.
+# Overlays: docker-compose.observability.yml, docker-compose.ha.yml, docker-compose.gpu.yml,
+# docker-compose.prod.yml (Caddy HTTPS).
 
-# Fixed so image and network names don't depend on the checkout folder (CI scans images by name).
 name: forgedmediadetection
 
 services:
@@ -31,7 +29,7 @@ services:
     environment:
       POSTGRES_DB: forged_media
       POSTGRES_USER: forged
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forged}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -50,10 +48,10 @@ services:
     environment:
       FORGERY_CHECKPOINT: /models/checkpoint.pt
       NSFW_BACKEND: ${NSFW_BACKEND:-heuristic}
-      PROVENANCE_SIGNING_KEY: ${PROVENANCE_SIGNING_KEY:-dev-only-provenance-signing-key}
+      PROVENANCE_SIGNING_KEY: ${PROVENANCE_SIGNING_KEY:?Set PROVENANCE_SIGNING_KEY}
       PROVENANCE_ISSUER: ${PROVENANCE_ISSUER:-forged-media-detection}
-      # dev refuses nothing; any other profile refuses to start with the demo PROVENANCE_SIGNING_KEY
-      APP_PROFILE: ${APP_PROFILE:-dev}
+      # Outside APP_PROFILE=test, refuses published/weak PROVENANCE_SIGNING_KEY
+      APP_PROFILE: ${APP_PROFILE:-prod}
       ML_WORKERS: ${ML_WORKERS:-1}
       ML_DEVICE: ${ML_DEVICE:-auto}
       LOG_FORMAT: ${ML_LOG_FORMAT:-json}
@@ -82,8 +80,8 @@ services:
     expose:
       - "8090"
     environment:
-      # dev (default) allows the demo secrets below; prod refuses to start until they are replaced
-      SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-dev}
+      # Outside the test profile, ProductionSecretsGuard refuses published/weak secrets
+      SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-prod}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${BACKEND_LOG_FORMAT:-ecs}
       MANAGEMENT_SERVER_PORT: "8090"
       MANAGEMENT_HEALTH_REDIS_ENABLED: ${MANAGEMENT_HEALTH_REDIS_ENABLED:-true}
@@ -92,30 +90,29 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/forged_media}
       SPRING_DATASOURCE_USERNAME: forged
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-forged}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:8000}
       ML_SERVICE_TIMEOUT: ${ML_SERVICE_TIMEOUT:-PT60S}
       DECISION_FORGERY_AUTO_FLAG: ${DECISION_FORGERY_AUTO_FLAG:-0.85}
       DECISION_EXPLICIT_AUTO_FLAG: ${DECISION_EXPLICIT_AUTO_FLAG:-0.85}
       DECISION_FORGERY_REVIEW: ${DECISION_FORGERY_REVIEW:-0.50}
       DECISION_EXPLICIT_REVIEW: ${DECISION_EXPLICIT_REVIEW:-0.50}
-      MODERATOR_USERNAME: ${MODERATOR_USERNAME:-moderator}
-      MODERATOR_PASSWORD: ${MODERATOR_PASSWORD:-moderator}
+      MODERATOR_USERNAME: ${MODERATOR_USERNAME:?Set MODERATOR_USERNAME}
+      MODERATOR_PASSWORD: ${MODERATOR_PASSWORD:?Set MODERATOR_PASSWORD}
       COMPLIANCE_SLA_USER_COMPLAINT: ${COMPLIANCE_SLA_USER_COMPLAINT:-PT2H}
       COMPLIANCE_SLA_GOVERNMENT_ORDER: ${COMPLIANCE_SLA_GOVERNMENT_ORDER:-PT3H}
       COMPLIANCE_SLA_AT_RISK: ${COMPLIANCE_SLA_AT_RISK:-PT30M}
       COMPLIANCE_SLA_CHECK_INTERVAL: ${COMPLIANCE_SLA_CHECK_INTERVAL:-PT15S}
       COMPLIANCE_ESCALATION_WEBHOOK_URL: ${COMPLIANCE_ESCALATION_WEBHOOK_URL:-}
-      COMPLIANCE_SEED_DEMO: ${COMPLIANCE_SEED_DEMO:-true}
+      MODERATOR_ROLE: ${MODERATOR_ROLE:-ADMIN}
       REPORT_LOCAL_ZONE: ${REPORT_LOCAL_ZONE:-Asia/Kolkata}
       API_RATE_LIMIT_FREE: ${API_RATE_LIMIT_FREE:-10}
       API_RATE_LIMIT_PRO: ${API_RATE_LIMIT_PRO:-60}
       API_RATE_LIMIT_ENTERPRISE: ${API_RATE_LIMIT_ENTERPRISE:-600}
-      API_DEMO_KEY: ${API_DEMO_KEY:-}
       PRESCREEN_PHASH_MAX_DISTANCE: ${PRESCREEN_PHASH_MAX_DISTANCE:-8}
       PRESCREEN_PDQ_MAX_DISTANCE: ${PRESCREEN_PDQ_MAX_DISTANCE:-31}
-      PRESCREEN_SEED_HASHES: ${PRESCREEN_SEED_HASHES:-c2423d3d3b783cc6}
-      INVESTIGATION_PSEUDONYM_KEY: ${INVESTIGATION_PSEUDONYM_KEY:-dev-only-account-pseudonym-key-change-me}
+      PRESCREEN_SEED_HASHES: ${PRESCREEN_SEED_HASHES:-}
+      INVESTIGATION_PSEUDONYM_KEY: ${INVESTIGATION_PSEUDONYM_KEY:?Set INVESTIGATION_PSEUDONYM_KEY}
       COMPLIANCE_DEFAULT_JURISDICTION: ${COMPLIANCE_DEFAULT_JURISDICTION:-IN}
       COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS: ${COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS:-24}
       COMPLIANCE_GENERIC_GOVERNMENT_ORDER_HOURS: ${COMPLIANCE_GENERIC_GOVERNMENT_ORDER_HOURS:-24}
@@ -129,12 +126,12 @@ services:
       WELLBEING_IDLE_RESET: ${WELLBEING_IDLE_RESET:-PT2H}
       WELLBEING_SUPPORT_URL: ${WELLBEING_SUPPORT_URL:-/support}
       TRANSPARENCY_MIN_CELL: ${TRANSPARENCY_MIN_CELL:-5}
-      MODERATOR_EXTRA_ACCOUNTS: ${MODERATOR_EXTRA_ACCOUNTS:-reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac,investigator:investigator:INVESTIGATOR:cyber-cell}
+      MODERATOR_EXTRA_ACCOUNTS: ${MODERATOR_EXTRA_ACCOUNTS:-}
       HANDOVER_DOWNLOAD_WINDOW: ${HANDOVER_DOWNLOAD_WINDOW:-PT24H}
       HANDOVER_MAX_REQUEST_TERM: ${HANDOVER_MAX_REQUEST_TERM:-P180D}
       REPORT_SIGNING_KEY_DIR: /app/data/signing-keys
       REPORT_SIGNING_PROVIDER: ${REPORT_SIGNING_PROVIDER:-file}
-      REPORT_SIGNING_ALLOW_FILE_KEYS: ${REPORT_SIGNING_ALLOW_FILE_KEYS:-false}
+      REPORT_SIGNING_ALLOW_FILE_KEYS: ${REPORT_SIGNING_ALLOW_FILE_KEYS:-true}
       VAULT_ADDR: ${VAULT_ADDR:-}
       VAULT_TOKEN: ${VAULT_TOKEN:-}
       VAULT_NAMESPACE: ${VAULT_NAMESPACE:-}
@@ -146,13 +143,6 @@ services:
       COMPLAINTS_MAX_PIN_ATTEMPTS: ${COMPLAINTS_MAX_PIN_ATTEMPTS:-5}
       COMPLAINTS_PIN_LOCKOUT: ${COMPLAINTS_PIN_LOCKOUT:-PT15M}
       COMPLAINTS_NOTIFY_WEBHOOK_URL: ${COMPLAINTS_NOTIFY_WEBHOOK_URL:-}
-      # Phase 25: one-click demo story (/tour). DEMO_PUBLIC is for docker-compose.demo.yml (hosted demo)
-      DEMO_ENABLED: ${DEMO_ENABLED:-true}
-      DEMO_PUBLIC: ${DEMO_PUBLIC:-false}
-      DEMO_RESET_INTERVAL: ${DEMO_RESET_INTERVAL:-PT6H}
-      DEMO_RESET_COOLDOWN: ${DEMO_RESET_COOLDOWN:-PT2M}
-      DEMO_UPLOADS_PER_MINUTE: ${DEMO_UPLOADS_PER_MINUTE:-60}
-      DEMO_JURISDICTION: ${DEMO_JURISDICTION:-IN}
     volumes:
       # Dev report-signing keyring survives rebuilds; production uses REPORT_SIGNING_PROVIDER=vault
       - signing_keys:/app/data/signing-keys
@@ -192,6 +182,7 @@ services:
       retries: 5
 
   mock-social-feed:
+    profiles: ["tools"]
     build: ./mock-social-feed
     restart: unless-stopped
     ports:

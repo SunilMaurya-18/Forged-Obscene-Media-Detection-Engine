@@ -51,12 +51,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Phase 15: one-click evidentiary PDF per analysis for a platform's legal / compliance team.
+ * One-click evidentiary PDF per analysis for legal, compliance, and affected people.
  *
- * <p>Forensic panels come from the coarse signature stored at analysis time, or, when a moderator
- * re-supplies the original, from full-resolution renders verified against the stored pixel hash.
- * The original is never retained. Items at or above the explicit review threshold never embed the
- * image itself: their Grad-CAM and ELA panels always come from the coarse signature.
+ * <p>Layout prioritises a plain-language summary and fused score + forensic explanation, then the
+ * technical record and Ed25519 signature. Forensic panels come from the coarse signature stored at
+ * analysis time, or, when a moderator re-supplies the original, from full-resolution renders
+ * verified against the stored pixel hash. The original is never retained. Items at or above the
+ * explicit review threshold never embed the image itself: their Grad-CAM and ELA panels always come
+ * from the coarse signature.
  */
 @Service
 public class ReportService {
@@ -90,25 +92,43 @@ public class ReportService {
     private static final DateTimeFormatter TRAIL_TIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC);
 
-    private static final Color INK = new Color(0x111827);
-    private static final Color MUTED = new Color(0x6B7280);
-    private static final Color LINE = new Color(0xE5E7EB);
-    private static final Color BRAND = new Color(0x4F46E5);
-    private static final Color BAND_BG = new Color(0x0B1020);
-    private static final Color SHADE = new Color(0xF3F4F6);
+    private static final Color INK = new Color(0x0F1114);
+    private static final Color MUTED = new Color(0x5F666E);
+    private static final Color LINE = new Color(0xD8DCE1);
+    private static final Color BRAND = new Color(0xC45C3A);
+    private static final Color COVER = new Color(0x12151A);
+    private static final Color COVER_ACCENT = new Color(0xE8E4DF);
+    private static final Color SHADE = new Color(0xF6F5F2);
+    private static final Color CARD = new Color(0xFFFFFF);
+    private static final Color VERIFY_BG = new Color(0xE8F6EE);
+    private static final Color VERIFY_FG = new Color(0x0F5C38);
+    private static final Color LIMIT_BG = new Color(0xFBF3EA);
+    private static final Color LIMIT_FG = new Color(0x8A3B12);
+    private static final Color RED = new Color(0xC53026);
+    private static final Color GREEN = new Color(0x15803D);
+    private static final Color AMBER = new Color(0xA16207);
 
-    private static final Font H1 = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, Font.NORMAL, Color.WHITE);
-    private static final Font H1_SUB = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, new Color(0xA5B4FC));
-    private static final Font BAND_LABEL = FontFactory.getFont(FontFactory.HELVETICA, 7.5f, Font.NORMAL, new Color(0x9CA3AF));
-    private static final Font BAND_VALUE = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
-    private static final Font H2 = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11.5f, Font.NORMAL, INK);
+    private static final Font COVER_EYEBROW = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, new Color(0xB8B4AE));
+    private static final Font COVER_TITLE = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 26, Font.NORMAL, Color.WHITE);
+    private static final Font COVER_OUTCOME = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 22, Font.NORMAL, Color.WHITE);
+    private static final Font COVER_BODY = FontFactory.getFont(FontFactory.HELVETICA, 10.5f, Font.NORMAL, COVER_ACCENT);
+    private static final Font COVER_META = FontFactory.getFont(FontFactory.COURIER, 9, Font.NORMAL, new Color(0x9AA1A9));
+    private static final Font H2 = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Font.NORMAL, INK);
+    private static final Font H3 = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10.5f, Font.NORMAL, INK);
+    private static final Font BODY = FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, INK);
     private static final Font LABEL = FontFactory.getFont(FontFactory.HELVETICA, 8.5f, Font.NORMAL, MUTED);
-    private static final Font VALUE = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, INK);
-    private static final Font VALUE_BOLD = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, INK);
+    private static final Font VALUE = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, Font.NORMAL, INK);
+    private static final Font VALUE_BOLD = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, Font.NORMAL, INK);
     private static final Font MONO = FontFactory.getFont(FontFactory.COURIER, 8.5f, Font.NORMAL, INK);
-    private static final Font SMALL = FontFactory.getFont(FontFactory.HELVETICA, 7.5f, Font.NORMAL, MUTED);
-    private static final Font EVENT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Font.NORMAL, INK);
+    private static final Font SCORE_NUM = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 28, Font.NORMAL, INK);
+    private static final Font SMALL = FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL, MUTED);
+    private static final Font EVENT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, Font.NORMAL, INK);
     private static final Font TH = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Font.NORMAL, MUTED);
+    private static final Font H1 = COVER_TITLE;
+    private static final Font H1_SUB = COVER_BODY;
+    private static final Font BAND_LABEL = LABEL;
+    private static final Font BAND_VALUE = VALUE_BOLD;
+    private static final Color BAND_BG = COVER;
 
     private final AnalysisResultRepository results;
     private final ProvenanceEventRepository events;
@@ -173,7 +193,7 @@ public class ReportService {
         provenance.record(item.getProvenanceId(), item.getId(), ProvenanceEventType.REPORT_GENERATED,
                 ProvenanceService.MODERATOR, "Evidentiary report " + reportId + " generated and signed (" + ReportSigningService.ALGORITHM
                         + " key " + signed.keyId() + "); PDF SHA-256 " + sha, now);
-        return new Report(reportId, "evidence-report-analysis-" + id + ".pdf", pdf, sha, panels.source(), signed);
+        return new Report(reportId, "decision-record-" + id + ".pdf", pdf, sha, panels.source(), signed);
     }
 
     // ------------------------------------------------------------------ panels
@@ -231,6 +251,24 @@ public class ReportService {
                     : "Rendered from the original file supplied at report time and verified against the stored pixel hash. "
                             + "The file was not retained.";
         }
+
+        // No spatial grids and no re-attached original: show stored fingerprints instead of blank cards.
+        if (source == PanelSource.NONE) {
+            heatmap = renderer.phashMosaic(item.getPhash(), 360);
+            fft = renderer.scoreMeters(
+                    item.getForgeryScore(),
+                    item.getExplicitScore(),
+                    thresholds.getForgeryReview(),
+                    thresholds.getForgeryAutoFlag(),
+                    thresholds.getExplicitReview(),
+                    thresholds.getExplicitAutoFlag(),
+                    360);
+            ela = renderer.hashPattern(item.getContentHash(), 360);
+            note = "Spatial forensic panels (Grad-CAM, FFT, ELA) were not stored for this analysis. "
+                    + "The cards below are drawn only from fingerprints and scores kept instead of the media "
+                    + "(perceptual hash mosaic, score meters, content-hash pattern). Attach the original at report "
+                    + "time for full forensic panels when the file is still available. No media was retained.";
+        }
         return new Panels(heatmap, fft, ela, profile, source, note, sig);
     }
 
@@ -274,16 +312,17 @@ public class ReportService {
     private byte[] render(
             AnalysisResult item, String reportId, Instant now, String preparedBy, Panels panels, ReportSigningService.Signed signed) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 40, 40, 40, 52);
+        // Wider margins + cover-first layout (v2 design — not the old dense table dump)
+        Document doc = new Document(PageSize.A4, 48, 48, 48, 56);
         try {
             PdfWriter writer = PdfWriter.getInstance(doc, out);
             writer.setPageEvent(new Footer(reportId, item));
-            doc.addTitle("Evidentiary analysis report " + reportId);
+            doc.addTitle("Decision record " + reportId);
             doc.addSubject("Analysis #" + item.getId() + " / provenance " + item.getProvenanceId());
             doc.addAuthor("Forged Media Detection");
-            doc.addCreator("Forged Media Detection evidentiary reports");
-            // Machine-readable copy of the signature in the PDF Info dictionary
+            doc.addCreator("Forged Media Detection decision records v2");
             doc.addHeader("FMD-Report-Id", reportId);
+            doc.addHeader("FMD-Report-Layout", "decision-record-v2");
             doc.addHeader("FMD-Signature-Algorithm", ReportSigningService.ALGORITHM);
             doc.addHeader("FMD-Signature", signed.signature());
             doc.addHeader("FMD-Signed-Content-SHA256", signed.contentHash());
@@ -291,16 +330,18 @@ public class ReportService {
             doc.addHeader("FMD-Signed-At", signed.signedAt().toString());
             doc.open();
 
-            headerBand(doc, reportId, now, preparedBy);
-            decisionBanner(doc, item.getDecision());
-            identification(doc, item);
+            coverPage(doc, item, reportId, now, preparedBy, signed);
+            doc.newPage();
+            atAGlance(doc, item, signed);
             scores(doc, item);
+            forensics(doc, panels, item);
             compliance(doc, item);
             moderationAndAppeal(doc, item);
+            identification(doc, item);
             contentCredentials(doc, item);
-            forensics(doc, panels, item);
             auditTrail(doc, item);
             integrity(doc, item, reportId);
+            glossary(doc);
             signatureBlock(doc, signed);
         } catch (DocumentException | IOException ex) {
             throw new IllegalStateException("Could not render report: " + ex.getMessage(), ex);
@@ -312,72 +353,195 @@ public class ReportService {
         return out.toByteArray();
     }
 
-    private void headerBand(Document doc, String reportId, Instant now, String preparedBy) throws DocumentException {
-        PdfPTable band = new PdfPTable(new float[] {58, 42});
-        band.setWidthPercentage(100);
+    /** Full first page: dark cover, huge outcome, story in plain words — looks nothing like the old header band. */
+    private void coverPage(
+            Document doc, AnalysisResult item, String reportId, Instant now, String preparedBy, ReportSigningService.Signed signed)
+            throws DocumentException {
+        PdfPTable hero = new PdfPTable(1);
+        hero.setWidthPercentage(100);
+        PdfPCell bg = cell(COVER, 28);
+        bg.setMinimumHeight(720);
 
-        PdfPCell left = cell(BAND_BG, 14);
-        left.addElement(new Paragraph("Evidentiary Analysis Report", H1));
-        Paragraph sub = new Paragraph("Forged Media Detection  |  Trust & Safety  |  Confidential", H1_SUB);
-        sub.setSpacingBefore(3);
-        left.addElement(sub);
-        band.addCell(left);
+        Paragraph eyebrow = new Paragraph("FORGED MEDIA DETECTION  ·  TRUST & SAFETY", COVER_EYEBROW);
+        bg.addElement(eyebrow);
 
-        PdfPCell right = cell(BAND_BG, 14);
-        for (String[] kv : new String[][] {
-                {"REPORT ID", reportId}, {"GENERATED", timestamp(now)}, {"PREPARED BY", preparedBy + " (moderator)"}}) {
-            Paragraph p = new Paragraph();
-            p.add(new Chunk(kv[0] + "   ", BAND_LABEL));
-            p.add(new Chunk(kv[1], BAND_VALUE));
-            p.setAlignment(Element.ALIGN_RIGHT);
-            right.addElement(p);
-        }
-        band.addCell(right);
-        doc.add(band);
+        Paragraph title = new Paragraph("Decision record", COVER_TITLE);
+        title.setSpacingBefore(18);
+        bg.addElement(title);
+
+        Paragraph aka = new Paragraph("Evidentiary Analysis Report  ·  confidential", COVER_EYEBROW);
+        aka.setSpacingBefore(6);
+        bg.addElement(aka);
+
+        Color outcomeColor = switch (item.getDecision()) {
+            case AUTO_FLAG -> new Color(0xF07167);
+            case REVIEW -> new Color(0xE8C27A);
+            default -> new Color(0x4ECF7A);
+        };
+        Paragraph outcome = new Paragraph(plainOutcomeTitle(item.getDecision()), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 22, Font.NORMAL, outcomeColor));
+        outcome.setSpacingBefore(28);
+        bg.addElement(outcome);
+        Paragraph code = new Paragraph("(" + technicalOutcomeCode(item.getDecision()) + ")", COVER_EYEBROW);
+        code.setSpacingBefore(4);
+        bg.addElement(code);
+
+        Paragraph story = new Paragraph(summaryParagraph(item, preparedBy), COVER_BODY);
+        story.setSpacingBefore(22);
+        story.setLeading(15f);
+        bg.addElement(story);
+
+        Paragraph meta = new Paragraph();
+        meta.setSpacingBefore(28);
+        meta.add(new Chunk(reportId + "\n", COVER_META));
+        meta.add(new Chunk("Generated  " + timestamp(now) + "\n", COVER_META));
+        meta.add(new Chunk("Prepared by  " + preparedBy + " (moderator)\n", COVER_META));
+        meta.add(new Chunk("Verify  /api/verify-report/" + signed.reportId(), COVER_META));
+        bg.addElement(meta);
+
+        Paragraph foot = new Paragraph("Page 1 of this file is a cover for people. Technical detail starts on the next page.", COVER_EYEBROW);
+        foot.setSpacingBefore(36);
+        bg.addElement(foot);
+
+        hero.addCell(bg);
+        doc.add(hero);
     }
 
-    private void decisionBanner(Document doc, Decision decision) throws DocumentException {
-        Color bg;
-        Color fg;
-        String label;
-        String meaning;
-        switch (decision) {
-            case AUTO_FLAG -> {
-                bg = new Color(0xFFE4E6);
-                fg = new Color(0x9F1239);
-                label = "AUTO-FLAGGED";
-                meaning = "At least one score is at or above its auto-flag threshold; the content is withheld automatically.";
-            }
-            case REVIEW -> {
-                bg = new Color(0xFEF3C7);
-                fg = new Color(0x92400E);
-                label = "NEEDS HUMAN REVIEW";
-                meaning = "At least one score is in the review band; a moderator decides whether the content stays up.";
-            }
-            default -> {
-                bg = new Color(0xD1FAE5);
-                fg = new Color(0x065F46);
-                label = "ALLOWED";
-                meaning = "Both scores are below the review thresholds, or a moderator allowed the content.";
-            }
-        }
+    private static String plainOutcomeTitle(Decision decision) {
+        return switch (decision) {
+            case AUTO_FLAG -> "REMOVED AUTOMATICALLY";
+            case REVIEW -> "WAITING FOR A HUMAN DECISION";
+            default -> "LEFT UP (ALLOWED)";
+        };
+    }
+
+    private static String technicalOutcomeCode(Decision decision) {
+        return switch (decision) {
+            case AUTO_FLAG -> "AUTO-FLAGGED";
+            case REVIEW -> "NEEDS HUMAN REVIEW";
+            default -> "ALLOWED";
+        };
+    }
+
+    /** Second page opener: verify + limits cards, not a form header. */
+    private void atAGlance(Document doc, AnalysisResult item, ReportSigningService.Signed signed) throws DocumentException {
+        Paragraph h = new Paragraph("What this report is", H2);
+        h.setSpacingAfter(8);
+        doc.add(h);
+        Paragraph lead = new Paragraph(
+                "This is a signed decision record for analysis #" + item.getId() + ". "
+                        + "It explains the outcome in plain language, shows the model scores and forensic panels that informed it, "
+                        + "then lists the technical identifiers lawyers and investigators need.",
+                BODY);
+        lead.setLeading(14.5f);
+        lead.setSpacingAfter(12);
+        doc.add(lead);
+
+        verifyBox(doc, signed);
+        limitsDisclaimer(doc);
+
+        PdfPTable roadmap = new PdfPTable(3);
+        roadmap.setWidthPercentage(100);
+        roadmap.setSpacingBefore(14);
+        roadmap.setSpacingAfter(4);
+        roadmap.addCell(roadmapCard("01", "Scores", "How strong each check was"));
+        roadmap.addCell(roadmapCard("02", "Forensics", "Where the model looked"));
+        roadmap.addCell(roadmapCard("03", "Record", "IDs, trail, signature"));
+        doc.add(roadmap);
+    }
+
+    private static PdfPCell roadmapCard(String num, String title, String blurb) {
+        PdfPCell c = new PdfPCell();
+        c.setBorderColor(LINE);
+        c.setBorderWidth(1f);
+        c.setBackgroundColor(SHADE);
+        c.setPadding(12);
+        c.setPaddingRight(10);
+        c.addElement(new Paragraph(num, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, Font.NORMAL, BRAND)));
+        Paragraph t = new Paragraph(title, H3);
+        t.setSpacingBefore(6);
+        c.addElement(t);
+        Paragraph b = new Paragraph(blurb, SMALL);
+        b.setSpacingBefore(3);
+        c.addElement(b);
+        return c;
+    }
+
+    private String summaryParagraph(AnalysisResult item, String preparedBy) {
+        String media = item.isVideo() ? "a video (scored frame by frame; no frames were kept)" : "an image";
+        String outcome = plainDecisionSentence(item.getDecision());
+        String who = item.getDecidedBy() != null
+                ? "A moderator (" + item.getDecidedBy() + ") recorded the final decision"
+                : "Routing was automatic (no separate moderator override)";
+        String sla = item.getComplaintType() == null
+                ? "No formal takedown complaint was attached to this analysis."
+                : "A " + (item.getComplaintType() == ComplaintType.GOVERNMENT_ORDER
+                        ? "government takedown order"
+                        : "user complaint about deepfake / non-consensual imagery")
+                        + " started a legal deadline"
+                        + (item.getJurisdiction() != null ? " under jurisdiction " + item.getJurisdiction() : "")
+                        + ".";
+        return "This document records what happened when " + media + " was checked by Forged Media Detection. "
+                + outcome + " " + who + ". Prepared by " + preparedBy + ". " + sla
+                + " The original media is not stored with this report—only fingerprints (hashes), scores, decisions and timestamps.";
+    }
+
+    private static String plainDecisionSentence(Decision decision) {
+        return switch (decision) {
+            case AUTO_FLAG -> "Outcome: the content was removed automatically (AUTO-FLAGGED).";
+            case REVIEW -> "Outcome: the content needs a human decision (NEEDS HUMAN REVIEW).";
+            default -> "Outcome: the content was left up (ALLOWED).";
+        };
+    }
+
+    /** How anyone can check the report without trusting the PDF layout alone. */
+    private void verifyBox(Document doc, ReportSigningService.Signed signed) throws DocumentException {
         PdfPTable t = new PdfPTable(1);
         t.setWidthPercentage(100);
         t.setSpacingBefore(12);
-        PdfPCell c = cell(bg, 11);
-        Paragraph p = new Paragraph();
-        p.add(new Chunk("CURRENT DECISION   ", FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL, fg)));
-        p.add(new Chunk(label, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Font.NORMAL, fg)));
-        c.addElement(p);
-        Paragraph m = new Paragraph(meaning, FontFactory.getFont(FontFactory.HELVETICA, 8.5f, Font.NORMAL, fg));
-        m.setSpacingBefore(2);
-        c.addElement(m);
+        PdfPCell c = cell(VERIFY_BG, 11);
+        Paragraph title = new Paragraph("How to verify this report", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Font.NORMAL, VERIFY_FG));
+        c.addElement(title);
+        Paragraph body = new Paragraph(
+                "Anyone can check that the facts in this report still match the signed record. "
+                        + "Open GET /api/verify-report/" + signed.reportId()
+                        + " (or the Verify page in the console). Results are VALID, TAMPERED (with changed fields named), or NOT_FOUND. "
+                        + "Public keys, including retired ones, are at /api/verify-report/keys. "
+                        + "You do not need a moderator account.",
+                FontFactory.getFont(FontFactory.HELVETICA, 8.5f, Font.NORMAL, VERIFY_FG));
+        body.setSpacingBefore(3);
+        body.setLeading(11.5f);
+        c.addElement(body);
+        Paragraph id = new Paragraph();
+        id.setSpacingBefore(4);
+        id.add(new Chunk("Report ID  ", FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL, VERIFY_FG)));
+        id.add(new Chunk(signed.reportId(), FontFactory.getFont(FontFactory.COURIER_BOLD, 9, Font.NORMAL, VERIFY_FG)));
+        c.addElement(id);
+        t.addCell(c);
+        doc.add(t);
+    }
+
+    private void limitsDisclaimer(Document doc) throws DocumentException {
+        PdfPTable t = new PdfPTable(1);
+        t.setWidthPercentage(100);
+        t.setSpacingBefore(8);
+        PdfPCell c = cell(LIMIT_BG, 10);
+        Paragraph title = new Paragraph("Important limits (read this)", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, LIMIT_FG));
+        c.addElement(title);
+        Paragraph body = new Paragraph(
+                "Model scores are automated estimates that support human judgement—they are not a court finding of who created "
+                        + "a deepfake or whether a crime occurred. Forensic panels (Grad-CAM, FFT, ELA) help explain where the "
+                        + "forgery model looked and what compression patterns appear; they do not prove manipulation on their own. "
+                        + "This report is process evidence: what the system recorded, decided and when.",
+                FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL, LIMIT_FG));
+        body.setSpacingBefore(2);
+        body.setLeading(11f);
+        c.addElement(body);
         t.addCell(c);
         doc.add(t);
     }
 
     private void identification(Document doc, AnalysisResult item) throws DocumentException {
-        section(doc, "1. Case identification");
+        section(doc, "05  ·  Technical identifiers");
         PdfPTable t = kvTable();
         kv(t, "Analysis ID", "#" + item.getId(), false);
         kv(t, "Provenance ID", orDash(item.getProvenanceId()), true);
@@ -391,25 +555,88 @@ public class ReportService {
     }
 
     private void scores(Document doc, AnalysisResult item) throws DocumentException, IOException {
-        section(doc, "2. Model scores");
-        PdfPTable t = new PdfPTable(new float[] {28, 14, 30, 28});
-        t.setWidthPercentage(100);
-        for (String h : new String[] {"Model", "Score", "Band", "Thresholds (review / auto-flag)"}) {
-            t.addCell(th(h));
-        }
-        scoreRow(t, "Forgery (EfficientNet-B0)", item.getForgeryScore(),
-                thresholds.getForgeryReview(), thresholds.getForgeryAutoFlag());
-        scoreRow(t, "Explicit content (independent)", item.getExplicitScore(),
-                thresholds.getExplicitReview(), thresholds.getExplicitAutoFlag());
-        doc.add(t);
-        PdfPTable fam = kvTable();
-        kv(fam, "Generation family", familyLabel(item), false);
-        doc.add(fam);
+        section(doc, "01  ·  Model scores");
+        doc.add(note("Two independent checks, scored from 0 to 1. Higher means more concerning for that check. "
+                + "Crossing the review line sends the item to a person; crossing the auto-remove line withholds it."));
+
+        PdfPTable tiles = new PdfPTable(2);
+        tiles.setWidthPercentage(100);
+        tiles.setSpacingBefore(10);
+        tiles.setSpacingAfter(8);
+        tiles.addCell(scoreTile(
+                "Signs of AI editing",
+                item.getForgeryScore(),
+                thresholds.getForgeryReview(),
+                thresholds.getForgeryAutoFlag()));
+        tiles.addCell(scoreTile(
+                "Explicit content (separate model)",
+                item.getExplicitScore(),
+                thresholds.getExplicitReview(),
+                thresholds.getExplicitAutoFlag()));
+        doc.add(tiles);
+
+        card(doc, "Likely generation style", familyLabel(item));
         if (item.isVideo()) {
             videoTimeline(doc, item);
         }
-        doc.add(note("Thresholds shown are those configured when this report was generated. Scores are model "
-                + "confidences in [0, 1], not probabilities of guilt; they support, and do not replace, human judgement."));
+        doc.add(note("Thresholds are those configured when this report was generated. Scores support human judgement; "
+                + "they are not probabilities of guilt."));
+    }
+
+    private PdfPCell scoreTile(String title, double score, double review, double autoFlag) {
+        String band = score >= autoFlag ? "Auto-flag band" : score >= review ? "Review band" : "Below review threshold";
+        Color accent = score >= autoFlag ? RED : score >= review ? AMBER : GREEN;
+        PdfPCell c = new PdfPCell();
+        c.setBorderColor(LINE);
+        c.setBorderWidth(1.2f);
+        c.setBackgroundColor(CARD);
+        c.setPadding(14);
+        c.setPaddingTop(12);
+        Paragraph t = new Paragraph(title, LABEL);
+        c.addElement(t);
+        Paragraph num = new Paragraph(String.format(Locale.ROOT, "%.2f", score), SCORE_NUM);
+        num.setSpacingBefore(6);
+        c.addElement(num);
+        // Keep four-decimal form in the PDF for tests / auditors
+        Paragraph exact = new Paragraph(String.format(Locale.ROOT, "%.4f   ·   %s", score, band), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, accent));
+        exact.setSpacingBefore(2);
+        c.addElement(exact);
+        Paragraph thr = new Paragraph(
+                String.format(Locale.ROOT, "Review line %.2f   ·   Auto-remove %.2f", review, autoFlag), SMALL);
+        thr.setSpacingBefore(8);
+        c.addElement(thr);
+        // Visual meter (20 segments)
+        PdfPTable meter = new PdfPTable(20);
+        meter.setWidthPercentage(100);
+        meter.setSpacingBefore(10);
+        int filled = (int) Math.round(Math.min(1.0, Math.max(0.0, score)) * 20);
+        for (int i = 0; i < 20; i++) {
+            PdfPCell seg = new PdfPCell();
+            seg.setFixedHeight(8);
+            seg.setBorder(Rectangle.NO_BORDER);
+            seg.setBackgroundColor(i < filled ? accent : SHADE);
+            meter.addCell(seg);
+        }
+        c.addElement(meter);
+        return c;
+    }
+
+    private void card(Document doc, String title, String body) throws DocumentException {
+        PdfPTable t = new PdfPTable(1);
+        t.setWidthPercentage(100);
+        t.setSpacingBefore(8);
+        PdfPCell c = new PdfPCell();
+        c.setBorderColor(LINE);
+        c.setBorderWidth(1f);
+        c.setBackgroundColor(SHADE);
+        c.setPadding(12);
+        c.addElement(new Paragraph(title, LABEL));
+        Paragraph b = new Paragraph(body, BODY);
+        b.setSpacingBefore(4);
+        b.setLeading(13.5f);
+        c.addElement(b);
+        t.addCell(c);
+        doc.add(t);
     }
 
     private void videoTimeline(Document doc, AnalysisResult item) throws DocumentException, IOException {
@@ -436,8 +663,9 @@ public class ReportService {
         }
         doc.add(t);
         if (forgery.length > 0) {
-            Paragraph cap = new Paragraph("Frame-score strip: bars = per-frame forgery score (green / amber / red by band), "
-                    + "line = explicit score, dashed = forgery review and auto-flag thresholds, outlined bar = peak frame", LABEL);
+            Paragraph cap = new Paragraph("Frame-score strip (read left to right over time): coloured bars = forgery score "
+                    + "(green / amber / red by band), line = explicit score, dashed lines = review and auto-remove thresholds, "
+                    + "outlined bar = peak frame used for the forensic panels", LABEL);
             cap.setSpacingBefore(8);
             doc.add(cap);
             Image strip = Image.getInstance(renderer.frameStrip(forgery, explicit, thresholds.getForgeryReview(),
@@ -461,7 +689,7 @@ public class ReportService {
     }
 
     private void moderationAndAppeal(Document doc, AnalysisResult item) throws DocumentException {
-        section(doc, "4. Moderation and appeal");
+        section(doc, "04  ·  Moderation, appeals and what happens next");
         PdfPTable t = kvTable();
         kv(t, "Model decision", item.getModelDecision() != null ? item.getModelDecision().name() : item.getDecision().name(), false);
         kv(t, "Decided by", item.getDecidedBy() != null
@@ -519,13 +747,13 @@ public class ReportService {
             }
             doc.add(l);
         }
-        doc.add(note("Changes away from AUTO-FLAGGED need a second moderator; appeals are decided, and their outcome second-reviewed, "
-                + "by moderators other than those who made or upheld the contested decision. The public audit trail (section 7) "
-                + "records these steps without names."));
+        doc.add(note("Changes away from AUTO-FLAGGED need a second moderator; appeals are decided, and their outcome "
+                + "second-reviewed, by someone other than the people who made or upheld the contested decision. "
+                + "The public audit trail below records these steps without naming moderators."));
     }
 
     private void contentCredentials(Document doc, AnalysisResult item) throws DocumentException {
-        section(doc, "5. Content credentials (C2PA)");
+        section(doc, "06  ·  Content credentials (C2PA)");
         JsonNode c = parseSignature(item.getC2paManifest());
         PdfPTable t = kvTable();
         if (c == null) {
@@ -593,16 +821,8 @@ public class ReportService {
         };
     }
 
-    private void scoreRow(PdfPTable t, String model, double score, double review, double autoFlag) {
-        String band = score >= autoFlag ? "Auto-flag band" : score >= review ? "Review band" : "Below review threshold";
-        t.addCell(td(model, VALUE));
-        t.addCell(td(String.format(Locale.ROOT, "%.4f", score), MONO));
-        t.addCell(td(band, score >= review ? VALUE_BOLD : VALUE));
-        t.addCell(td(String.format(Locale.ROOT, "%.2f / %.2f", review, autoFlag), MONO));
-    }
-
     private void compliance(Document doc, AnalysisResult item) throws DocumentException {
-        section(doc, "3. Takedown compliance");
+        section(doc, "03  ·  Legal deadline (if a complaint was filed)");
         PdfPTable t = kvTable();
         if (item.getComplaintType() == null) {
             kv(t, "Complaint", "None filed. This item is not subject to a takedown SLA.", false);
@@ -645,75 +865,136 @@ public class ReportService {
 
     private void forensics(Document doc, Panels panels, AnalysisResult item) throws DocumentException, IOException {
         doc.newPage();
-        section(doc, "6. Forensic panels");
-        JsonNode sig = panels.signature();
+        boolean fingerprintOnly = panels.source() == PanelSource.NONE;
+        section(doc, fingerprintOnly ? "02  ·  Stored fingerprints (no spatial forensics)" : "02  ·  Forensic panels");
+        Paragraph intro = new Paragraph(
+                fingerprintOnly
+                        ? "This analysis predates signature capture (or had no grids stored). Raw media is never kept, "
+                                + "so the cards below show only fingerprints and scores that were retained — not the image, "
+                                + "and not Grad-CAM / FFT / ELA. Attach the original when downloading to obtain full panels."
+                        : "Each panel below is a full-width card: the image on the left, a plain-language caption on the right. "
+                                + "Together with the scores, they explain the decision. They do not by themselves prove that media was forged."
+                                + (item.isVideo()
+                                        ? " For video, panels come from the peak frame (highest forgery score on the timeline)."
+                                        : ""),
+                BODY);
+        intro.setLeading(14f);
+        intro.setSpacingAfter(10);
+        doc.add(intro);
 
-        PdfPTable grid = new PdfPTable(3);
-        grid.setWidthPercentage(100);
-        grid.setSpacingBefore(4);
-        grid.addCell(panel(panels.heatmap(), "Grad-CAM attention",
-                sig == null ? null
-                        : ForensicPanelRenderer.isFlat(matrix(sig.at("/cam/grid"))) ? "No salient regions"
-                        : String.format(Locale.ROOT, "Peak at x %.0f%%, y %.0f%%",
-                                sig.at("/cam/peak/x").asDouble() * 100, sig.at("/cam/peak/y").asDouble() * 100),
-                "Regions that drove the forgery score (red = strongest)."));
-        grid.addCell(panel(panels.fft(), "FFT magnitude spectrum",
-                sig != null ? String.format(Locale.ROOT, "High-frequency energy %.2f%%",
-                        sig.at("/fft/high_freq_ratio").asDouble() * 100) : null,
-                "Grid or star patterns can indicate resampling or generator artefacts."));
-        grid.addCell(panel(panels.ela(), "Error level analysis",
-                sig != null ? String.format(Locale.ROOT, "Mean %.2f | p95 %.2f | max %.0f (q%d)",
-                        sig.at("/ela/mean").asDouble(), sig.at("/ela/p95").asDouble(),
-                        sig.at("/ela/max").asDouble(), sig.at("/ela/quality").asInt()) : null,
-                "Bright blocks recompress differently and may have been pasted in."));
-        doc.add(grid);
+        if (fingerprintOnly) {
+            String phash = item.getPhash() == null ? "-" : item.getPhash();
+            forensicCard(doc, panels.heatmap(), "Perceptual hash mosaic",
+                    phash,
+                    "In plain terms: an 8×8 map of the 64-bit perceptual fingerprint stored at analysis time. "
+                            + "Light and dark cells are hash bits — useful to recognise the same file again, not a picture of the media.");
+            forensicCard(doc, panels.fft(), "Score meters",
+                    String.format(Locale.ROOT, "Forgery %.4f  ·  Explicit %.4f",
+                            item.getForgeryScore(), item.getExplicitScore()),
+                    "In plain terms: the two model scores that drove routing, with amber review and red auto-remove guides. "
+                            + "Top bar = forgery, bottom = explicit. Drawn from stored numbers only.");
+            String hashMetric = item.getContentHash() == null || item.getContentHash().isBlank()
+                    ? "No content hash on this row"
+                    : (item.getContentHash().length() > 24
+                            ? item.getContentHash().substring(0, 24) + "…"
+                            : item.getContentHash());
+            forensicCard(doc, panels.ela(), "Content-hash pattern",
+                    hashMetric,
+                    "In plain terms: a pattern derived from the pixel SHA-256 (or a fold of the stored id when hash is missing). "
+                            + "It binds this report to one exact file without showing any pixels.");
+        } else {
+            JsonNode sig = panels.signature();
+            forensicCard(doc, panels.heatmap(), "Grad-CAM attention",
+                    sig == null ? null
+                            : ForensicPanelRenderer.isFlat(matrix(sig.at("/cam/grid"))) ? "No salient regions"
+                            : String.format(Locale.ROOT, "Peak at x %.0f%%, y %.0f%%",
+                                    sig.at("/cam/peak/x").asDouble() * 100, sig.at("/cam/peak/y").asDouble() * 100),
+                    "In plain terms: warmer colours show where the editing-detection model paid most attention. "
+                            + "Red = strongest influence on the forgery score—not proof of a fake face on its own.");
+            forensicCard(doc, panels.fft(), "FFT magnitude spectrum",
+                    sig != null ? String.format(Locale.ROOT, "High-frequency energy %.2f%%",
+                            sig.at("/fft/high_freq_ratio").asDouble() * 100) : null,
+                    "In plain terms: a view of fine detail energy. Grid or star-like patterns can hint at resizing or "
+                            + "generator artefacts. A quiet spectrum does not mean the image is genuine.");
+            forensicCard(doc, panels.ela(), "Error level analysis",
+                    sig != null ? String.format(Locale.ROOT, "Mean %.2f | p95 %.2f | max %.0f (q%d)",
+                            sig.at("/ela/mean").asDouble(), sig.at("/ela/p95").asDouble(),
+                            sig.at("/ela/max").asDouble(), sig.at("/ela/quality").asInt()) : null,
+                    "In plain terms: bright patches recompress differently from the rest and may have been edited or pasted. "
+                            + "Uneven lighting or heavy compression can also light up.");
+        }
 
         if (panels.profile() != null) {
-            Paragraph cap = new Paragraph("Radial spectrum profile (low to high frequency; shaded half counts as high frequency)", LABEL);
-            cap.setSpacingBefore(10);
-            doc.add(cap);
+            PdfPTable wrap = new PdfPTable(1);
+            wrap.setWidthPercentage(100);
+            wrap.setSpacingBefore(8);
+            PdfPCell c = new PdfPCell();
+            c.setBorderColor(LINE);
+            c.setBorderWidth(1f);
+            c.setPadding(12);
+            c.addElement(new Paragraph("Radial spectrum profile", H3));
+            Paragraph cap = new Paragraph(
+                    "Low to high frequency (shaded half = high frequency). Complements the FFT panel.", SMALL);
+            cap.setSpacingBefore(4);
+            c.addElement(cap);
             Image chart = Image.getInstance(panels.profile());
-            chart.scaleToFit(doc.getPageSize().getWidth() - 80, 110);
-            chart.setSpacingBefore(3);
-            doc.add(chart);
+            chart.scaleToFit(doc.getPageSize().getWidth() - 120, 100);
+            chart.setSpacingBefore(8);
+            c.addElement(chart);
+            wrap.addCell(c);
+            doc.add(wrap);
         }
-        doc.add(note("Panel source: " + panels.source().name().toLowerCase(Locale.ROOT) + ". " + panels.note()
-                + (item.isVideo() ? " For video, the signature is taken from the peak frame (highest forgery score)." : "")));
+
+        card(doc, "Panel source: " + panels.source().name().toLowerCase(Locale.ROOT), panels.note());
     }
 
-    private PdfPCell panel(byte[] png, String title, String metric, String caption) throws IOException, DocumentException {
-        PdfPCell c = new PdfPCell();
-        c.setBorder(Rectangle.NO_BORDER);
-        c.setPadding(4);
+    private void forensicCard(Document doc, byte[] png, String title, String metric, String caption)
+            throws IOException, DocumentException {
+        PdfPTable row = new PdfPTable(new float[] {38, 62});
+        row.setWidthPercentage(100);
+        row.setSpacingBefore(8);
+
+        PdfPCell media = new PdfPCell();
+        media.setBorderColor(LINE);
+        media.setBorderWidth(1f);
+        media.setBackgroundColor(COVER);
+        media.setPadding(10);
+        media.setVerticalAlignment(Element.ALIGN_MIDDLE);
         if (png != null) {
             Image img = Image.getInstance(png);
-            img.scaleToFit(160, 160);
+            img.scaleToFit(180, 180);
             img.setAlignment(Element.ALIGN_CENTER);
-            c.addElement(img);
+            media.addElement(img);
         } else {
-            PdfPTable placeholder = new PdfPTable(1);
-            placeholder.setWidthPercentage(100);
-            PdfPCell box = cell(SHADE, 10);
-            box.setFixedHeight(150);
-            box.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            Paragraph p = new Paragraph("Not available", SMALL);
+            Paragraph p = new Paragraph("Not available", FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.WHITE));
             p.setAlignment(Element.ALIGN_CENTER);
-            box.addElement(p);
-            placeholder.addCell(box);
-            c.addElement(placeholder);
+            media.addElement(p);
         }
-        Paragraph t = new Paragraph(title, VALUE_BOLD);
-        t.setSpacingBefore(5);
-        c.addElement(t);
+        row.addCell(media);
+
+        PdfPCell text = new PdfPCell();
+        text.setBorderColor(LINE);
+        text.setBorderWidth(1f);
+        text.setBackgroundColor(CARD);
+        text.setPadding(14);
+        text.addElement(new Paragraph(title, H3));
         if (metric != null) {
-            c.addElement(new Paragraph(metric, MONO));
+            Paragraph m = new Paragraph(metric, MONO);
+            m.setSpacingBefore(6);
+            text.addElement(m);
         }
-        c.addElement(new Paragraph(caption, SMALL));
-        return c;
+        Paragraph cap = new Paragraph(caption, BODY);
+        cap.setSpacingBefore(8);
+        cap.setLeading(13.5f);
+        text.addElement(cap);
+        row.addCell(text);
+        doc.add(row);
     }
 
     private void auditTrail(Document doc, AnalysisResult item) throws DocumentException {
-        section(doc, "7. Audit trail");
+        section(doc, "07  ·  Audit trail (public timeline)");
+        doc.add(note("Append-only events tied to the provenance ID. Actor names here are roles or system labels, not a full "
+                + "personnel file."));
         List<ProvenanceEvent> trail = item.getProvenanceId() != null
                 ? events.findByProvenanceIdOrderByOccurredAtAscIdAsc(item.getProvenanceId())
                 : List.of();
@@ -723,6 +1004,7 @@ public class ReportService {
         }
         PdfPTable t = new PdfPTable(new float[] {21, 22, 13, 44});
         t.setWidthPercentage(100);
+        t.setSpacingBefore(4);
         for (String h : new String[] {"Time (UTC)", "Event", "Actor", "Detail"}) {
             t.addCell(th(h));
         }
@@ -747,7 +1029,7 @@ public class ReportService {
                             + orDash(item.getProvenanceId()) + ". Anyone can check it and the audit trail at /verify/"
                             + orDash(item.getProvenanceId()) + ".",
             "Chain of custody: the SHA-256 of this PDF is recorded in the item's audit trail as event REPORT GENERATED for "
-                    + reportId + ". Recompute the file's SHA-256 and compare it to confirm the report is unaltered.",
+                    + reportId + ". Recompute the file's SHA-256 and compare it to confirm the file bytes are unaltered.",
             "Datasets: models were trained and evaluated only on consenting-actor research benchmarks "
                     + "(FaceForensics++, DFDC, Celeb-DF).",
         };
@@ -755,7 +1037,7 @@ public class ReportService {
         block.setWidthPercentage(100);
         block.setSpacingBefore(16);
         block.setKeepTogether(true);
-        PdfPCell title = new PdfPCell(new Phrase("8. Integrity and data handling", H2));
+        PdfPCell title = new PdfPCell(new Phrase("08  ·  Integrity and data handling", H2));
         title.setBorder(Rectangle.NO_BORDER);
         title.setPadding(0);
         title.setPaddingBottom(8);
@@ -769,10 +1051,23 @@ public class ReportService {
             cell.addElement(p);
             cell.setBorder(Rectangle.NO_BORDER);
             cell.setPadding(0);
-            cell.setPaddingBottom(4);
+            cell.setPaddingBottom(5);
             block.addCell(cell);
         }
         doc.add(block);
+    }
+
+    private void glossary(Document doc) throws DocumentException {
+        section(doc, "09  ·  Glossary");
+        PdfPTable t = kvTable();
+        kv(t, "pHash", "A short perceptual fingerprint of the picture. Similar images share nearby codes; it is not the image itself.", false);
+        kv(t, "Pixel hash (SHA-256)", "A fingerprint of the exact file bytes. Any change to the file changes this code.", false);
+        kv(t, "Provenance ID", "A public ID for this analysis's timeline. You can look it up without signing in.", false);
+        kv(t, "SLA", "Service level agreement — here, the legal deadline to handle a takedown complaint.", false);
+        kv(t, "C2PA", "Content Credentials: optional signed claims embedded by a camera or tool about how media was made.", false);
+        kv(t, "Ed25519", "The digital signature algorithm used so others can check this report without a secret password.", false);
+        kv(t, "AUTO-FLAGGED", "System code for \"removed automatically\" when a score crosses the auto-remove line.", false);
+        doc.add(t);
     }
 
     private void signatureBlock(Document doc, ReportSigningService.Signed signed) throws DocumentException {
@@ -780,11 +1075,23 @@ public class ReportService {
         block.setWidthPercentage(100);
         block.setSpacingBefore(14);
         block.setKeepTogether(true);
-        PdfPCell title = new PdfPCell(new Phrase("9. Digital signature", H2));
+        PdfPCell title = new PdfPCell(new Phrase("10  ·  Digital signature", H2));
         title.setBorder(Rectangle.NO_BORDER);
         title.setPadding(0);
         title.setPaddingBottom(6);
         block.addCell(title);
+
+        Paragraph intro = new Paragraph(
+                "This signature covers a fixed list of facts (the canonical snapshot), not the decorative layout of the PDF. "
+                        + "If those facts change later, verification returns TAMPERED.",
+                BODY);
+        intro.setLeading(12.5f);
+        intro.setSpacingAfter(6);
+        PdfPCell introCell = new PdfPCell();
+        introCell.addElement(intro);
+        introCell.setBorder(Rectangle.NO_BORDER);
+        introCell.setPadding(0);
+        block.addCell(introCell);
 
         PdfPTable t = kvTable();
         kv(t, "Algorithm", ReportSigningService.ALGORITHM + " over the SHA-256 of the signed fields", false);
@@ -801,13 +1108,11 @@ public class ReportService {
 
         PdfPCell scope = new PdfPCell(note("Signed fields: report ID and time, analysis and provenance IDs, decision, both scores, "
                 + "generation family, hashes, jurisdiction, complaint and SLA timestamps, and (when present) media type, frames "
-                + "sampled, deciding moderator, appeal outcome and C2PA status. Any later change to them makes verification "
-                + "return TAMPERED. Keys rotate; retired public keys stay published at /api/verify-report/keys so older reports "
-                + "still verify. " + (signing.provider().production()
+                + "sampled, deciding moderator, appeal outcome and C2PA status. Keys rotate; retired public keys stay published at "
+                + "/api/verify-report/keys so older reports still verify. " + (signing.provider().production()
                         ? "The signing key is held in a key-management service and never leaves it."
-                        : "Scope: this uses a development key stored by the server. It demonstrates the mechanism; legal "
-                                + "admissibility would need the key held in a KMS/HSM (the Vault Transit provider) and a timestamp "
-                                + "from a trusted third-party authority.")));
+                        : "Scope: this deployment uses a development key stored by the server. For stronger custody use a KMS "
+                                + "(Vault Transit) and a trusted RFC 3161 timestamp authority.")));
         scope.setBorder(Rectangle.NO_BORDER);
         scope.setPadding(0);
         block.addCell(scope);
@@ -828,15 +1133,15 @@ public class ReportService {
 
     private static void section(Document doc, String title) throws DocumentException {
         Paragraph p = new Paragraph(title, H2);
-        p.setSpacingBefore(16);
-        p.setSpacingAfter(6);
+        p.setSpacingBefore(14);
+        p.setSpacingAfter(7);
         doc.add(p);
     }
 
     private static Paragraph note(String text) {
         Paragraph p = new Paragraph(text, SMALL);
-        p.setSpacingBefore(5);
-        p.setLeading(10.5f);
+        p.setSpacingBefore(6);
+        p.setLeading(11f);
         return p;
     }
 
@@ -914,14 +1219,19 @@ public class ReportService {
 
         @Override
         public void onEndPage(PdfWriter writer, Document document) {
+            // Cover page is full-bleed dark; skip the light footer there
+            if (writer.getPageNumber() <= 1) {
+                return;
+            }
             float y = document.bottom() - 22;
             ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_LEFT,
-                    new Phrase(reportId + "  |  Analysis #" + item.getId() + "  |  Confidential: prepared for legal / compliance review", SMALL),
+                    new Phrase(reportId + "  ·  Analysis #" + item.getId()
+                            + "  ·  Decision record v2  ·  Verify: /api/verify-report/" + reportId, SMALL),
                     document.left(), y, 0);
             ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT,
                     new Phrase("Page " + writer.getPageNumber(), SMALL), document.right(), y, 0);
             writer.getDirectContent().setColorStroke(BRAND);
-            writer.getDirectContent().setLineWidth(0.6f);
+            writer.getDirectContent().setLineWidth(1.2f);
             writer.getDirectContent().moveTo(document.left(), y + 11);
             writer.getDirectContent().lineTo(document.right(), y + 11);
             writer.getDirectContent().stroke();

@@ -67,7 +67,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
             "ml.service.url=http://localhost:9",
             "app.security.moderator-username=moderator",
             "app.security.moderator-password=moderator",
-            "api.demo-key=" + CustodyIntegrationTest.PARTNER_KEY,
+            "api.bootstrap-key=" + CustodyIntegrationTest.PARTNER_KEY,
             "api.rate-limits.FREE=1000",
             "prescreen.phash-max-distance=8",
             "compliance.seed-demo=false"

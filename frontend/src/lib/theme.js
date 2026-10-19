@@ -1,7 +1,7 @@
 export const THEME_KEY = 'fmd_theme'
 export const THEMES = ['dark', 'light']
 
-const CANVAS = { dark: '#0a0a0a', light: '#f5f5f5' }
+const CANVAS = { dark: '#0f1114', light: '#eceef1' }
 
 export function initialTheme() {
   try {

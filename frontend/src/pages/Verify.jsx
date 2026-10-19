@@ -19,7 +19,6 @@ import {
   X,
 } from 'lucide-react'
 import { fetchProvenance, verifyUpload } from '../api/client'
-import SamplePicker from '../components/SamplePicker'
 import { Alert, Button, Card, CardHeader, CopyButton, DecisionBadge, EmptyState, PageHeader } from '../components/ui'
 import { cn, dateTime, score, timeAgo } from '../lib/format'
 import { EVENT_META, MATCH_VIA, manifestStatus, shortId } from '../lib/provenance'
@@ -134,7 +133,6 @@ function CheckFileCard({ busy, fileName, onFile }) {
         <p className="text-sm font-medium">{busy ? 'Checking…' : dragging ? 'Release to check' : 'Drop a labelled image'}</p>
         <p className="text-xs text-subtle mt-1 truncate">{fileName || 'or click to browse'}</p>
       </button>
-      <SamplePicker kinds={['credentials']} onPick={onFile} disabled={busy} className="mt-3" />
     </Card>
   )
 }
@@ -150,8 +148,8 @@ function ManifestCard({ check }) {
             <ShieldQuestion className="size-6 text-muted" />
           </span>
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-muted">Embedded label</p>
-            <p className="text-xl font-semibold tracking-tight mt-0.5">No provenance label found</p>
+            <p className="label-caps">Embedded label</p>
+            <p className="font-serif text-[22px] leading-[1.15] font-medium tracking-[-0.01em] mt-1">No provenance label found</p>
             <p className="text-sm text-muted mt-1.5 leading-relaxed">
               {matched
                 ? `The metadata may have been stripped, but the image matches a known analysis by ${MATCH_VIA[check.match].toLowerCase()}.`
@@ -172,8 +170,8 @@ function ManifestCard({ check }) {
           <Icon className={cn('size-6', meta.text)} />
         </span>
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.16em] text-muted">Embedded label</p>
-          <p className={cn('text-2xl font-semibold tracking-tight mt-0.5', meta.text)}>{meta.label}</p>
+          <p className="label-caps">Embedded label</p>
+          <p className={cn('font-serif text-[26px] leading-[1.15] font-medium tracking-[-0.01em] mt-1', meta.text)}>{meta.label}</p>
           <p className="text-sm text-muted mt-1.5 leading-relaxed">{meta.description}</p>
         </div>
       </div>
@@ -339,8 +337,8 @@ function PackageResultCard({ result }) {
           <Icon className={cn('size-6', tone)} />
         </span>
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.16em] text-muted">Evidence package</p>
-          <p className={cn('text-2xl font-semibold tracking-tight mt-0.5', tone)}>
+          <p className="label-caps">Evidence package</p>
+          <p className={cn('font-serif text-[26px] leading-[1.15] font-medium tracking-[-0.01em] mt-1', tone)}>
             {valid ? 'Intact' : result.status === 'INVALID' ? 'Not a valid package' : 'Tampered'}
           </p>
           <p className="text-sm text-muted mt-1.5 leading-relaxed break-words">{result.message}</p>

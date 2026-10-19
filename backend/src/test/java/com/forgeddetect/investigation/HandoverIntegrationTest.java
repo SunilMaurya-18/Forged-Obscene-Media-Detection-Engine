@@ -77,7 +77,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
             "app.security.extra-moderators=senior:senior:SENIOR_MODERATOR:core,senior2:senior2:SENIOR_MODERATOR:core,"
                     + "investigator:investigator:INVESTIGATOR:cyber-cell,investigator2:investigator2:INVESTIGATOR:cyber-cell,"
                     + "investigator3:investigator3:INVESTIGATOR:cyber-cell",
-            "api.demo-key=" + HandoverIntegrationTest.PARTNER_KEY,
+            "api.bootstrap-key=" + HandoverIntegrationTest.PARTNER_KEY,
             "api.rate-limits.FREE=1000",
             "prescreen.phash-max-distance=8",
             "compliance.seed-demo=false"

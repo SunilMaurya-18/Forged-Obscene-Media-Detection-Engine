@@ -53,7 +53,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
             "ml.service.url=http://localhost:9",
             "app.security.moderator-username=moderator",
             "app.security.moderator-password=moderator",
-            "api.demo-key=" + InvestigationIntegrationTest.PARTNER_KEY,
+            "api.bootstrap-key=" + InvestigationIntegrationTest.PARTNER_KEY,
             "api.rate-limits.FREE=1000",
             "prescreen.phash-max-distance=8"
         })
@@ -195,7 +195,7 @@ class InvestigationIntegrationTest {
         assertThat(texts(rows, "via")).containsExactlyInAnyOrder("PROVENANCE", "PROVENANCE");
         assertThat(texts(rows, "source")).containsExactlyInAnyOrder("PARTNER_API", "MODERATOR");
         assertThat(texts(rows, "platform")).contains("vid-share");
-        assertThat(texts(rows, "reporter")).contains("moderator", "Demo Platform");
+        assertThat(texts(rows, "reporter")).contains("moderator", "Bootstrap Client");
     }
 
     @Test
