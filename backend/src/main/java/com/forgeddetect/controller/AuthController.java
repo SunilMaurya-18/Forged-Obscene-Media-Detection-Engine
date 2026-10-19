@@ -32,6 +32,8 @@ public class AuthController {
                 "roles",
                 authentication.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
+                        // Spring Security 7 also attaches FactorGrantedAuthority (e.g. FACTOR_PASSWORD)
+                        .filter(a -> a.startsWith("ROLE_"))
                         .toList());
         return ResponseEntity.ok(body);
     }

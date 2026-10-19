@@ -32,9 +32,9 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
@@ -68,7 +68,7 @@ class ReportSigningIntegrationTest {
     @Autowired private AnalysisResultRepository repository;
     @Autowired private SigningKeyProvider keys;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     @BeforeEach
     void stubMl() {
@@ -130,7 +130,7 @@ class ReportSigningIntegrationTest {
             assertThat(info.getCustomMetadataValue("FMD-Signed-Content-SHA256")).isEqualTo(item.getReportContentHash());
             assertThat(info.getCustomMetadataValue("FMD-Report-Id")).isEqualTo(reportId);
             String text = new PDFTextStripper().getText(doc).replaceAll("\\s+", "");
-            assertThat(text).contains("9.Digitalsignature", item.getReportSignature(), item.getReportContentHash(),
+            assertThat(text).contains("10·Digitalsignature", item.getReportSignature(), item.getReportContentHash(),
                     "/api/verify-report/" + reportId, "Diffusionmodel");
         }
 

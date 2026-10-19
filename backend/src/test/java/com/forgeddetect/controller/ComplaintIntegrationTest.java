@@ -31,17 +31,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
 /** Phase 21 DoD: wizard filing without an account, PIN-protected status, notification hook, queue ordering. */
 @SpringBootTest
@@ -84,7 +85,7 @@ class ComplaintIntegrationTest {
     @Autowired private ComplaintRepository complaints;
     @Autowired private AnalysisResultRepository results;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     private double nextForgery = 0.9;
 
@@ -103,14 +104,14 @@ class ComplaintIntegrationTest {
         });
     }
 
-    private MockHttpServletRequestBuilder wizard() {
+    private MockMultipartHttpServletRequestBuilder wizard() {
         return multipart("/api/complaints")
                 .file(new MockMultipartFile("file", "me.jpg", "image/jpeg", new byte[] {1, 2, 3}))
                 .param("consent", "true")
                 .param("relationship", "SELF");
     }
 
-    private JsonNode fileCase(MockHttpServletRequestBuilder request) throws Exception {
+    private JsonNode fileCase(AbstractMockHttpServletRequestBuilder<?> request) throws Exception {
         return objectMapper.readTree(mockMvc.perform(request)
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Cache-Control", "no-store"))

@@ -1,12 +1,15 @@
 package com.forgeddetect.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.forgeddetect.model.AnalysisResult;
 import java.util.Map;
 
-/** Phase 23 response fields shared by every view of an analysis: media type, frame timeline, C2PA credentials. */
+/**
+ * Phase 23 response fields shared by every view of an analysis: media type, frame timeline, C2PA
+ * credentials. Values are plain Maps/Lists (not Jackson {@code JsonNode}) so Boot 4's Jackson 3 HTTP
+ * converter can serialize them.
+ */
 final class MediaViews {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -19,12 +22,12 @@ final class MediaViews {
         body.put("contentCredentials", parse(result.getC2paManifest()));
     }
 
-    static JsonNode parse(String json) {
+    static Object parse(String json) {
         if (json == null || json.isBlank()) {
             return null;
         }
         try {
-            return MAPPER.readTree(json);
+            return MAPPER.readValue(json, Object.class);
         } catch (JsonProcessingException ex) {
             return null;
         }

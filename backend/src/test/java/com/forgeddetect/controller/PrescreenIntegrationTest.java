@@ -19,9 +19,9 @@ import com.forgeddetect.service.MlInferResponse;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
@@ -55,7 +55,7 @@ class PrescreenIntegrationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private KnownHashRepository knownHashes;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     private ResultActions prescreen(String json) throws Exception {
         return mockMvc.perform(post("/api/prescreen").contentType(MediaType.APPLICATION_JSON).content(json));

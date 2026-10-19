@@ -3,15 +3,16 @@ package com.forgeddetect.security;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.forgeddetect.service.MlClientService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,7 +38,7 @@ class AdminAuthTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private MlClientService mlClientService;
 
     @Test
@@ -45,9 +46,8 @@ class AdminAuthTest {
         mockMvc.perform(post("/api/auth/login").with(httpBasic("owner", "owner-password-12")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.authenticated").value(true))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_MODERATOR"))
-                .andExpect(jsonPath("$.roles[1]").value("ROLE_SENIOR_MODERATOR"))
-                .andExpect(jsonPath("$.roles[2]").value("ROLE_ADMIN"));
+                .andExpect(jsonPath("$.roles", containsInAnyOrder(
+                        "ROLE_MODERATOR", "ROLE_SENIOR_MODERATOR", "ROLE_ADMIN")));
     }
 
     @Test

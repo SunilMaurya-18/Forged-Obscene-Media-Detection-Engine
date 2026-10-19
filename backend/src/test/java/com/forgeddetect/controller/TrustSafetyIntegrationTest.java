@@ -37,9 +37,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockMultipartFile;
@@ -102,7 +102,7 @@ class TrustSafetyIntegrationTest {
     @Autowired private AppealService appealService;
     @Autowired private KnownHashRepository knownHashes;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     private double nextForgery;
     private String nextC2pa;
@@ -199,7 +199,7 @@ class TrustSafetyIntegrationTest {
         assertThat(body.get("mediaType").asText()).isEqualTo("IMAGE");
 
         String text = reportText(body.get("id").asLong());
-        assertThat(text).contains("5.Contentcredentials(C2PA)", "SyntheticStudioTestSigner", "SyntheticStudio/2.1",
+        assertThat(text).contains("06·Contentcredentials(C2PA)", "SyntheticStudioTestSigner", "SyntheticStudio/2.1",
                 "created(SyntheticStudio2.1)", "VALID(untrustedsigner)");
 
         nextC2pa = null;
@@ -288,7 +288,8 @@ class TrustSafetyIntegrationTest {
         assertThat(log.toString()).contains("\"actor\":\"reviewer\",\"action\":\"APPEAL_DECIDED\"", "\"actor\":\"senior\",\"action\":\"SECOND_REVIEW_CONFIRMED\"");
 
         String text = reportText(id);
-        assertThat(text).contains("4.Moderationandappeal", number, "GRANTED", "APPEALDECIDED", "9.Digitalsignature");
+        assertThat(text).contains("04·Moderation,appealsandwhathappensnext", number, "GRANTED", "APPEALDECIDED",
+                "10·Digitalsignature");
     }
 
     @Test
@@ -479,8 +480,8 @@ class TrustSafetyIntegrationTest {
         assertThat(teams.has("core")).isTrue();
         assertThat(teams.get("apac").get(0).get("username").asText()).isEqualTo("apac");
         mockMvc.perform(post("/api/auth/login").with(httpBasic("senior", "senior")))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_MODERATOR"))
-                .andExpect(jsonPath("$.roles[1]").value("ROLE_SENIOR_MODERATOR"));
+                .andExpect(jsonPath("$.roles", org.hamcrest.Matchers.containsInAnyOrder(
+                        "ROLE_MODERATOR", "ROLE_SENIOR_MODERATOR")));
     }
 
     // ------------------------------------------------------------------ jurisdictions & transparency
