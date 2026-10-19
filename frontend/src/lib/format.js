@@ -43,7 +43,7 @@ export function dateTime(iso) {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-/** Sibling demo app: :3001 on the same host locally, feed.<domain> behind the hosted demo's proxy. */
+/** Optional mock social feed (compose profile `tools`): :3001 locally. */
 export function mockFeedUrl() {
   const { protocol, hostname, port } = window.location
   return port ? `${protocol}//${hostname}:3001` : `${protocol}//feed.${hostname}`

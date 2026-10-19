@@ -1,1 +1,2 @@
-org.springframework.boot.env.EnvironmentPostProcessor=com.forgeddetect.config.DemoSecretsGuard
+org.springframework.boot.env.EnvironmentPostProcessor=com.forgeddetect.config.ProductionSecretsGuard
+

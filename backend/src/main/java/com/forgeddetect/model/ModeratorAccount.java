@@ -34,6 +34,10 @@ public class ModeratorAccount {
     @Column(nullable = false, length = 64)
     private String team;
 
+    /** When false the account cannot sign in; used by the owner admin console. */
+    @Column(nullable = false)
+    private boolean enabled = true;
+
     protected ModeratorAccount() {}
 
     public ModeratorAccount(String username, String passwordHash, String displayName, ModeratorRole role, String team) {
@@ -42,10 +46,16 @@ public class ModeratorAccount {
         this.displayName = displayName;
         this.role = role;
         this.team = team;
+        this.enabled = true;
     }
 
+    public boolean isAdmin() {
+        return role == ModeratorRole.ADMIN;
+    }
+
+    /** Seniors and admins may decide escalated items and approve legal requests. */
     public boolean isSenior() {
-        return role == ModeratorRole.SENIOR_MODERATOR;
+        return role == ModeratorRole.SENIOR_MODERATOR || role == ModeratorRole.ADMIN;
     }
 
     public boolean isInvestigator() {
@@ -90,5 +100,13 @@ public class ModeratorAccount {
 
     public void setTeam(String team) {
         this.team = team;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

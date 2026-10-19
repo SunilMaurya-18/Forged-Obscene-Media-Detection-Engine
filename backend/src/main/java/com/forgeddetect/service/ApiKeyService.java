@@ -38,7 +38,8 @@ public class ApiKeyService {
     private static final Logger log = LoggerFactory.getLogger(ApiKeyService.class);
     static final String KEY_PREFIX = "fmd_live_";
     private static final int PREFIX_CHARS = KEY_PREFIX.length() + 6;
-    public static final String DEMO_CLIENT = "Demo Platform";
+    /** Name used when {@code api.bootstrap-key} seeds a client (integration tests only). */
+    public static final String BOOTSTRAP_CLIENT = "Bootstrap Client";
 
     private final ApiClientRepository clients;
     private final AnalysisResultRepository analyses;
@@ -178,23 +179,23 @@ public class ApiKeyService {
         return body;
     }
 
-    /** Dev/demo convenience: make {@code API_DEMO_KEY} usable without clicking through the admin UI. */
+    /** Test/bootstrap only: seed a FREE client from {@code api.bootstrap-key}. Refused outside test by ProductionSecretsGuard. */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
-    public void seedDemoClient() {
-        String key = props.getDemoKey();
+    public void seedBootstrapClient() {
+        String key = props.getBootstrapKey();
         if (key == null || key.isBlank()) {
             return;
         }
         if (!key.startsWith(KEY_PREFIX) || key.length() < KEY_PREFIX.length() + 16) {
-            log.warn("API_DEMO_KEY ignored: it must start with '{}' and have at least 16 more characters", KEY_PREFIX);
+            log.warn("api.bootstrap-key ignored: it must start with '{}' and have at least 16 more characters", KEY_PREFIX);
             return;
         }
-        if (clients.findByKeyHash(hash(key)).isPresent() || clients.existsByNameIgnoreCase(DEMO_CLIENT)) {
+        if (clients.findByKeyHash(hash(key)).isPresent() || clients.existsByNameIgnoreCase(BOOTSTRAP_CLIENT)) {
             return;
         }
-        clients.save(new ApiClient(DEMO_CLIENT, PlanTier.FREE, hash(key), prefix(key)));
-        log.info("Seeded API client '{}' from API_DEMO_KEY (dev only)", DEMO_CLIENT);
+        clients.save(new ApiClient(BOOTSTRAP_CLIENT, PlanTier.FREE, hash(key), prefix(key)));
+        log.info("Seeded API client '{}' from api.bootstrap-key", BOOTSTRAP_CLIENT);
     }
 
     private ApiClient find(Long id) {

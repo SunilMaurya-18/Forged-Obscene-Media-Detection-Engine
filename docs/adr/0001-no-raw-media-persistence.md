@@ -43,7 +43,7 @@ come from the coarse grids, so a report can be forwarded without forwarding the 
 - A database breach leaks hashes, numbers and small grids. None of them can be turned back into the
   image.
 - Data-protection duties (retention, erasure, cross-border transfer) apply to far less data.
-- The public demo can run next to strangers' uploads without anyone's photo ending up in a table.
+- Public report and analyze endpoints can accept strangers' uploads without anyone's photo ending up in a table.
 
 **Harder, and accepted**
 - A moderator reviewing a queue item sees the forensic grids and scores, not the picture. Where a

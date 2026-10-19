@@ -182,7 +182,7 @@ class ReportIntegrationTest {
         MockHttpServletResponse res = report(id, null);
         assertThat(res.getStatus()).isEqualTo(200);
         assertThat(res.getContentType()).isEqualTo("application/pdf");
-        assertThat(res.getHeader("Content-Disposition")).contains("evidence-report-analysis-" + id + ".pdf");
+        assertThat(res.getHeader("Content-Disposition")).contains("decision-record-" + id + ".pdf");
         assertThat(res.getHeader("X-Report-Panels")).isEqualTo("SIGNATURE");
         byte[] pdf = res.getContentAsByteArray();
         assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");
@@ -193,10 +193,11 @@ class ReportIntegrationTest {
 
         String text = text(pdf);
         assertThat(text).contains(
-                "Evidentiary Analysis Report", reportId, "moderator (moderator)",
-                "AUTO-FLAGGED",
+                "Decision record", "Evidentiary Analysis Report", reportId, "moderator (moderator)",
+                "AUTO-FLAGGED", "REMOVED AUTOMATICALLY", "How to verify this report",
+                "Important limits", "What this report is", "Decision record v2",
                 "#" + id, pid, "a1b2c3d4e5f60718",
-                "0.9100", "0.1200", "Auto-flag band", "0.50 / 0.85",
+                "0.9100", "0.1200", "Auto-flag band",
                 "Government takedown order", "MeitY/69A/2026/777", "3h",
                 "Received", "Deadline", "Resolved at", "before the deadline", "IST",
                 "Grad-CAM attention", "Peak at x 71%, y 28%",
@@ -204,7 +205,7 @@ class ReportIntegrationTest {
                 "Error level analysis", "Mean 1.84",
                 "Radial spectrum profile", "Panel source: signature",
                 "ANALYZED", "COMPLAINT OPENED", "DECISION CHANGED", "SLA RESOLVED",
-                "/verify/" + pid, "Page 2");
+                "/verify/" + pid, "Glossary", "Page 2");
         assertThat(text.replaceAll("\\s+", "")).contains(contentHash);
         assertThat(text).doesNotContain("Not available", "Not yet resolved");
         assertThat(imageCount(pdf)).isGreaterThanOrEqualTo(4);
@@ -236,7 +237,8 @@ class ReportIntegrationTest {
         MockHttpServletResponse ok = report(id, UPLOAD);
         assertThat(ok.getStatus()).isEqualTo(200);
         assertThat(ok.getHeader("X-Report-Panels")).isEqualTo("ORIGINAL");
-        assertThat(text(ok.getContentAsByteArray())).contains("Panel source: original", "The file was not retained");
+        assertThat(text(ok.getContentAsByteArray()).replaceAll("\\s+", " "))
+                .contains("Panel source: original", "The file was not retained");
 
         when(mlClientService.forensicPanels(any(), anyString(), any()))
                 .thenReturn(new MlPanelsResponse(png, png, png, "a1b2c3d4e5f60718", "sha256:" + "ee".repeat(32)));
@@ -258,7 +260,7 @@ class ReportIntegrationTest {
         MockHttpServletResponse res = report(id, UPLOAD);
         assertThat(res.getStatus()).isEqualTo(200);
         assertThat(text(res.getContentAsByteArray()))
-                .contains("never reproduces the image", "Explicit content (independent)", "0.9100");
+                .contains("never reproduces the image", "Explicit content (separate model)", "0.9100");
     }
 
     @Test
@@ -275,7 +277,17 @@ class ReportIntegrationTest {
         assertThat(res.getStatus()).isEqualTo(200);
         assertThat(res.getHeader("X-Report-Panels")).isEqualTo("NONE");
         assertThat(text(res.getContentAsByteArray()).replaceAll("\\s+", " "))
-                .contains("NEEDS HUMAN REVIEW", "None filed", "Not available", "panels are unavailable");
+                .contains(
+                        "NEEDS HUMAN REVIEW",
+                        "None filed",
+                        "Stored fingerprints",
+                        "Perceptual hash mosaic",
+                        "Score meters",
+                        "Content-hash pattern",
+                        "legacy0000000001",
+                        "fingerprints and scores",
+                        "No media was retained")
+                .doesNotContain("Not available");
         verify(mlClientService, never()).forensicPanels(any(), anyString(), any());
     }
 }

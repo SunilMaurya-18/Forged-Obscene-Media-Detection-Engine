@@ -178,9 +178,6 @@ Every error is JSON with a stable machine-readable `error` code and a human-read
 | 413 | `too_large` | File over the limit (25 MB images, 50 MB videos) | Downscale or trim before sending |
 | 422 | `unreadable_media` | The scoring service rejected the file as not a readable image or video | Don't retry the same file |
 | 502 | `analysis_unavailable` | The scoring service is down or failed unexpectedly | Retry with backoff |
-| 403 | `demo_samples_only` | Hosted public demo only: the file is not one of the demo's synthetic samples | Use a sample from `GET /api/demo`, or run the stack yourself |
-| 429 | `demo_rate_limited` | Hosted public demo only: the instance-wide upload budget is used up | Back off for `Retry-After` |
-
 `401` responses also include `WWW-Authenticate: ApiKey header="X-API-Key"`.
 
 Every response carries an `X-Request-ID`. Send your own (1–64 characters from `A-Z a-z 0-9 . _ : -`) to have it echoed back and written to both services' logs; otherwise one is generated. Quote it when reporting a problem.
@@ -324,7 +321,7 @@ These require a moderator login (HTTP Basic or session) and are what the **API a
 | `POST` | `/api/admin/clients/{id}/revoke` | — | Client with `active: false`. Its key gets `401` from then on |
 | `POST` | `/api/admin/clients/{id}/plan` | `{"plan": "ENTERPRISE"}` | Client with the new plan. Takes effect on the next request |
 
-Configuration (environment variables): `API_RATE_LIMIT_FREE`, `API_RATE_LIMIT_PRO`, `API_RATE_LIMIT_ENTERPRISE` (requests per minute), and `API_DEMO_KEY`, a dev-only variable that seeds a FREE "Demo Platform" client with that exact key. Leave it empty in production.
+Configuration (environment variables): `API_RATE_LIMIT_FREE`, `API_RATE_LIMIT_PRO`, `API_RATE_LIMIT_ENTERPRISE` (requests per minute). Issue partner keys from the API access page (or `POST /api/admin/clients`); leave bootstrap keys empty outside tests.
 
 > With `STATE_STORE=redis` (the docker-compose default) rate-limit buckets live in Redis, so every backend replica spends one shared per-minute budget per key and buckets survive a backend restart. `STATE_STORE=memory` keeps them per instance and is only suitable for a single replica.
 

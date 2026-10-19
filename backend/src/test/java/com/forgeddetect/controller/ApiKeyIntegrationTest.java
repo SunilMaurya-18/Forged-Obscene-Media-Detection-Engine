@@ -51,7 +51,7 @@ import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequ
             "compliance.seed-demo=false",
             "api.rate-limits.FREE=3",
             "api.rate-limits.PRO=50",
-            "api.demo-key=fmd_live_test_demo_key_0123456789"
+            "api.bootstrap-key=fmd_live_test_demo_key_0123456789"
         })
 class ApiKeyIntegrationTest {
 
@@ -193,7 +193,7 @@ class ApiKeyIntegrationTest {
 
         mockMvc.perform(get("/api/v1/usage").header("X-API-Key", "fmd_live_test_demo_key_0123456789"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.client.name").value("Demo Platform"));
+                .andExpect(jsonPath("$.client.name").value("Bootstrap Client"));
     }
 
     @Test

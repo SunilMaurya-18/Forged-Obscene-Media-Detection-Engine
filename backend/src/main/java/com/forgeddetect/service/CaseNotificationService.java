@@ -17,7 +17,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.reactive.function.client.WebClient;
 
 /**
- * Phase 21 notification hook (demo stub): tells the reporter when their case changes stage.
+ * Phase 21 notification hook: tells the reporter when their case changes stage (webhook or log).
  * Always logs a {@code CASE NOTIFY} line with the contact masked; when {@code complaints.notify-webhook-url}
  * is set it also POSTs a JSON event there, which is where a real email/SMS provider would be attached.
  */

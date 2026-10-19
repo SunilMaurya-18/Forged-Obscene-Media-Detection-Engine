@@ -3,6 +3,7 @@ package com.forgeddetect.security;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,7 +64,16 @@ class ModeratorAuthTest {
     @Test
     void wrongPasswordIsUnauthorized() throws Exception {
         mockMvc.perform(get("/api/queue").with(httpBasic("moderator", "wrong")))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                // Must not be "Basic …" — that makes Chrome/Firefox show a native login dialog over the SPA
+                .andExpect(header().doesNotExist("WWW-Authenticate"));
+    }
+
+    @Test
+    void failedLoginDoesNotChallengeWithWwwAuthenticateBasic() throws Exception {
+        mockMvc.perform(post("/api/auth/login").with(httpBasic("moderator", "wrong")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("WWW-Authenticate"));
     }
 
     @Test
@@ -73,5 +83,11 @@ class ModeratorAuthTest {
                 .andExpect(jsonPath("$.authenticated").value(true))
                 .andExpect(jsonPath("$.username").value("moderator"))
                 .andExpect(jsonPath("$.roles[0]").value("ROLE_MODERATOR"));
+    }
+
+    @Test
+    void moderatorCannotOpenAdminAccounts() throws Exception {
+        mockMvc.perform(get("/api/admin/accounts").with(httpBasic("moderator", "moderator")))
+                .andExpect(status().isForbidden());
     }
 }

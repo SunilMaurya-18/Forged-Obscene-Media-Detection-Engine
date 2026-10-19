@@ -1,7 +1,6 @@
 /**
- * Operator details printed in the Terms and Privacy Policy, set at build time (VITE_LEGAL_*). The
- * defaults describe the demo deployment; whoever runs this for real must replace them (and have both
- * documents reviewed by counsel).
+ * Operator details printed in the Terms and Privacy Policy, set at build time (VITE_LEGAL_*).
+ * Replace the placeholders before launch and have both documents reviewed by counsel.
  */
 const env = import.meta.env
 

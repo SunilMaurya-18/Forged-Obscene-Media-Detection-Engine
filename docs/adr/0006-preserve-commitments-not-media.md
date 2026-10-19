@@ -83,7 +83,7 @@ Options considered:
   event)
 - Tests: `CustodyChainTest`, `CustodyIntegrationTest` (edits and deletions detected; manifest `VALID`
   then `TAMPERED`; no upload bytes anywhere in a full database dump after preservation),
-  `DemoScenarioIntegrationTest`
+  `CustodyIntegrationTest`
 
 ## Revisit when
 

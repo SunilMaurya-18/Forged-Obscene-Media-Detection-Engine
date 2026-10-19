@@ -1,0 +1,38 @@
+[
+  {
+    "name": "queue.decision.ALLOW",
+    "http": 423,
+    "body": "{\"error\":\"break_required\",\"message\":\"Exposure limit reached. Take a break before reviewing more items.\",\"wellbeing\":{\"exposures\":4,\"limit\":40,\"remaining\":36,\"onBreak\":true,\"breakEndsAt\":\"2026-10-19T16:02:57.261Z\",\"suppor",
+    "status": "FAIL"
+  },
+  {
+    "name": "investigations.note",
+    "http": 200,
+    "body": "{\"caseNumber\":\"INV-JKAB-MXKX\",\"title\":\"Live case 4873\",\"status\":\"OPEN\",\"openedBy\":\"Admin\",\"openedAt\":\"2026-10-19T15:47:56.707561Z\",\"closedBy\":null,\"closedAt\":null,\"closeReason\":null,\"evidence\":[{\"analysisId\":171,\"provena",
+    "status": "PASS"
+  },
+  {
+    "name": "investigations.sighting",
+    "http": 201,
+    "body": "{\"caseNumber\":\"INV-JKAB-MXKX\",\"title\":\"Live case 4873\",\"status\":\"OPEN\",\"openedBy\":\"Admin\",\"openedAt\":\"2026-10-19T15:47:56.707561Z\",\"closedBy\":null,\"closedAt\":null,\"closeReason\":null,\"evidence\":[{\"analysisId\":171,\"provena",
+    "status": "PASS"
+  },
+  {
+    "name": "investigations.legal_hold",
+    "http": 201,
+    "body": "{\"caseNumber\":\"INV-JKAB-MXKX\",\"title\":\"Live case 4873\",\"status\":\"OPEN\",\"openedBy\":\"Admin\",\"openedAt\":\"2026-10-19T15:47:56.707561Z\",\"closedBy\":null,\"closedAt\":null,\"closeReason\":null,\"evidence\":[{\"analysisId\":171,\"provena",
+    "status": "PASS"
+  },
+  {
+    "name": "investigations.legal_hold.ack",
+    "http": 200,
+    "body": "{\"caseNumber\":\"INV-JKAB-MXKX\",\"title\":\"Live case 4873\",\"status\":\"OPEN\",\"openedBy\":\"Admin\",\"openedAt\":\"2026-10-19T15:47:56.707561Z\",\"closedBy\":null,\"closedAt\":null,\"closeReason\":null,\"evidence\":[{\"analysisId\":171,\"provena",
+    "status": "PASS"
+  },
+  {
+    "name": "appeal.decide.UPHOLD.senior",
+    "http": 200,
+    "body": "{\"id\":38,\"caseNumber\":\"UPL-MYT9-3UVP\",\"analysisId\":174,\"statement\":\"Live stack test: I believe this automatic removal is incorrect.\",\"status\":\"UPHELD\",\"contestedDecision\":\"AUTO_FLAG\",\"contestedBy\":\"Admin\",\"filedAt\":\"2026",
+    "status": "PASS"
+  }
+]

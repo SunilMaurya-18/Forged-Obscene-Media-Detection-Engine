@@ -28,11 +28,11 @@ docker run --rm -i --network forgedmediadetection_default -v "$PWD/load:/load" g
 
 The thresholds fail the run if more than 1% of requests fail or p95 exceeds 5 s.
 
-> Every request stores an analysis row, and with the demo `.env` (`DECISION_FORGERY_REVIEW=0.05`) it also lands in the moderation queue. To keep a demo database clean, point the test at a second backend on a scratch database:
+> Every request stores an analysis row, and with `DECISION_FORGERY_REVIEW=0.05` it also lands in the moderation queue. To keep the primary database clean, point the test at a second backend on a scratch database:
 > ```bash
 > docker compose exec postgres createdb -U forged fmd_load
 > docker compose run -d --no-deps --name fmd-load-backend \
->   -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/fmd_load -e COMPLIANCE_SEED_DEMO=false \
+>   -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/fmd_load \
 >   -e STATE_STORE=memory -e MANAGEMENT_HEALTH_REDIS_ENABLED=false backend
 > # ... run k6 with BASE_URL=http://fmd-load-backend:8080, then:
 > docker rm -f fmd-load-backend && docker compose exec postgres dropdb -U forged fmd_load

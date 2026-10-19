@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.24.0",
   "type": "module",
-  "description": "Playwright suite for the README demo script, run against the docker compose stack",
+  "description": "Playwright smoke suite against the docker compose stack",
   "scripts": {
     "test": "playwright test",
     "report": "playwright show-report"

@@ -1,5 +1,5 @@
 const API_ANALYZE = '/api/analyze'
-// Local stack: console on :3000. Hosted demo (docker-compose.demo.yml): feed.<domain> next to <domain>
+// Local stack: console on :3000. Start with: docker compose --profile tools up
 const CONSOLE_URL = location.port
   ? `${location.protocol}//${location.hostname}:3000`
   : `${location.protocol}//${location.hostname.replace(/^feed\./, '')}`
@@ -112,7 +112,7 @@ function makeSeedImage(kind) {
   return canvas.toDataURL('image/jpeg', 0.88)
 }
 
-/** High-frequency checker pattern that the demo model tends to score as manipulated. */
+/** High-frequency checker pattern that the research checkpoint tends to score as manipulated. */
 function makeManipulatedBlob() {
   const canvas = document.createElement('canvas')
   canvas.width = 224
@@ -286,14 +286,8 @@ postFileBtn.addEventListener('click', () => {
   withBusy(() => publish({ author: 'You', handle: '@you', caption, file }))
 })
 
-/** The backend's bundled synthetic sample (the only kind a public demo accepts), else a canvas pattern. */
+/** Synthetic high-frequency pattern drawn in the browser (no fixture file, no real imagery). */
 async function manipulatedSample() {
-  try {
-    const res = await fetch('/api/demo/samples/synthetic-stripes.jpg')
-    if (res.ok) return new File([await res.blob()], 'synthetic-stripes.jpg', { type: 'image/jpeg' })
-  } catch {
-    /* demo off or backend unreachable: fall back to the canvas pattern */
-  }
   const blob = await makeManipulatedBlob()
   return new File([blob], 'manipulated-sample.jpg', { type: 'image/jpeg' })
 }

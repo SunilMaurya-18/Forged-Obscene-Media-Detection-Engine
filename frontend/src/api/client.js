@@ -195,6 +195,26 @@ export async function changeApiClientPlan(id, plan) {
   return postJson(`/api/admin/clients/${id}/plan`, { plan })
 }
 
+export async function fetchAdminOverview() {
+  return apiFetch('/api/admin/overview')
+}
+
+export async function fetchAdminAccounts() {
+  return apiFetch('/api/admin/accounts')
+}
+
+export async function createAdminAccount({ username, password, role, team, displayName }) {
+  return postJson('/api/admin/accounts', { username, password, role, team, displayName })
+}
+
+export async function updateAdminAccount(username, body) {
+  return postJson(`/api/admin/accounts/${encodeURIComponent(username)}`, body)
+}
+
+export async function setAdminAccountPassword(username, password) {
+  return postJson(`/api/admin/accounts/${encodeURIComponent(username)}/password`, { password })
+}
+
 export async function fetchProvenance(provenanceId) {
   return apiFetch(`/api/verify/${encodeURIComponent(provenanceId)}`)
 }
@@ -303,20 +323,6 @@ export async function fetchAppealStatus(noticeNumber, pin) {
 export async function fetchTransparency(period) {
   const res = await request(`/api/transparency?period=${encodeURIComponent(period || 'last-30d')}`, { credentials: 'omit' })
   return res.json()
-}
-
-/** Phase 25: demo settings, bundled samples and the current story ({@code enabled: false} when off). */
-export async function fetchDemo() {
-  return apiFetch('/api/demo', { cache: 'no-store' })
-}
-
-/** Seeds the demo story on first use and returns it; {@code fresh} (moderators) seeds another. */
-export async function startDemoStory({ fresh = false } = {}) {
-  return apiFetch(`/api/demo/story${fresh ? '?fresh=true' : ''}`, { method: 'POST' })
-}
-
-export async function resetDemo() {
-  return apiFetch('/api/demo/reset', { method: 'POST' })
 }
 
 // ---------------------------------------------------------------- Phase 26: investigations
@@ -457,11 +463,4 @@ export async function downloadEvidencePackage(packageId) {
     manifestSha256: res.headers.get('x-manifest-sha256'),
     signingKeyId: res.headers.get('x-signing-key-id'),
   }
-}
-
-/** Downloads a bundled synthetic sample as a File, ready for any upload form. */
-export async function fetchSampleFile(sample) {
-  const res = await request(sample.url, { credentials: 'omit' })
-  const blob = await res.blob()
-  return new File([blob], sample.name, { type: sample.mimeType || blob.type })
 }

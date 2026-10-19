@@ -40,7 +40,7 @@ The tempting shortcut is to look up the requester's IP address. It is wrong here
 - Every deadline can be explained: "India IT Rules 2026, user complaint, jurisdiction chosen by the
   complainant".
 - VPN and Tor users get the rules they ask for.
-- Tests and demos are deterministic. The demo story sets `DEMO_JURISDICTION=IN`, whatever the visitor's
+- Tests are deterministic. Integration tests use an explicit jurisdiction (typically `IN`), whatever the visitor's
   network.
 
 **Harder, and accepted**

@@ -215,7 +215,7 @@ public class AppealService {
         if (!a.isOpen()) {
             throw new ModerationException(HttpStatus.CONFLICT, "appeal_closed", "This appeal has already been decided.");
         }
-        if (moderation.appealConflicts(a).contains(actor)) {
+        if (moderation.appealConflicts(a).contains(actor) && !moderation.moderator(actor).admin()) {
             throw new ModerationException(HttpStatus.FORBIDDEN, "conflict_of_interest",
                     "An appeal must be decided by a different moderator than the one who made or upheld the contested decision.");
         }

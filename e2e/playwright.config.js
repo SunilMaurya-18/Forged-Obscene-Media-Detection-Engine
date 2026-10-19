@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// Runs against an already-running stack: cp .env.example .env && docker compose up -d --build --wait
+// Runs against an already-running stack with real secrets in .env (see .env.example).
 export default defineConfig({
   testDir: './tests',
-  // One stack, shared database: keep the demo flow in order
+  // One stack, shared database: keep the smoke flow in order
   workers: 1,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,

@@ -12,7 +12,7 @@ import { cn } from '../lib/format'
 /** Icon + title + text per stage; colour is only a secondary cue. */
 const STAGES = {
   IN_REVIEW: { icon: Hourglass, tone: 'border-amber-400/30 bg-amber-400/[0.08] text-amber-300' },
-  REMOVED: { icon: CircleCheck, tone: 'border-emerald-400/30 bg-emerald-400/[0.08] text-emerald-300' },
+  REMOVED: { icon: CircleCheck, tone: 'border-emerald-400/45 bg-emerald-400/15 text-emerald-300' },
   NO_ACTION: { icon: CircleSlash, tone: 'border-sky-400/30 bg-sky-400/[0.08] text-sky-300' },
 }
 
@@ -134,7 +134,7 @@ function Timeline({ view }) {
   const resolved = entries.length > 1
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-[0.16em] text-muted mb-3">{t('status.timeline.label')}</h3>
+      <h3 className="label-caps mb-3">{t('status.timeline.label')}</h3>
       <ol className="relative space-y-4 border-l border-line pl-5 ml-2">
         {entries.map((e) => (
           <li key={e.stage} className="relative">
@@ -246,7 +246,7 @@ export default function CaseStatus() {
   const { t } = useTranslation()
   const { caseNumber: param } = useParams()
   const navigate = useNavigate()
-  // The demo tour passes the PIN in router state, never in the URL
+  // PIN may arrive in router state (never put it in the URL)
   const location = useLocation()
   const [found, setFound] = useState(null)
   const [refreshing, setRefreshing] = useState(false)

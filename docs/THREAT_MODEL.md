@@ -10,7 +10,7 @@ Last reviewed: 2026-09-29 (Phase 28). Review again whenever an item in
 before a production launch.
 
 Related: [Architecture Decision Records](adr/README.md) (several mitigations below exist only because
-of those decisions), [Model card](MODEL_CARD.md), [Public demo guide](PUBLIC_DEMO.md).
+of those decisions), [Model card](MODEL_CARD.md).
 
 ---
 
@@ -122,7 +122,7 @@ down; anyone probing a public upload endpoint.
   ml-service is not published outside the compose network. Uploads are never written to disk
   (ADR 0001), so a malicious file cannot persist on the host.
 - **Rate limits.** Partner API keys have per-client token buckets shared across instances through
-  Redis. On the public demo, uploads draw from an instance-wide budget (`DEMO_UPLOADS_PER_MINUTE`).
+  Redis.
 
 ### Residual risk
 
@@ -322,46 +322,6 @@ bad actor impersonating the platform to a court or the police; an insider rewrit
 
 ---
 
-## T6. Public demo abuse
-
-The hosted demo (`docker-compose.demo.yml`, [guide](PUBLIC_DEMO.md)) is deliberately open: moderator
-logins are printed on the tour, and anyone can reset it.
-
-### Scenarios
-
-1. Upload real people's photos, including intimate or illegal images, to a public instance.
-2. Use the published moderator logins to post offensive text in appeals, complaints or notes.
-3. Flood uploads or resets to take the demo down.
-4. Treat the demo as a free forgery-detection API.
-
-### Mitigations in place
-
-- **Synthetic media only.** In public mode every multipart upload on every route (public, moderator
-  and partner API) is checked by SHA-256 against the bundled synthetic samples and the labelled copies
-  the instance issued for them. Anything else is refused with `403 demo_samples_only` before any model
-  runs (`DemoUploadFilter`, `DemoUploadGuard`).
-- **Isolation.** The demo refuses to run outside the dev profile, so it cannot be switched on in a
-  production deployment. The guide requires its own VM and database, and only Caddy publishes ports.
-- **Everything is wiped** every `DEMO_RESET_INTERVAL` (default 6 hours), and on demand. Visitor resets
-  have a cooldown (`DEMO_RESET_COOLDOWN`) shared across instances. Resets and story seeding are
-  serialised with shared locks.
-- **Upload budget.** In public mode, uploads draw from an instance-wide token bucket
-  (`DEMO_UPLOADS_PER_MINUTE`, default 60), so a flood slows everyone down instead of exhausting the
-  models.
-- **No published partner key.** `API_DEMO_KEY` is blank on the hosted demo; keys that visitors create
-  are deleted on reset.
-- **Not indexed.** Caddy sends `X-Robots-Tag: noindex`, HSTS, `nosniff` and a strict referrer policy.
-
-### Residual risk
-
-- **Offensive free text** (appeal statements, complaint notes) is visible to other visitors until the
-  next reset. Keep the reset interval short for a busy demo.
-- **The upload budget is shared.** One abuser can use it up and make the demo slow for everyone for a
-  minute at a time. Add per-IP limits at the edge if that happens.
-- **Shared moderator logins mean no accountability** on the demo, by design. Never reuse those
-  credentials, the database or the signing keys anywhere else.
-
----
 
 ## T7. Investigator handover
 

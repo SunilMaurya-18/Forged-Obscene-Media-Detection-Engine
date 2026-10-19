@@ -5,7 +5,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/** Phase 16: per-plan rate limits for {@code /api/v1} and an optional dev/demo client. */
+/** Per-plan rate limits for {@code /api/v1} and an optional bootstrap key for automated tests. */
 @ConfigurationProperties(prefix = "api")
 public class ApiProperties {
 
@@ -15,8 +15,8 @@ public class ApiProperties {
             PlanTier.PRO, 60,
             PlanTier.ENTERPRISE, 600));
 
-    /** When set, a FREE-plan "Demo Platform" client with exactly this key is created on startup. Dev only. */
-    private String demoKey = "";
+    /** When set, a FREE-plan bootstrap client with exactly this key is created on startup (tests only). */
+    private String bootstrapKey = "";
 
     public int limitFor(PlanTier plan) {
         return Math.max(1, rateLimits.getOrDefault(plan, 10));
@@ -30,11 +30,11 @@ public class ApiProperties {
         this.rateLimits.putAll(rateLimits);
     }
 
-    public String getDemoKey() {
-        return demoKey;
+    public String getBootstrapKey() {
+        return bootstrapKey;
     }
 
-    public void setDemoKey(String demoKey) {
-        this.demoKey = demoKey;
+    public void setBootstrapKey(String bootstrapKey) {
+        this.bootstrapKey = bootstrapKey;
     }
 }

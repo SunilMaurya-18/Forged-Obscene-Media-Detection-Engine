@@ -116,12 +116,18 @@ public class LegalRequestService {
 
     @Transactional
     public LegalRequest decide(String requestNumber, boolean approve, String note, String actor, boolean senior) {
+        return decide(requestNumber, approve, note, actor, senior, false);
+    }
+
+    @Transactional
+    public LegalRequest decide(String requestNumber, boolean approve, String note, String actor, boolean senior, boolean admin) {
         LegalRequest r = find(requestNumber);
         if (!senior) {
             throw new ModerationException(HttpStatus.FORBIDDEN, "senior_required",
                     "Only a senior moderator can " + (approve ? "approve" : "reject") + " a legal request.");
         }
-        if (actor.equals(r.getFiledBy())) {
+        boolean soloAdmin = admin && actor.equals(r.getFiledBy());
+        if (actor.equals(r.getFiledBy()) && !admin) {
             throw new ModerationException(HttpStatus.FORBIDDEN, "conflict_of_interest",
                     "You filed " + r.getRequestNumber() + ", so a different senior moderator has to decide it.");
         }
@@ -140,11 +146,12 @@ public class LegalRequestService {
         }
         r.decide(approve, CustodyLog.clip(actor, CustodyLog.MAX_ACTOR), now, n);
         requests.save(r);
+        String solo = soloAdmin ? " (owner admin solo-operated the four-eyes check)" : "";
         record(r, actor, approve ? InvestigationEventType.LEGAL_REQUEST_APPROVED : InvestigationEventType.LEGAL_REQUEST_REJECTED,
                 approve
-                        ? "Legal request " + r.getRequestNumber() + " approved by " + actor + ": " + r.getInvestigator()
+                        ? "Legal request " + r.getRequestNumber() + " approved by " + actor + solo + ": " + r.getInvestigator()
                                 + " may read this case until " + r.getExpiresAt() + "." + (n != null ? " Note: " + n : "")
-                        : "Legal request " + r.getRequestNumber() + " rejected by " + actor + ": " + n);
+                        : "Legal request " + r.getRequestNumber() + " rejected by " + actor + solo + ": " + n);
         return r;
     }
 

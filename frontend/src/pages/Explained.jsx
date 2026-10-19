@@ -191,17 +191,17 @@ export default function Explained() {
 
       <Card className="relative overflow-hidden p-7 md:p-9 animate-fade-up print:p-3.5 print:pl-5">
         <div aria-hidden className="absolute inset-y-0 left-0 w-1 bg-brand-gradient" />
-        <div aria-hidden className="absolute -right-24 -top-24 size-72 rounded-full bg-brand/10 blur-3xl print:hidden" />
+        <div aria-hidden className="absolute -right-24 -top-24 size-72 rounded-full bg-white/[0.06] blur-3xl print:hidden" />
         <div className="relative flex items-center justify-between gap-4">
-          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
+          <p className="label-caps inline-flex items-center gap-2 text-brand">
             <Quote className="size-3.5" />
             The 30-second pitch
           </p>
-          <span className="hidden sm:inline whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[11px] text-subtle print:hidden">
+          <span className="hidden sm:inline whitespace-nowrap rounded-md border border-line px-2.5 py-1 font-mono text-[11px] text-subtle print:hidden">
             Read aloud · ~30 s
           </span>
         </div>
-        <blockquote className="relative mt-5 text-lg md:text-[22px] md:leading-[1.55] font-medium tracking-[-0.01em] text-fg/95 max-w-4xl print:mt-1.5 print:max-w-none print:text-[12.5px] print:leading-normal">
+        <blockquote className="relative mt-5 font-serif text-lg md:text-[24px] md:leading-[1.45] font-medium tracking-[-0.01em] text-fg/95 max-w-4xl print:mt-1.5 print:max-w-none print:text-[12.5px] print:leading-normal">
           {PITCH}
         </blockquote>
       </Card>

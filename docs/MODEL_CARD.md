@@ -2,7 +2,7 @@
 
 This card covers the two scoring components behind `POST /api/analyze`. Every number here comes from [`ml/results/metrics.json`](../ml/results/metrics.json) or the training logs in `ml/models/`. Re-run `python ml/phase22.py` (calibration, robustness, fairness) and `python ml/phase11_eval.py` (accuracy, latency, false positive rate) to regenerate them.
 
-> **Read this first.** The bundled checkpoint is a **demo checkpoint trained on synthetic crops**, not on real faces. Its metrics show that the training and evaluation pipeline works. They are **not** evidence of real-world detection performance. The robustness results below show a concrete way it fails.
+> **Read this first.** The bundled checkpoint is a **research checkpoint trained on synthetic crops**, not on real faces. Its metrics show that the training and evaluation pipeline works. They are **not** evidence of real-world detection performance. The robustness results below show a concrete way it fails.
 
 ## 1. Model details
 
@@ -18,7 +18,7 @@ This card covers the two scoring components behind `POST /api/analyze`. Every nu
 | Combination (Phase 29) | Stacker `sigmoid(w_cnn·z_cnn + w_spectral·z_spectral + b)` fitted on the validation split; both experts and the stacker live in `ml/models/ensemble.json` (plain JSON), which is refused unless it was fitted against the loaded checkpoint | — |
 | Serving | `ml-service` (FastAPI, CPU), loaded once at startup. `/infer` returns the served `forgery_score` plus `forgery_experts` (per-expert scores); `/health` → `ensemble` | Same service |
 
-**Demo configuration note.** The Docker image sets `NSFW_BACKEND=heuristic`, so the demo stack's explicit score is the heuristic fallback, **not** a trained classifier. Set `NSFW_BACKEND=auto` (with network access for the weights) to use the pretrained model.
+**Configuration note.** The Docker image sets `NSFW_BACKEND=heuristic`, so the default explicit score is the heuristic fallback, **not** a trained classifier. Set `NSFW_BACKEND=auto` (with network access for the weights) to use the pretrained model.
 
 ## 2. Intended use
 
@@ -120,7 +120,7 @@ A false *forged* verdict harms the person pictured, so **FPR disparity is the he
 3. **Uncalibrated scores** (section 6). Fit and promote a temperature on real validation data.
 4. **Unknown group performance** (section 8). Annotate an evaluation set and run the audit. Treat any FPR disparity above a few points as a release blocker.
 5. **Generalisation.** Detectors trained on one generator family degrade on new ones. Diffusion-era detection remains an open research problem.
-6. **Explicit score in the demo is a heuristic** (section 1).
+6. **Explicit score with the default image is a heuristic** (section 1).
 7. **Grad-CAM is an explanation aid**, not proof. Highlighted regions show model attention, not verified tampering.
 
 ## 11. Ethical considerations

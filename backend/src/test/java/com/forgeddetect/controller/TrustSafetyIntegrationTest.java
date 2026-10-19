@@ -123,14 +123,6 @@ class TrustSafetyIntegrationTest {
         });
     }
 
-    @Test
-    void demoEndpointsAreOffUnlessEnabled() throws Exception {
-        mockMvc.perform(get("/api/demo")).andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false));
-        mockMvc.perform(post("/api/demo/story")).andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/demo/reset").with(httpBasic("senior", "senior"))).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/demo/samples/synthetic-stripes.jpg")).andExpect(status().isNotFound());
-    }
-
     // ------------------------------------------------------------------ video
 
     @Test

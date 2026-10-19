@@ -1,4 +1,4 @@
-# Prometheus + Grafana for the demo stack.
+# Prometheus + Grafana overlay for the compose stack.
 #   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
 # Grafana http://localhost:3002 (admin / ${GRAFANA_ADMIN_PASSWORD:-admin}), Prometheus http://localhost:9090
 
