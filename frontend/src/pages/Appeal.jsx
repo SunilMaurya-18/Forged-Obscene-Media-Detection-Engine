@@ -12,7 +12,7 @@ import { cn } from '../lib/format'
 const STAGES = {
   OPEN: { icon: Hourglass, tone: 'border-amber-400/30 bg-amber-400/[0.08] text-amber-300' },
   GRANTED_PENDING: { icon: Hourglass, tone: 'border-sky-400/30 bg-sky-400/[0.08] text-sky-300' },
-  GRANTED: { icon: CircleCheck, tone: 'border-emerald-400/30 bg-emerald-400/[0.08] text-emerald-300' },
+  GRANTED: { icon: CircleCheck, tone: 'border-emerald-400/45 bg-emerald-400/15 text-emerald-300' },
   UPHELD: { icon: CircleSlash, tone: 'border-line-strong bg-white/[0.03] text-muted' },
 }
 
@@ -305,7 +305,7 @@ function AppealView({ view, pin, onRefresh, refreshing, refreshError, onAnother 
 export default function Appeal() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
-  // The demo tour passes the PIN in router state, never in the URL
+  // PIN may arrive in router state (never put it in the URL)
   const location = useLocation()
   const [found, setFound] = useState(null)
   const [refreshing, setRefreshing] = useState(false)

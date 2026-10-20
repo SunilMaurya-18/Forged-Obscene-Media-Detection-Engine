@@ -51,7 +51,7 @@ export default function LegalDocument({ eyebrow, title, description, sections, o
 
       <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-10 items-start">
         <nav aria-label={t('legal.contents')} className="lg:sticky lg:top-24 print:hidden">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-subtle mb-3">{t('legal.contents')}</p>
+          <p className="label-caps mb-3">{t('legal.contents')}</p>
           <ol className="space-y-1.5 text-sm">
             {sections.map((s, i) => (
               <li key={s.id}>

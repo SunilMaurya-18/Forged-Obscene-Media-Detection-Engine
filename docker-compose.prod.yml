@@ -1,9 +1,9 @@
-# Production: real accounts and secrets, no demo data, HTTPS via Caddy. See docs/DEPLOY.md.
+# Production: real accounts and secrets, HTTPS via Caddy. See docs/DEPLOY.md.
 #   cp .env.production.example .env   # then fill in every value marked REQUIRED
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
 # DNS: point DOMAIN at the server. Only Caddy publishes ports (80/443); everything else is internal.
 # Compose stops with a clear message if a required value is missing, and the backend and ml-service
-# refuse to start under the prod profile while any demo secret is still configured.
+# refuse to start while weak or published secrets are still configured.
 
 services:
   redis:
@@ -32,11 +32,6 @@ services:
       # username:password:ROLE:team, comma-separated. Blank seeds no extra accounts.
       MODERATOR_EXTRA_ACCOUNTS: ${MODERATOR_EXTRA_ACCOUNTS:-}
       INVESTIGATION_PSEUDONYM_KEY: ${INVESTIGATION_PSEUDONYM_KEY:?Set INVESTIGATION_PSEUDONYM_KEY (openssl rand -hex 32)}
-      # Demo features and sample data are always off in production
-      DEMO_ENABLED: "false"
-      DEMO_PUBLIC: "false"
-      COMPLIANCE_SEED_DEMO: "false"
-      API_DEMO_KEY: ""
       PRESCREEN_SEED_HASHES: ""
 
   frontend:
@@ -47,9 +42,9 @@ services:
         VITE_LEGAL_EFFECTIVE_DATE: ${VITE_LEGAL_EFFECTIVE_DATE:-}
     ports: !reset []
 
-  # The mock social feed is a demo prop; it only starts with --profile demo
+  # Optional integration aid; keep off the public internet (compose profile `tools`)
   mock-social-feed:
-    profiles: ["demo"]
+    profiles: ["tools"]
     ports: !reset []
 
   caddy:

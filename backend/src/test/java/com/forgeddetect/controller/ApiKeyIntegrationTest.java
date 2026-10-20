@@ -24,9 +24,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
@@ -51,7 +51,7 @@ import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequ
             "compliance.seed-demo=false",
             "api.rate-limits.FREE=3",
             "api.rate-limits.PRO=50",
-            "api.demo-key=fmd_live_test_demo_key_0123456789"
+            "api.bootstrap-key=fmd_live_test_demo_key_0123456789"
         })
 class ApiKeyIntegrationTest {
 
@@ -60,7 +60,7 @@ class ApiKeyIntegrationTest {
     @Autowired private ApiClientRepository clients;
     @Autowired private AnalysisResultRepository analyses;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     private static final MockMultipartFile UPLOAD =
             new MockMultipartFile("file", "face.jpg", "image/jpeg", new byte[] {(byte) 0xFF, (byte) 0xD8, 0x01});
@@ -193,7 +193,7 @@ class ApiKeyIntegrationTest {
 
         mockMvc.perform(get("/api/v1/usage").header("X-API-Key", "fmd_live_test_demo_key_0123456789"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.client.name").value("Demo Platform"));
+                .andExpect(jsonPath("$.client.name").value("Bootstrap Client"));
     }
 
     @Test

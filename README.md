@@ -15,9 +15,9 @@
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker Compose](https://img.shields.io/badge/Docker-one_command-2496ED?logo=docker&logoColor=white)
 
-[Quick start](#quick-start) · [One-click demo](#one-click-demo) · [Features](#what-it-does) · [Architecture](#architecture) · [Results](#results) · [API](#api-reference) · [Full documentation](docs/PROJECT_DOCUMENTATION.md) · [Partner API guide](API_DOCS.md)
+[Quick start](#quick-start) · [Features](#what-it-does) · [Architecture](#architecture) · [Results](#results) · [API](#api-reference) · [Full documentation](docs/PROJECT_DOCUMENTATION.md) · [Partner API guide](API_DOCS.md)
 
-[Research report](docs/RESEARCH_REPORT.md) · [Design decisions (ADRs)](docs/adr/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Model card](docs/MODEL_CARD.md) · [Deploy to production](docs/DEPLOY.md) · [Host a public demo](docs/PUBLIC_DEMO.md)
+[Research report](docs/RESEARCH_REPORT.md) · [Design decisions (ADRs)](docs/adr/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Model card](docs/MODEL_CARD.md) · [Deploy to production](docs/DEPLOY.md)
 
 <br>
 
@@ -133,7 +133,8 @@ flowchart LR
 ```bash
 git clone <repo-url> forged-media-detector
 cd forged-media-detector
-cp .env.example .env          # PowerShell: Copy-Item .env.example .env
+cp .env.example .env
+# Fill REQUIRED secrets (openssl rand -hex 32). See .env.production.example and docs/DEPLOY.md.
 docker compose up --build -d
 docker compose ps             # wait until every service is healthy (ml-service: 1–3 min)
 ```
@@ -142,78 +143,31 @@ Then open:
 
 | URL | What |
 |---|---|
-| http://localhost:3000 | Landing page: what the platform does, one entry point per role, how it works, how it differs |
-| http://localhost:3000/tour | **One-click demo**: a seeded, live story from flagged upload to signed report ([details](#one-click-demo)) |
+| http://localhost:3000 | Landing page |
 | http://localhost:3000/analyze | Check an image (upload + verdict), plus *Check before you post* |
 | http://localhost:3000/report | Report wizard for people affected (public, no account; English / हिन्दी) |
 | http://localhost:3000/status | Case status by case number + PIN (public) |
-| http://localhost:3000/queue | Moderation queue (login `moderator` / `moderator`) |
-| http://localhost:3000/compliance | Takedown SLA monitor (moderator login) |
+| http://localhost:3000/login | Sign in with the account from `.env` (`MODERATOR_ROLE=ADMIN` opens `/admin`) |
+| http://localhost:3000/queue | Moderation queue |
+| http://localhost:3000/compliance | Takedown SLA monitor |
 | http://localhost:3000/verify | Provenance lookup and labelled-file check (public) |
 | http://localhost:3000/dashboard | Evaluation dashboard |
-| http://localhost:3000/api-access | API keys, plans, and usage for partner platforms (moderator login) |
-| http://localhost:3000/explained | Plain-English one-pager for visitors (public, with a **Print one-pager** button) |
-| http://localhost:3000/terms · /privacy | Terms and Conditions · Privacy Policy (public, printable, linked from the footer and the report wizard) |
-| http://localhost:3001 | Mock social feed |
-| http://localhost:3002 | Grafana dashboard (`admin` / `admin`), with the observability overlay: `docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d` |
+| http://localhost:3000/api-access | API keys, plans, and usage for partner platforms |
+| http://localhost:3000/explained | Plain-English one-pager (public, printable) |
+| http://localhost:3000/terms · /privacy | Terms and Conditions · Privacy Policy |
+
+Optional tools: `docker compose --profile tools up -d` starts the mock social feed on http://localhost:3001. Grafana: `docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d` → http://localhost:3002.
 
 Health and Prometheus metrics are on the backend's internal management port: `docker compose exec backend curl -fsS localhost:8090/actuator/health` (or publish port 8090 with `docker-compose.dev.yml`).
 
 Stop with `docker compose down`. Add `-v` to also wipe the database volume.
 
-### One-click demo
-
-Open http://localhost:3000 and click **See it live in one click** (or go straight to http://localhost:3000/tour). One click seeds a complete, live story from built-in synthetic images (no real people, nothing explicit) and walks through it in five steps:
-
-| Step | What you see | Where it leads |
-|---|---|---|
-| 1. Flagged upload | An upload auto-flagged by the models, with its uploader notice number and PIN | `/verify/<provenance id>`: the public audit trail |
-| 2. Appeal | The uploader's appeal, on its own SLA clock, waiting for a moderator other than the one who flagged it | `/appeal` (PIN pre-filled, never in the URL), and the appeals queue |
-| 3. Signed report | The Ed25519-signed evidentiary PDF and a live **Verify** button (`VALID`) | The PDF itself, `/api/verify-report/<id>` |
-| 4. At-risk complaint | A victim's complaint with under 30 minutes left on its legal deadline, ticking live | `/status/<case>` (PIN pre-filled), `/compliance` |
-| 5. Breached order | A government takedown order already past its deadline, escalated | `/compliance` |
-
-The tour also lists the demo moderator accounts (`moderator`, `reviewer`, `senior`, `apac`; passwords come from `.env`) and has a **Reset demo** button for senior moderators. Every upload form offers **Use a sample** chips with the same synthetic files, so no one has to find an image to try the product.
-
-The story is created on the first click, not at startup, and is idempotent: every visitor sees the same story until a reset. Turn it off with `DEMO_ENABLED=false`. It only runs under the `dev` Spring profile.
-
-**Hosted public demo.** `docker-compose.demo.yml` runs the same thing for strangers on the internet: HTTPS through Caddy, only the bundled synthetic samples can be uploaded, the moderator logins are shown with one-click sign-in, anyone can reset (with a cooldown), and everything is wiped every six hours. Setup, DNS and the abuse limits are in [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md).
-
-```bash
-DEMO_DOMAIN=demo.example.org docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build --wait
-```
-
-**Production.** `docker-compose.prod.yml` runs the real thing: the prod profile, your own accounts and secrets, HTTPS through Caddy, and no demo story, sample data or demo logins. It refuses to start while any demo secret is still configured. Step by step in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+**Production.** `docker-compose.prod.yml` adds Caddy HTTPS and the same prod posture (no published secrets). Step by step in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ```bash
 cp .env.production.example .env   # fill in the REQUIRED values
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
 ```
-
-<details>
-<summary><b>Demo script (about 5 minutes, 15 steps)</b></summary>
-
-1. **Pitch (30 s).** "Platforms need to catch manipulated and explicit media without storing it. We score every upload twice, independently, and route it automatically, to a human, or not at all."
-2. **Detection + explainability (1 min).** Open http://localhost:3000, scroll through the landing page's role cards and comparison, then click **Check an image** (http://localhost:3000/analyze) and drag in any face image (for example a still from a research dataset). Point out the forgery score, the explicit score, the routing decision, and the **Grad-CAM heatmap** showing where the model looked.
-3. **Platform integration (1 min).** Open http://localhost:3001. Click **Post manipulated sample**. The post shows `CHECKING…` and then a routing badge (`REVIEW`). This is what a real platform would call on every upload.
-4. **Human in the loop (1 min).** Go to http://localhost:3000/queue and sign in as `moderator` / `moderator`. The post from the feed is in the queue with a **blurred** placeholder thumbnail (raw media is never stored, so moderators never see it unblurred). Approve or reject it. The item leaves the queue.
-5. **Compliance SLA (1 min).** Open http://localhost:3000/compliance. The demo seeds four complaints: two on track, one at risk, one already breached. Countdowns tick live, the list is sorted by nearest deadline, and at-risk and breached items show when they were escalated. Click **File complaint** to start a new 2 h or 3 h clock, then **Take down** one item to stop its clock. `docker compose logs backend | grep "SLA ESCALATION"` shows the escalation events.
-6. **Provenance (1 min).** Back on the Analyze page, click **Download labelled image** under *Provenance label*, then analyse that downloaded file. A *Provenance label found · Verified* banner links back to the original analysis. Open **Verify** and drop the labelled file: the signature and pixel checks pass, and the audit trail lists the original analysis and each re-upload. An unknown ID shows *Unknown provenance ID* (HTTP 404).
-7. **Evidentiary report (30 s).** On the Queue page, open the **Auto-flagged** tab (reject an item first if it's empty) and click **Download report**. The PDF has the decision, scores, provenance ID, forensic panels, and audit trail. Click it on a Compliance row to also get the SLA timestamps. Use the paperclip to attach the original for full-resolution panels. The item's Verify trail now lists *Evidentiary report issued* along with the PDF's SHA-256.
-8. **Partner API (1 min).** Open **API**, click **New client**, pick a plan, and copy the key (it's shown once). Run the curl shown on the page: `/api/v1/analyze` returns the decision, scores, and provenance ID, with `X-RateLimit-*` headers. Send it again with no key or a wrong key for `401`. Loop it past the FREE limit (10 per minute) for `429` with `Retry-After`. `curl -H "X-API-Key: …" localhost:8081/api/v1/usage` shows the counts, and **Revoke** turns the key into a `401` immediately. If `.env` has `API_DEMO_KEY` set (it's in `.env.example`), the key `fmd_live_demo_local_only_do_not_use_in_prod` works without creating a client.
-9. **Check before you post (30 s).** On the Analyze page, scroll to *Check before you post* and open DevTools → Network. Click **Try demo pattern**: the hash is computed in the browser, the only request is `POST /api/prescreen` with a JSON body of under 50 bytes, and the result is *Matches known abusive content* (its hash is seeded). Choose any other image and the result is *No match*. Neither request carries image bytes.
-10. **Jurisdictions (30 s).** On Compliance, file one complaint with jurisdiction *India* and one with *United States*. Their badges read "India IT Rules 2026 — 2h" and "US Take It Down Act — 48h", and the deadlines differ accordingly. The *Jurisdiction rules* card (and `GET /api/compliance/rules`) lists every rule.
-11. **Signed report (30 s).** Click **Download report**, then **Verify report integrity**: `VALID`, with the key ID and signing time. Change a stored field, for example `docker compose exec postgres psql -U forged -d forged_media -c "update analysis_results set forgery_score = 0.01 where id = <id>;"`, and verify again: `TAMPERED`, listing `forgery_score`. The PDF's section 7 carries the signature.
-12. **Report as an affected person (1 min).** Signed out, click **Report** (switch to **हिं** to show the Hindi version). Choose an image, pick *It's me*, tick the consent box, add an email, and send. Note the case number and PIN, then open **Track case** and enter them: *Being reviewed*, with the legal deadline. Sign in and open Compliance: the report is listed with its case number and India deadline. (It is also in the Queue if the automated check routed it to review; complaints are ordered by nearest deadline there.) Click **Take down**, watch the 10-second countdown, click **Undo**, then take it down again and let it save. On the Queue, the same works from the keyboard: `R`, then `U`. Refresh the case status: *Content removed*. `docker compose logs backend | grep "CASE NOTIFY"` shows the masked notice.
-13. **Access control (15 s).** Signed out, the queue and compliance views are not accessible. Unauthenticated `POST /api/queue/{id}/decision` returns 401. Verification stays public.
-14. **Results (1 min).** Open http://localhost:3000/dashboard for per-dataset accuracy, the generalization gap, the GAN-era vs. diffusion-era card, and live decision counts. Finish with the poster (`ml/results/poster.png`): in-domain vs. cross-dataset accuracy, API latency, and clean-set false positive rate.
-15. **Privacy (15 s).** Only hashes, scores, the decision, SLA / provenance metadata, and the coarse numeric forensic signature are stored: `docker compose exec postgres psql -U forged -d forged_media -c "select id, phash, forgery_score, decision, sla_status, provenance_id from analysis_results limit 5;"`.
-
-> The demo `.env` lowers `DECISION_FORGERY_REVIEW` to `0.05` so the synthetic "manipulated sample" reliably lands in `REVIEW`. Raise it back to `0.50` for realistic routing. To watch an SLA clock change status live during a demo, shorten the windows in `.env`, for example `COMPLIANCE_SLA_USER_COMPLAINT=PT4M`, `COMPLIANCE_SLA_GOVERNMENT_ORDER=PT6M`, and `COMPLIANCE_SLA_AT_RISK=PT2M`.
-
-</details>
-
----
 
 ## How it works
 
@@ -257,7 +211,7 @@ Each subsystem below is summarised in one line; expand it for the implementation
 - **Panels without keeping media.** At analysis time the ml-service also stores a coarse, non-invertible **forensic signature**: a 14×14 attention grid, a 16×16 error-level grid, a 32×32 log-spectrum grid, and a 32-bin radial profile, as numbers only. The report draws its panels from that signature.
 - **Optional original.** The paperclip next to the button attaches the original file for full-resolution panels. The backend checks it against the stored pixel hash (422 if it is a different image) and discards it after rendering. Items whose explicit score is at or above the review threshold never get the image embedded, even when the original is attached.
 - **Chain of custody.** Each PDF's SHA-256 is recorded as a `REPORT_GENERATED` event and returned in the `X-Report-Sha256` header, so a recipient can confirm the file is unaltered.
-- Items analysed before Phase 15 (and the seeded demo complaints) have no signature. Their reports still include every other field and say that panels are unavailable, unless the original is attached.
+- Items analysed before Phase 15 have no signature. Their reports still include every other field and say that panels are unavailable, unless the original is attached.
 
 </details>
 
@@ -297,7 +251,7 @@ The detector was retrained with diffusion-style fakes mixed in, and `/infer` now
 
 - **Hash on the device.** `frontend/src/utils/onDeviceHash.js` computes a 64-bit DCT perceptual hash in the browser. It is a bit-exact JavaScript port of `imagehash.phash`, the hash the backend already stores: Pillow luma conversion, Pillow's fixed-point Lanczos resize to 32×32, a 2-D DCT-II, and a median threshold over the low-frequency 8×8. `onDeviceHash.test.js` checks it against vectors generated by the Python library. A JS pHash was chosen over a WASM PDQ build so it can be compared directly with hashes already in the DB, and so it has no binary dependency.
 - **Only the hash leaves the browser.** `POST /api/prescreen` accepts JSON `{"hash","algorithm"}` and nothing else. Any other field, or a multipart body, is rejected, so image bytes cannot be sent even by mistake. The endpoint checks the hash against `known_hashes` by Hamming distance (at most 8/64 bits for pHash, 31/256 for PDQ), returns only `match: true|false` plus advice, never reveals the distance or the source, and stores nothing about the request.
-- **Known-hash list.** `KnownHash` rows carry the hash, the algorithm, a source (`INTERNAL_CONFIRMED` / `STOPNCII_IMPORT`) and the date added. When a moderator confirms a takedown (a decision of `AUTO_FLAG`), the item's pHash is added automatically as `INTERNAL_CONFIRMED`. `PRESCREEN_SEED_HASHES` seeds the hash of the synthetic demo pattern `frontend/public/prescreen-demo.png`, and moderators can bulk-import hashes through `POST /api/admin/known-hashes/import`.
+- **Known-hash list.** `KnownHash` rows carry the hash, the algorithm, a source (`INTERNAL_CONFIRMED` / `STOPNCII_IMPORT`) and the date added. When a moderator confirms a takedown (a decision of `AUTO_FLAG`), the item's pHash is added automatically as `INTERNAL_CONFIRMED`. `PRESCREEN_SEED_HASHES` can seed known hashes at startup; moderators can also bulk-import hashes through `POST /api/admin/known-hashes/import`.
 - **How a real StopNCII integration would work.** StopNCII.org has victims hash their own images on their own device (PDQ for images, MD5 for video) and shares only those hashes with participating platforms, which then match uploads against them. A production integration would pull the StopNCII hash list through their partner API on a schedule into `known_hashes` with `source = STOPNCII_IMPORT` and `algorithm = pdq` (the import endpoint and PDQ matching are ready for that). The platform would also compute PDQ server-side on every upload, act on matches under its own policy, and report outcomes back as the StopNCII agreement requires. **This phase implements StopNCII-compatible matching logic only. A live production integration additionally requires formal approval as a StopNCII participating organisation, plus their API credentials and data-sharing terms. Nothing here connects to StopNCII.**
 
 </details>
@@ -342,7 +296,7 @@ The detector was retrained with diffusion-style fakes mixed in, and `/infer` now
   - it checks both metrics endpoints;
   - it runs the Playwright suite, the two-instance rate-limit check and the prod-profile refusal;
   - it then scans the images with Trivy and writes a CycloneDX SBOM per image.
-- **End-to-end tests** (`e2e/`). Playwright drives the demo script through the real UI: analyse → `REVIEW` → moderator approves → SLA countdown ticks → signed report verifies `VALID` → public audit trail. It also covers the mock feed and request-ID propagation. Run it against a running stack with `cd e2e && npm ci && npx playwright install chromium && npx playwright test` (needs the demo `.env`).
+- **End-to-end tests** (`e2e/`). Playwright drives a smoke flow through the real UI: analyse → `REVIEW` → moderator approves → SLA countdown → signed report `VALID` → public audit trail. Also covers the mock feed (`--profile tools`) and request-ID propagation. Run against a running stack with strong secrets in `.env` and `DECISION_FORGERY_REVIEW=0.05`: `cd e2e && npm ci && npx playwright install chromium && npx playwright test`.
 - **Metrics.** The backend serves `/actuator/prometheus` on the internal management port 8090:
   - Spring's `http_server_requests_seconds`;
   - `fmd_decisions_total{source,decision,media}` and `fmd_moderation_overturns_total`;
@@ -355,7 +309,7 @@ The detector was retrained with diffusion-style fakes mixed in, and `/infer` now
 - **Logs and request IDs.** nginx keeps or mints an `X-Request-ID`. The backend validates it, echoes it, puts it in every log line and forwards it to the ml-service, which does the same. Both write one JSON object per line with the same field names (`@timestamp`, `log.level`, `message`, `request_id`, `http_method`, `http_path`, `http_status`, `duration_ms`), including one access line per request (paths only, never query strings). One ID therefore finds a request in both services' logs.
 - **Two instances.** `docker-compose.ha.yml` adds `backend-2` on port 8082, sharing Postgres, Redis and the keyring. Rate-limit buckets, PIN lockouts, moderator exposure counters and the SLA scheduler lock are all in Redis, so a partner key's per-minute budget is spent across both instances and only one of them runs each SLA pass. `sh ops/ha-ratelimit-check.sh` proves it: ten requests alternated between the two use up one bucket, and the eleventh is refused by both.
 - **Hardening.**
-  - `dev` is the default profile. With `SPRING_PROFILES_ACTIVE` or `APP_PROFILE` set to anything else, the backend refuses to start while any demo secret is configured, and lists each one: a demo or weak moderator password (under 12 characters, or equal to the username), the demo DB password, `API_DEMO_KEY`, `COMPLIANCE_SEED_DEMO=true`, or file-based signing keys. The ml-service likewise refuses the demo `PROVENANCE_SIGNING_KEY`.
+  - `prod` is the default profile. Outside the `test` profile, the backend refuses to start while weak or published secrets are configured, and lists each one: a weak moderator password (under 12 characters, equal to the username, or a published default), a published DB password, a set `API_BOOTSTRAP_KEY`, a short/default pseudonym key, or file-based signing keys without `REPORT_SIGNING_ALLOW_FILE_KEYS=true`. The ml-service likewise refuses a weak `PROVENANCE_SIGNING_KEY`.
   - Backend calls to the ml-service time out after `ML_SERVICE_TIMEOUT`.
   - Keys, rotation and RFC 3161 timestamps are described under *Signed reports* above.
 - **Supply chain.**
@@ -389,7 +343,7 @@ The detector was retrained with diffusion-style fakes mixed in, and `/infer` now
 
 The full picture, including intended use, limitations and every metric's source, is in the **[model card](docs/MODEL_CARD.md)**. Live moderator agreement with the model's routing (REVIEW confirm rate, AUTO_FLAG overturn rate) is served by `GET /api/stats` under `moderation` and shown on the dashboard.
 
-> **Caveat.** These numbers come from a smoke run on **synthetic** cross-dataset splits and the bundled demo checkpoint, which is trained on synthetic crops. Place licensed FaceForensics++ / DFDC / Celeb-DF crops under `ml/data/crops` (see `ml/data/download_instructions.md`), retrain, and re-run the steps below for report-quality figures.
+> **Caveat.** These numbers come from a smoke run on **synthetic** cross-dataset splits and the bundled research checkpoint, which is trained on synthetic crops. Place licensed FaceForensics++ / DFDC / Celeb-DF crops under `ml/data/crops` (see `ml/data/download_instructions.md`), retrain, and re-run the steps below for report-quality figures.
 
 Artifacts in `ml/results/`:
 
@@ -503,12 +457,7 @@ The partner-facing `/api/v1` endpoints are documented in full in [API_DOCS.md](A
 | `GET` | `/api/compliance/queue` | `MODERATOR` | Open complaints sorted by nearest deadline, with live `slaStatus` and `remainingSeconds` |
 | `GET` | `/api/compliance/breaches` | `MODERATOR` | All items that breached their SLA |
 | `GET` | `/api/compliance/summary` | `MODERATOR` | Open count by status, total breaches, configured SLA windows, and an `appeals` block (open appeals by SLA status, next deadline) |
-| `GET` | `/api/demo` | public | Demo status: `enabled`, `publicMode`, next reset, synthetic `samples`, demo `accounts` (passwords only in public mode) and the current `story`, if any. Never seeds. `{"enabled": false}` when off |
-| `POST` | `/api/demo/story` | public | Seeds the one-click story if there is none (idempotent) and returns it: flagged upload + notice PIN, appeal, signed report, at-risk complaint + case PIN, breached order, and two investigations linked by a shared (synthetic) account, the first preserved and with a legal hold requested from `pixelgram`. `?fresh=true` (moderators) builds a new one. `409 demo_busy` while another request is seeding |
-| `POST` | `/api/demo/reset` | `SENIOR_MODERATOR` (anyone in public mode) | Wipes all data and seeds a fresh story. Public visitors: once per `DEMO_RESET_COOLDOWN` (`429 demo_reset_cooldown` + `Retry-After`) |
-| `GET` | `/api/demo/samples/{name}` \| `/api/demo/report.pdf` | public | A bundled synthetic sample / the story's signed PDF (`X-Report-Id`, `X-Report-SHA256`) |
 
-In public demo mode every multipart upload, on every route, must be a bundled sample or a labelled copy the demo issued (`403 demo_samples_only`), and uploads share `DEMO_UPLOADS_PER_MINUTE` (`429 demo_rate_limited`).
 
 </details>
 
@@ -537,10 +486,6 @@ curl -H "Content-Type: application/json" -d '{"noticeNumber":"UPL-XXXX-XXXX","pi
 curl -u reviewer:reviewer -H "Content-Type: application/json" -d '{"outcome":"GRANT","reason":"Compression artefacts."}' http://localhost:8081/api/appeals/<id>/decision
 curl -u senior:senior -H "Content-Type: application/json" -d '{"confirm":true}' http://localhost:8081/api/queue/<id>/second-review
 curl "http://localhost:8081/api/transparency?period=2026-Q3"
-curl -X POST http://localhost:8081/api/demo/story                                     # one-click demo story
-curl -u senior:senior -X POST http://localhost:8081/api/demo/reset                     # wipe and reseed
-curl -H "X-API-Key: $API_DEMO_KEY" -H "Content-Type: application/json" \
-  -d '{"phash":"<16 hex>","platform":"pixelgram","postRef":"pg-1001","accountId":"u-42"}' http://localhost:8081/api/v1/sightings
 curl -u moderator:moderator -H "Content-Type: application/json" -d '{"analysisId":<id>}' http://localhost:8081/api/investigations
 curl -u moderator:moderator http://localhost:8081/api/investigations/INV-XXXX-XXXX
 ```
@@ -551,21 +496,21 @@ curl -u moderator:moderator http://localhost:8081/api/investigations/INV-XXXX-XX
 
 ## Configuration
 
-All variables are optional; Compose falls back to the defaults shown. Copy `.env.example` to `.env` to start from the demo settings.
+Required secrets have no safe defaults. Copy `.env.example` to `.env`, fill every REQUIRED value (`openssl rand -hex 32`), then start Compose. See `.env.production.example` and [docs/DEPLOY.md](docs/DEPLOY.md).
 
 <details>
 <summary><b>Environment variables</b></summary>
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `POSTGRES_PASSWORD` | `forged` | DB password (postgres + backend) |
+| `POSTGRES_PASSWORD` | *(required)* | DB password (postgres + backend) |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://postgres:5432/forged_media` | Backend JDBC URL |
 | `ML_SERVICE_URL` | `http://ml-service:8000` | Backend → ml-service base URL |
 | `NSFW_BACKEND` | `heuristic` | `heuristic` (offline, fast), `transformers`, or `auto` |
 | `DECISION_FORGERY_AUTO_FLAG` / `DECISION_EXPLICIT_AUTO_FLAG` | `0.85` | At or above: `AUTO_FLAG` |
-| `DECISION_FORGERY_REVIEW` / `DECISION_EXPLICIT_REVIEW` | `0.50` (`.env.example`: forgery `0.05`) | At or above: `REVIEW` |
-| `MODERATOR_USERNAME` / `MODERATOR_PASSWORD` | `moderator` / `moderator` | Seeded dev moderator (team `core`). **Change for any public deployment.** |
-| `MODERATOR_EXTRA_ACCOUNTS` | `reviewer:reviewer:MODERATOR:core,senior:senior:SENIOR_MODERATOR:core,apac:apac:MODERATOR:apac,investigator:investigator:INVESTIGATOR:cyber-cell` | Extra dev accounts as `username:password:ROLE:team` (`ROLE` is `MODERATOR`, `SENIOR_MODERATOR` or `INVESTIGATOR`; an investigator's team is their agency). Second review and appeals need a second person. **Change for any public deployment.** |
+| `DECISION_FORGERY_REVIEW` / `DECISION_EXPLICIT_REVIEW` | `0.50` | At or above: `REVIEW` |
+| `MODERATOR_USERNAME` / `MODERATOR_PASSWORD` | *(required)* | Owner / staff account. Password must be 12+ characters and not a published default. |
+| `MODERATOR_EXTRA_ACCOUNTS` | empty | Extra staff as `username:password:ROLE:team` (`MODERATOR`, `SENIOR_MODERATOR`, `ADMIN`, `INVESTIGATOR`). Create accounts from `/admin` instead if preferred. |
 | `VIDEO_FPS` / `VIDEO_TOP_K` | `1.0` / `3` | Backend: frame sampling rate sent to ml-service and k for the top-k mean |
 | `VIDEO_FORGERY_AGGREGATE` / `VIDEO_EXPLICIT_AGGREGATE` | `TOPK_MEAN` / `MAX` | Which aggregate each score is routed on (`MAX` or `TOPK_MEAN`) |
 | `VIDEO_MAX_FRAMES` / `VIDEO_MAX_BYTES` | `64` / 50 MB | ml-service: sampling cap (long clips are sampled at a lower rate to stay within it) and upload limit for `/infer-video` |
@@ -580,37 +525,29 @@ All variables are optional; Compose falls back to the defaults shown. Copy `.env
 | `COMPLIANCE_SLA_AT_RISK` | `PT30M` | Remaining time at which an item becomes `AT_RISK` and escalates |
 | `COMPLIANCE_SLA_CHECK_INTERVAL` | `PT15S` | How often open SLA clocks are recalculated |
 | `COMPLIANCE_ESCALATION_WEBHOOK_URL` | empty | Optional webhook that receives `SLA_AT_RISK` / `SLA_BREACHED` JSON events |
-| `COMPLIANCE_SEED_DEMO` | `true` (compose) | Seed four demo complaints on an empty DB |
-| `PROVENANCE_SIGNING_KEY` | `dev-only-provenance-signing-key` | HMAC key for embedded manifests. **Set a long random secret outside dev.** Changing it invalidates existing labels |
+| `PROVENANCE_SIGNING_KEY` | *(required, 32+ chars)* | HMAC key for embedded manifests. Changing it invalidates existing labels |
 | `PROVENANCE_ISSUER` | `forged-media-detection` | Issuer name written into each manifest |
 | `REPORT_LOCAL_ZONE` | `Asia/Kolkata` | IANA zone printed next to UTC on evidentiary reports |
 | `API_RATE_LIMIT_FREE` / `_PRO` / `_ENTERPRISE` | `10` / `60` / `600` | `/api/v1` requests per minute per key, by plan |
-| `API_DEMO_KEY` | empty (`.env.example`: a demo key) | Dev only: seeds a FREE "Demo Platform" client with this exact key (must start with `fmd_live_`). **Leave empty in production** |
 | `PRESCREEN_PHASH_MAX_DISTANCE` / `PRESCREEN_PDQ_MAX_DISTANCE` | `8` / `31` | Hamming distance (bits) at or below which a prescreen hash counts as a match |
-| `PRESCREEN_SEED_HASHES` | `c2423d3d3b783cc6` | Comma-separated pHashes seeded as `INTERNAL_CONFIRMED` on startup (default: the synthetic demo pattern) |
+| `PRESCREEN_SEED_HASHES` | empty | Optional comma-separated pHashes seeded as `INTERNAL_CONFIRMED` on startup |
 | `HANDOVER_DOWNLOAD_WINDOW` / `HANDOVER_MAX_REQUEST_TERM` | `PT24H` / `P180D` | How long an evidence package can be downloaded after it is issued (never past the legal request's expiry), and the longest expiry a legal request may have |
-| `INVESTIGATION_PSEUDONYM_KEY` | `dev-only-account-pseudonym-key-change-me` | HMAC key that turns partner account IDs into pseudonyms. **Set 32+ random characters outside dev** (`openssl rand -hex 32`); the backend refuses to start outside `dev` with the demo value. Changing it breaks the links between old and new sightings of the same account |
+| `INVESTIGATION_PSEUDONYM_KEY` | *(required, 32+ chars)* | HMAC key that turns partner account IDs into pseudonyms. Changing it breaks links between old and new sightings of the same account |
 | `COMPLIANCE_DEFAULT_JURISDICTION` | `IN` | Jurisdiction used when a request doesn't set one |
 | `COMPLIANCE_GENERIC_USER_COMPLAINT_HOURS` / `_GOVERNMENT_ORDER_HOURS` | `24` / `24` | Deadlines seeded for the `GENERIC` fallback rule |
-| `APP_PROFILE` | `dev` | Spring profile for the backend and the ml-service's profile. Anything other than `dev` refuses to start while demo secrets are configured |
+| `APP_PROFILE` | `prod` | Spring / ML profile. Outside `test`, weak or published secrets are refused |
 | `STATE_STORE` / `REDIS_HOST` / `REDIS_PASSWORD` | `redis` (compose; `memory` outside it) / `redis` / empty | Where rate limits, PIN lockouts, exposure counters and the SLA lock live. `memory` is for a single instance only |
 | `ML_SERVICE_TIMEOUT` | `PT60S` | Backend timeout per ml-service call |
 | `ML_WORKERS` / `ML_DEVICE` / `VIDEO_BATCH_SIZE` | `1` / `auto` / `8` | ml-service: uvicorn worker processes (each loads the models), `cpu` / `cuda` / `auto`, and video frames per forgery-model forward pass. See [load/README.md](load/README.md) |
 | `BACKEND_LOG_FORMAT` / `ML_LOG_FORMAT` | `ecs` / `json` | JSON log lines with request IDs. Set `BACKEND_LOG_FORMAT=` (empty) or `ML_LOG_FORMAT=text` for readable logs |
 | `REPORT_SIGNING_PROVIDER` | `file` | `file` (dev keyring in `REPORT_SIGNING_KEY_DIR`) or `vault` (HashiCorp Vault Transit: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_TRANSIT_MOUNT`, `VAULT_TRANSIT_KEY`) |
 | `REPORT_SIGNING_KEY_DIR` | `/app/data/signing-keys` (volume) | Dev keyring location |
-| `REPORT_SIGNING_ALLOW_FILE_KEYS` | `false` | Allows `file` keys outside `dev`. **Use `vault` (a KMS) in production** |
+| `REPORT_SIGNING_ALLOW_FILE_KEYS` | `true` (compose) | Allows `file` keys on disk. Prefer `vault` (a KMS) in hardened deployments |
 | `REPORT_TSA_URL` / `REPORT_TSA_TRUSTED_CERTS` / `REPORT_TSA_TIMEOUT` | empty / empty / `PT10S` | RFC 3161 timestamp authority for signed reports, and the path (inside the container) to a PEM bundle of TSA certificates (or their issuers) to treat as trusted |
 | `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana login with the observability overlay |
 | `COMPLAINTS_MAX_PIN_ATTEMPTS` / `COMPLAINTS_PIN_LOCKOUT` | `5` / `PT15M` | Wrong PINs allowed per case before it is locked, and for how long |
 | `COMPLAINTS_NOTIFY_WEBHOOK_URL` | empty | Optional webhook that receives case status-change notices (blank = log only) |
-| `DEMO_ENABLED` | `true` (compose; `false` outside it) | One-click demo story at `/tour`, the `/api/demo` endpoints and the **Use a sample** chips. `dev` profile only |
-| `DEMO_PUBLIC` | `false` (`true` in `docker-compose.demo.yml`) | Hosted-demo mode: synthetic samples only, logins shown on the tour, anyone may reset. See [docs/PUBLIC_DEMO.md](docs/PUBLIC_DEMO.md) |
-| `DEMO_RESET_INTERVAL` / `DEMO_RESET_COOLDOWN` | `PT6H` / `PT2M` | Public mode: automatic reset period (`PT0S` = off) and the minimum gap between visitor resets |
-| `DEMO_UPLOADS_PER_MINUTE` | `60` | Public mode: uploads per minute shared by all visitors (`0` = unlimited) |
-| `DEMO_JURISDICTION` | `IN` | Jurisdiction whose rules the demo story's deadlines follow |
-| `DEMO_DOMAIN` | none | Hosted demo only: public host name; `feed.<DEMO_DOMAIN>` serves the mock feed |
-| `VITE_LEGAL_OPERATOR` / `VITE_LEGAL_CONTACT_EMAIL` / `VITE_LEGAL_GRIEVANCE_OFFICER` / `VITE_LEGAL_GOVERNING_LAW` | demo placeholders (`privacy@example.org`, laws of India) | Operator details printed in `/terms` and `/privacy`. **Build-time** frontend variables: set them before `npm run build` / the frontend image build. Have both documents reviewed by counsel before a real launch |
+| `VITE_LEGAL_OPERATOR` / `VITE_LEGAL_CONTACT_EMAIL` / `VITE_LEGAL_GRIEVANCE_OFFICER` / `VITE_LEGAL_GOVERNING_LAW` | empty (placeholders until set) | Operator details printed in `/terms` and `/privacy`. **Build-time** frontend variables. Have both documents reviewed by counsel before launch |
 
 </details>
 
@@ -628,7 +565,7 @@ python3 -m unittest discover -s tools -p "test_*.py"    # offline package verifi
 cd ml-service && python -m pytest                        # health, /infer, NSFW, provenance manifests, forensic signature, generation family, /infer-video (no disk writes), C2PA read/write
 cd ml && python -m pytest tests data/tests               # pipeline, model, plots, poster, diffusion split + family head
 cd frontend && npm test                                  # on-device pHash parity, Hindi/English key coverage, case-number + contact validation, queue urgency order, near-duplicates, video/C2PA/appeal/investigation helpers
-cd e2e && npx playwright test                            # the demo script through the UI, against a running stack with the demo .env
+cd e2e && npx playwright test                            # smoke flow against a running stack (strong secrets + DECISION_FORGERY_REVIEW=0.05)
 sh ops/ha-ratelimit-check.sh                             # two backends share one rate limit (with docker-compose.ha.yml)
 ```
 
@@ -640,34 +577,31 @@ CI runs all of these on every push and pull request, plus a Trivy scan and SBOM 
 
 ```
 ml/                 offline data pipeline, training, evaluation, explainability, poster
-  models/           EfficientNet-B0 definition + demo checkpoint.pt
+  models/           EfficientNet-B0 definition + research checkpoint.pt
   results/          metrics.json, charts, poster, failure gallery
 ml-service/         FastAPI inference (forgery, NSFW, Grad-CAM, pHash) + provenance manifests + forensic signature
 backend/            Spring Boot API, decision engine, compliance SLA engine, provenance audit trail, PDF reports,
                     API keys + rate limiting (/api/v1), security, JPA
-  demo/             one-click demo story, reset, synthetic sample allowlist (Phase 25)
   investigation/    investigation cases, partner sightings, account pseudonyms, hash linking (Phase 26); custody chain, preservation, legal holds (Phase 27); legal requests, investigator access, evidence packages (Phase 28)
-frontend/           React + Tailwind UI (Landing, Tour, Analyze, Report, Case status, Appeal, Queue, Compliance,
-                    Investigations, Verify, Dashboard, Transparency, Support, API access, Explained, Login)
+frontend/           React + Tailwind UI (Landing, Analyze, Report, Case status, Appeal, Queue, Compliance,
+                    Investigations, Admin, Verify, Dashboard, Transparency, Support, API access, Explained, Login)
 mock-social-feed/   static "platform" that calls /api/analyze on each post
 docs/               PROJECT_DOCUMENTATION.md: the complete project guide · MODEL_CARD.md: intended use, metrics, limits
   adr/              architecture decision records (no raw media, two models, Ed25519, hash-only prescreen, no geo-IP, preserve commitments not media)
   THREAT_MODEL.md   threats, mitigations and residual risk
   DEPLOY.md         deploying to production
-  PUBLIC_DEMO.md    hosting the public demo
 API_DOCS.md         third-party integration guide for /api/v1
 brag-output/        launch video (brag.mp4) and poster (brag.jpg)
-e2e/                Playwright suite for the demo script
+e2e/                Playwright smoke suite
 load/               k6 load test and measured throughput
-ops/                Prometheus config + alerts, Grafana dashboard, two-instance rate-limit check, demo and production Caddyfiles
+ops/                Prometheus config + alerts, Grafana dashboard, two-instance rate-limit check, production Caddyfile
 .github/            CI workflow and Dependabot
-docker-compose.yml                one-command demo stack
+docker-compose.yml                production-grade local/server stack
 docker-compose.dev.yml            dev overlay (extra ports + live mounts)
 docker-compose.observability.yml  Prometheus + Grafana
 docker-compose.ha.yml             second backend sharing Redis
 docker-compose.gpu.yml            CUDA ml-service
-docker-compose.demo.yml           hosted public demo (Caddy + HTTPS, synthetic samples only)
-docker-compose.prod.yml           production (prod profile, Caddy + HTTPS, no demo data)
+docker-compose.prod.yml           production overlay (Caddy + HTTPS)
 ```
 
 ### Troubleshooting
@@ -694,7 +628,7 @@ The choices that shape everything else are written down as [Architecture Decisio
 | [0005](docs/adr/0005-explicit-jurisdiction-no-geoip.md) | Jurisdiction is always stated explicitly, never inferred from geo-IP |
 | [0006](docs/adr/0006-preserve-commitments-not-media.md) | Preserve evidence as signed hashes and a partner legal hold; never escrow the file |
 
-The [threat model](docs/THREAT_MODEL.md) covers adversarial uploads, key theft, hash-list poisoning, moderator account compromise, report forgery and public-demo abuse. For each it lists the mitigations in place and the residual risk, including the gaps that are still open (no MFA or login throttling for moderators, single-moderator hash import, no edge rate limit on the public analyze endpoint).
+The [threat model](docs/THREAT_MODEL.md) covers adversarial uploads, key theft, hash-list poisoning, moderator account compromise and report forgery. For each it lists the mitigations in place and the residual risk, including the gaps that are still open (no MFA or login throttling for moderators, single-moderator hash import, no edge rate limit on the public analyze endpoint).
 
 ---
 
@@ -704,11 +638,10 @@ This is a working, end-to-end prototype, not a production deployment. The main g
 
 - **Model numbers are from synthetic smoke splits.** Retrain on licensed FaceForensics++ / DFDC / Celeb-DF crops for report-quality figures. Diffusion-era detection remains an open research problem.
 - **Compression robustness is shown on synthetic data only.** Phase 29's augmented training took the social-transcode flip rate from 0.49 to 0.00 and CI enforces it, but codecs outside the augmentation set (WebP: 0.02, genuine-image scores +0.22) still move scores, and none of it is proven on real faces until `ml/phase29.py` is re-run on licensed data. Scores are also uncalibrated until fitted on real validation data. See the [model card](docs/MODEL_CARD.md).
-- **The demo runs with dev keys and secrets.** The compose stack uses the file keyring, no timestamp authority, and demo passwords and HMAC key. Any non-`dev` profile refuses to start like that; production needs Vault Transit (or another KMS behind `SigningKeyProvider`), an RFC 3161 TSA and real secrets. The Vault and TSA integrations are tested against local fakes, not a live service.
+- **Signing keys on disk are a starting point.** Prefer Vault Transit (or another KMS behind `SigningKeyProvider`) and an RFC 3161 TSA for hardened deployments. The Vault and TSA integrations are tested against local fakes, not a live service.
 - **StopNCII matching is compatible, not connected.** A live integration needs formal approval as a participating organisation.
 - **Some pieces are stubs.** Notifications are log/webhook only. Throughput was measured on one laptop CPU (about 8 req/s); GPU numbers are not measured.
 - **C2PA signing uses a dev certificate.** Validators report our manifests as `VALID_UNTRUSTED` until a certificate from a C2PA trust-list CA is configured. The EU / UK / AU deadlines are platform targets pending legal review.
-- **The public demo is configuration, not a running instance.** `docker-compose.demo.yml` and [docs/PUBLIC_DEMO.md](docs/PUBLIC_DEMO.md) deploy it on your own VM and domain; this repository does not host one.
 - **Moderator sign-in is HTTP Basic without MFA or login throttling.** Put the console behind an SSO provider with MFA before real use. See the [threat model](docs/THREAT_MODEL.md#t4-moderator-account-compromise).
 - **Legal text is a template.** The Hindi translation, Terms and Privacy Policy need review by a native speaker and by counsel.
 

@@ -100,7 +100,7 @@ public class SightingService {
         return p;
     }
 
-    /** A partner's display name as a platform name, e.g. "Demo Platform" becomes "demo-platform". */
+    /** A partner's display name as a platform name, e.g. "Acme Social" becomes "acme-social". */
     public static String platformFromName(String name) {
         String p = name == null ? "" : name.strip().toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9.\\-]+", "-").replaceAll("^[.\\-]+|[.\\-]+$", "");

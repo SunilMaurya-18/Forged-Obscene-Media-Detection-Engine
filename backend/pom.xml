@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.16</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -20,17 +20,20 @@
     <properties>
         <java.version>21</java.version>
         <bouncycastle.version>1.86</bouncycastle.version>
-        <!-- Ahead of the Boot-managed versions: CI's Trivy scan fails on fixable CRITICAL CVEs -->
-        <tomcat.version>10.1.60</tomcat.version>
-        <netty.version>4.1.138.Final</netty.version>
+        <!-- Boot 4.1.1 manages 7.0.9; pin explicitly so Trivy CRITICAL CVEs
+             (CVE-2026-47884 / 47890 / 47892) cannot regress via BOM drift. -->
+        <spring-framework.version>7.0.9</spring-framework.version>
+        <!-- Boot 4.1.1 still ships Tomcat 11.0.24; pin past CVE-2026-65182 / 65905 / 68525. -->
+        <tomcat.version>11.0.25</tomcat.version>
         <!-- 1.21.4+ negotiates the Docker API version; older releases get HTTP 400 from Docker Engine 29 -->
         <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencies>
+        <!-- Boot 4: spring-boot-starter-web was renamed to spring-boot-starter-webmvc -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -44,9 +47,15 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Reactive WebClient for ML / escalation / case notifications -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
+            <artifactId>spring-boot-starter-webclient</artifactId>
+        </dependency>
+        <!-- Keep Jackson 2 (com.fasterxml) APIs used throughout the codebase -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson2</artifactId>
         </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -77,12 +86,27 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webclient-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

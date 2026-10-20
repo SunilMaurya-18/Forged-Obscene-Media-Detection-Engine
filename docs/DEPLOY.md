@@ -10,8 +10,8 @@ internet ──443──> caddy ──> frontend (nginx) ──/api/──> back
                                                           └──> redis
 ```
 
-This is the production setup: your own accounts and secrets, no demo story, no sample data, no demo
-logins. For a throwaway public demo with synthetic samples, use [PUBLIC_DEMO.md](PUBLIC_DEMO.md) instead.
+This is the production setup: your own accounts and secrets, no sample seed data, and no published
+default logins. The stack refuses to start until every required secret is set.
 
 ## Requirements
 
@@ -51,14 +51,15 @@ openssl rand -hex 32
 | `DOMAIN` | Your host name, without `https://` |
 | `POSTGRES_PASSWORD`, `REDIS_PASSWORD` | Random secrets |
 | `PROVENANCE_SIGNING_KEY`, `INVESTIGATION_PSEUDONYM_KEY` | Random secrets of 32+ characters. Keep them: changing either later breaks verification of labelled files or unlinks pseudonyms |
-| `MODERATOR_USERNAME`, `MODERATOR_PASSWORD` | The first console account; password 12+ characters |
-| `MODERATOR_EXTRA_ACCOUNTS` | More people, `username:password:ROLE:team`, comma-separated. Four-eyes rules need at least a second moderator and one `SENIOR_MODERATOR` |
+| `MODERATOR_USERNAME`, `MODERATOR_PASSWORD` | The owner console account; password 12+ characters |
+| `MODERATOR_ROLE` | Set to `ADMIN` so you can open `/admin`, manage staff, and solo-operate four-eyes checks when needed |
+| `MODERATOR_EXTRA_ACCOUNTS` | Optional extra people, `username:password:ROLE:team`. You can also create them later from `/admin` |
 | `VITE_LEGAL_OPERATOR`, `VITE_LEGAL_CONTACT_EMAIL` | Your organisation and privacy contact, printed in `/terms` and `/privacy` |
 
 Keep `.env` private (`chmod 600 .env`). It is ignored by git.
 
-The stack refuses to start with a weak or demo value: Compose names any missing variable, and the
-backend and ML service list every problem (demo password, short key, seed data switched on) and exit.
+The stack refuses to start with a weak or published default: Compose names any missing variable, and the
+backend and ML service list every problem (weak password, short key) and exit.
 
 ## 3. Start
 
@@ -78,12 +79,12 @@ fmd logs -f backend caddy   # watch startup and the certificate request
 
 ```bash
 curl -fsS https://fmd.example.com/api/stats     # JSON: frontend, backend and database are up
-curl -s -o /dev/null -w '%{http_code}\n' https://fmd.example.com/api/demo   # 404: demo is off
 fmd ps                                           # every service "healthy"
 ```
 
-Then open `https://fmd.example.com/login` and sign in with `MODERATOR_USERNAME`. The login page
-shows no demo accounts, and the queue starts empty.
+Then open `https://fmd.example.com/login` and sign in with `MODERATOR_USERNAME`. With
+`MODERATOR_ROLE=ADMIN` you land on `/admin` to create moderators and investigators. The queue
+starts empty. Public visitors can still report and verify without an account — they cannot approve uploads.
 
 ## Operating it
 
@@ -102,7 +103,7 @@ shows no demo accounts, and the queue starts empty.
 ## Before launch
 
 - Have the Terms and Privacy Policy reviewed by a lawyer for the countries you serve.
-- The bundled forgery model is a demo checkpoint trained on small research datasets. Read
+- The bundled forgery model is a research checkpoint trained on small datasets. Read
   [MODEL_CARD.md](MODEL_CARD.md) and retrain on data you are licensed to use before relying on its scores.
 - `NSFW_BACKEND=heuristic` is a fast approximation. For real explicit-content detection, install
   `transformers` in the ML service image and set `NSFW_BACKEND=transformers`.

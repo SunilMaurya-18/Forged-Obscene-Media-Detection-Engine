@@ -75,7 +75,7 @@ Options considered:
 - `backend/src/main/java/com/forgeddetect/signing/` (`Ed25519Keys`, `FileSigningKeyProvider`,
   `VaultTransitSigningKeyProvider`, `ReportTimestampService`)
 - `ReportVerificationController`, `SigningKeyController`
-- `DemoSecretsGuard` refuses the file keyring outside the dev profile unless explicitly allowed.
+- `ProductionSecretsGuard` refuses the file keyring outside the test profile unless `REPORT_SIGNING_ALLOW_FILE_KEYS=true`.
 - Tests: `ReportSigningIntegrationTest`, `signing/*Test`, `FakeVaultTransit`, `FakeTsa`
 
 ## Revisit when

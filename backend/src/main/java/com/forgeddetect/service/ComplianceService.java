@@ -53,7 +53,7 @@ public class ComplianceService {
     }
 
     /**
-     * @param receivedAt when the complaint reached the platform, if earlier than now (imported or demo
+     * @param receivedAt when the complaint reached the platform, if earlier than now (imported
      *     complaints); null starts the clock now
      */
     @Transactional

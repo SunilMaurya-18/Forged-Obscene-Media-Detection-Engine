@@ -14,7 +14,7 @@ public class PrescreenProperties {
     /** Max Hamming distance (of 256 bits) for PDQ, the StopNCII image hash; 31 is Meta's recommended cut-off. */
     private int pdqMaxDistance = 31;
 
-    /** pHashes inserted as INTERNAL_CONFIRMED at startup when missing (demo: a synthetic test pattern). */
+    /** pHashes inserted as INTERNAL_CONFIRMED at startup when missing. */
     private List<String> seedHashes = new ArrayList<>();
 
     public int getPhashMaxDistance() {

@@ -36,9 +36,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
@@ -47,6 +47,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
@@ -67,7 +68,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
             "ml.service.url=http://localhost:9",
             "app.security.moderator-username=moderator",
             "app.security.moderator-password=moderator",
-            "api.demo-key=" + CustodyIntegrationTest.PARTNER_KEY,
+            "api.bootstrap-key=" + CustodyIntegrationTest.PARTNER_KEY,
             "api.rate-limits.FREE=1000",
             "prescreen.phash-max-distance=8",
             "compliance.seed-demo=false"
@@ -94,7 +95,7 @@ class CustodyIntegrationTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private CustodyLog custodyLog;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     private final AtomicReference<String> nextPhash = new AtomicReference<>();
 
@@ -438,11 +439,11 @@ class CustodyIntegrationTest {
         return post("/api/v1/sightings").contentType(MediaType.APPLICATION_JSON).content(body(m));
     }
 
-    private ResultActions partner(MockHttpServletRequestBuilder request) throws Exception {
+    private ResultActions partner(AbstractMockHttpServletRequestBuilder<?> request) throws Exception {
         return mockMvc.perform(request.header("X-API-Key", PARTNER_KEY));
     }
 
-    private ResultActions moderator(MockHttpServletRequestBuilder request) throws Exception {
+    private ResultActions moderator(AbstractMockHttpServletRequestBuilder<?> request) throws Exception {
         return mockMvc.perform(request.with(httpBasic("moderator", "moderator")));
     }
 

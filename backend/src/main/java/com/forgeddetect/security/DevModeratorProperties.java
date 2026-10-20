@@ -18,13 +18,16 @@ public class DevModeratorProperties {
     private String moderatorUsername = "moderator";
     private String moderatorPassword = "moderator";
 
+    /** Role for the primary account; use {@code ADMIN} in production so the owner can open /admin. */
+    private String moderatorRole = "MODERATOR";
+
     /** Comma-separated {@code username:password:ROLE:team}; ROLE and team are optional. */
     private String extraModerators = "";
 
-    /** Primary moderator (team "core") followed by the extra accounts; malformed entries are skipped. */
+    /** Primary account (team "core") followed by the extra accounts; malformed entries are skipped. */
     public List<Account> accounts() {
         List<Account> out = new ArrayList<>();
-        out.add(new Account(moderatorUsername, moderatorPassword, ModeratorRole.MODERATOR, "core"));
+        out.add(new Account(moderatorUsername, moderatorPassword, parseRole(moderatorRole, ModeratorRole.MODERATOR), "core"));
         if (extraModerators == null || extraModerators.isBlank()) {
             return out;
         }
@@ -33,18 +36,27 @@ public class DevModeratorProperties {
             if (p.length < 2 || p[0].isBlank() || p[1].isBlank() || p[0].trim().equals(moderatorUsername)) {
                 continue;
             }
-            ModeratorRole role = ModeratorRole.MODERATOR;
-            if (p.length > 2 && !p[2].isBlank()) {
-                try {
-                    role = ModeratorRole.valueOf(p[2].trim().toUpperCase(Locale.ROOT));
-                } catch (IllegalArgumentException ex) {
-                    continue;
-                }
+            ModeratorRole role = p.length > 2 && !p[2].isBlank()
+                    ? parseRole(p[2], null)
+                    : ModeratorRole.MODERATOR;
+            if (role == null) {
+                continue;
             }
             String team = p.length > 3 && !p[3].isBlank() ? p[3].trim().toLowerCase(Locale.ROOT) : "core";
             out.add(new Account(p[0].trim(), p[1], role, team));
         }
         return out;
+    }
+
+    private static ModeratorRole parseRole(String raw, ModeratorRole fallback) {
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        try {
+            return ModeratorRole.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return fallback;
+        }
     }
 
     public String getModeratorUsername() {
@@ -61,6 +73,14 @@ public class DevModeratorProperties {
 
     public void setModeratorPassword(String moderatorPassword) {
         this.moderatorPassword = moderatorPassword;
+    }
+
+    public String getModeratorRole() {
+        return moderatorRole;
+    }
+
+    public void setModeratorRole(String moderatorRole) {
+        this.moderatorRole = moderatorRole;
     }
 
     public String getExtraModerators() {

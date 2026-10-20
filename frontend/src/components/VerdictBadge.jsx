@@ -16,12 +16,12 @@ export default function VerdictBadge({ verdict, size = 'md', className }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border font-semibold',
+        'inline-flex items-center gap-2 rounded-full border font-semibold tracking-[0.02em]',
         meta.ring,
         meta.text,
-        size === 'sm' && 'px-2 py-0.5 text-[11px]',
-        size === 'md' && 'px-2.5 py-1 text-xs',
-        size === 'lg' && 'px-3.5 py-1.5 text-sm',
+        size === 'sm' && 'px-2.5 py-1 text-[11px]',
+        size === 'md' && 'px-3 py-1.5 text-xs',
+        size === 'lg' && 'px-3.5 py-2 text-sm',
         className,
       )}
     >
@@ -50,16 +50,16 @@ export function VerdictPanel({ verdict, next, meta: footer, children, className 
           <Icon aria-hidden className={cn('size-6', meta.text)} />
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs uppercase tracking-[0.16em] text-muted">{t('verdict.automatedCheck')}</p>
-          <p className={cn('text-2xl font-semibold tracking-tight mt-0.5', meta.text)}>{t(`verdict.${verdict}.label`)}</p>
-          <p className="text-sm text-muted mt-1.5 leading-relaxed">{t(`verdict.${verdict}.description`)}</p>
+          <p className="label-caps">{t('verdict.automatedCheck')}</p>
+          <p className={cn('font-serif text-[28px] leading-[1.25] font-medium tracking-[-0.01em] mt-2', meta.text)}>{t(`verdict.${verdict}.label`)}</p>
+          <p className="text-[15px] text-muted mt-2.5 leading-[1.7] max-w-prose">{t(`verdict.${verdict}.description`)}</p>
           {next && (
-            <p className="text-sm mt-3">
+            <p className="text-[15px] mt-4 leading-[1.65]">
               <span className="text-subtle">{t('verdict.whatHappensNext')}: </span>
               {t(`verdict.next.${next}`)}
             </p>
           )}
-          {footer && <div className="text-xs text-subtle mt-3 font-mono">{footer}</div>}
+          {footer && <div className="text-xs text-subtle mt-4 font-mono">{footer}</div>}
         </div>
       </div>
 

@@ -106,7 +106,7 @@ public class TransparencyService {
         throw new IllegalArgumentException("period must be YYYY-MM, YYYY-Qn, YYYY or last-Nd");
     }
 
-    /** Drops cached reports on this instance (after a demo reset removed the data they counted). */
+    /** Drops cached reports on this instance (e.g. after underlying rows were purged). */
     public void clearCache() {
         cache.clear();
     }

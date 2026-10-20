@@ -49,13 +49,13 @@ public class LegalRequestController {
 
     @PostMapping("/{requestNumber}/approve")
     public Map<String, Object> approve(@PathVariable String requestNumber, @RequestBody(required = false) NoteRequest body, Authentication auth) {
-        LegalRequest r = requests.decide(requestNumber, true, body != null ? body.note() : null, auth.getName(), senior(auth));
+        LegalRequest r = requests.decide(requestNumber, true, body != null ? body.note() : null, auth.getName(), senior(auth), admin(auth));
         return requests.view(r, auth.getName(), senior(auth));
     }
 
     @PostMapping("/{requestNumber}/reject")
     public Map<String, Object> reject(@PathVariable String requestNumber, @RequestBody(required = false) NoteRequest body, Authentication auth) {
-        LegalRequest r = requests.decide(requestNumber, false, body != null ? body.note() : null, auth.getName(), senior(auth));
+        LegalRequest r = requests.decide(requestNumber, false, body != null ? body.note() : null, auth.getName(), senior(auth), admin(auth));
         return requests.view(r, auth.getName(), senior(auth));
     }
 
@@ -66,7 +66,12 @@ public class LegalRequestController {
     }
 
     private static boolean senior(Authentication auth) {
-        return auth.getAuthorities().stream().anyMatch(a -> "ROLE_SENIOR_MODERATOR".equals(a.getAuthority()));
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SENIOR_MODERATOR".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+    }
+
+    private static boolean admin(Authentication auth) {
+        return auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     public record FileRequest(String authority, String orderReference, String investigator, List<String> caseNumbers,

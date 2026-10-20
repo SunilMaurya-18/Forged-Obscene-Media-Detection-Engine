@@ -38,8 +38,7 @@
       "dashboard": "Dashboard",
       "explained": "Explained",
       "appeal": "Appeal",
-      "transparency": "Transparency",
-      "tour": "Live demo"
+      "transparency": "Transparency"
     }
   },
   "loading": {
@@ -81,10 +80,13 @@
       "statement_required": "Tell us why you think the decision is wrong.",
       "statement_too_long": "Your explanation must be at most 1000 characters.",
       "invalid_period": "That report period isn't recognised.",
-      "demo_samples_only": "This public demo accepts only its built-in synthetic samples. Choose one under \"Use a sample\", or run the project locally to try your own files.",
-      "demo_reset_cooldown": "The demo was reset moments ago. Try again in a minute or two.",
-      "demo_busy": "The demo story is being prepared. Try again in a few seconds.",
-      "demo_rate_limited": "The public demo is busy right now. Please try again in a moment."
+      "username_taken": "That username is already in use.",
+      "username_required": "Choose a username.",
+      "invalid_username": "Usernames are lowercase letters, digits, dots, underscores or hyphens.",
+      "weak_password": "Passwords need 12+ characters and must not be a published default or match the username.",
+      "invalid_role": "Role must be MODERATOR, SENIOR_MODERATOR, ADMIN or INVESTIGATOR.",
+      "last_admin": "Keep at least one enabled ADMIN account.",
+      "cannot_disable_self": "You cannot disable your own account while signed in."
     }
   },
   "notice": {
@@ -342,8 +344,6 @@
     "idleHint": "Open your browser's network tools: only a tiny line of text goes out.",
     "onDevice": "On this device",
     "choose": "Choose image",
-    "demo": "Try the demo pattern",
-    "demoTitle": "A synthetic test pattern whose fingerprint is on the known list",
     "stepHash": "Fingerprint made in your browser",
     "stepSend": "Only the fingerprint is sent",
     "stepResult": "Match or no match comes back",
@@ -356,7 +356,7 @@
     "noMatchBody": "It isn't on the known list. That doesn't make the image safe or consensual; it only means it isn't on the list.",
     "match": "match",
     "noMatch": "no match",
-    "footnote": "This works like StopNCII.org: fingerprints are made on your own device and only fingerprints are shared. A live StopNCII connection needs approval as a participating organisation; this demo checks a local list.",
+    "footnote": "This works like StopNCII.org: fingerprints are made on your own device and only fingerprints are shared. A live StopNCII connection needs approval as a participating organisation; this deployment checks a local list.",
     "failed": "We couldn't check this image. Try another one."
   },
   "landing": {
@@ -506,9 +506,7 @@
       "title": "Ready when you are",
       "body": "No account is needed to check or report an image.",
       "guide": "Read the plain-English guide"
-    },
-    "ctaTour": "See it live in one click",
-    "tourHint": "Opens a ready-made story: a takedown, an appeal, a signed report and two legal deadlines. All synthetic."
+    }
   },
   "legal": {
     "eyebrow": "Legal",
@@ -517,7 +515,7 @@
     "print": "Print",
     "contents": "Contents",
     "seeAlso": "See also:",
-    "templateNotice": "This document describes how this software actually handles data, written for this project's demo deployment. It is not legal advice. Before a real launch, the operator must fill in its own name and contact details and have it reviewed by a lawyer for the countries it serves.",
+    "templateNotice": "This document describes how this software handles data. It is not legal advice. Before launch, the operator must fill in its own name and contact details and have it reviewed by a lawyer for the countries it serves.",
     "englishOnly": "This document is available in English only.",
     "terms": {
       "title": "Terms and Conditions",
@@ -610,142 +608,6 @@
       "counting": "Uploads and decisions are counted by upload time; complaints by receipt time; appeals by filing time (UTC).",
       "suppression": "Counts from 1 to {{max}}, and rates computed from so few items, are withheld (shown as <{{min}} or n/a) so that no single upload or decision can be picked out.",
       "pending": "Legal references for {{codes}} are pending legal review."
-    }
-  },
-  "demo": {
-    "eyebrow": "Live demo",
-    "title": "The whole platform in one story",
-    "subtitle": "Five real events just ran through the live system: a takedown, the uploader's appeal, a signed evidence report, a victim's report close to its legal deadline and a government order that missed it. Open any of them.",
-    "synthetic": "Every image in this story was drawn from shapes on the server. No real person appears anywhere in the demo.",
-    "seeding": "Setting the scene: analysing three synthetic images, taking one down, filing an appeal and signing a report…",
-    "failed": "The demo story couldn't be prepared",
-    "seededAt": "Story created {{time}}",
-    "reset": "Reset the demo",
-    "resetting": "Resetting…",
-    "disabled": {
-      "title": "The demo isn't switched on here",
-      "body": "This server runs without demo data (DEMO_ENABLED=false). You can still analyse synthetic media yourself.",
-      "cta": "Analyse media"
-    },
-    "appealStatus": {
-      "OPEN": "Waiting for a decision",
-      "UPHELD": "Takedown upheld",
-      "GRANTED": "Appeal granted"
-    },
-    "steps": {
-      "flagged": {
-        "title": "An edited image was taken down",
-        "body": "Both models scored the upload, then moderator {{moderator}} removed it and recorded why. No media was kept.",
-        "model": "Models suggested",
-        "final": "Final decision",
-        "forgery": "Forgery score",
-        "explicit": "Explicit score",
-        "reason": "Reason given to the uploader",
-        "trail": "See its audit trail",
-        "queue": "Open the moderation queue"
-      },
-      "appeal": {
-        "title": "The uploader appealed",
-        "body": "Everyone whose upload is removed gets a notice number and PIN, and can appeal without an account. Someone other than the original moderator must decide.",
-        "notice": "Notice number",
-        "pin": "PIN",
-        "status": "Status",
-        "due": "Decision due",
-        "open": "Open the uploader's appeal page",
-        "decide": "Decide it as a senior moderator"
-      },
-      "report": {
-        "title": "A signed evidence report was issued",
-        "body": "A PDF for courts and regulators, signed with Ed25519. Anyone holding the report ID can check it still matches the record.",
-        "id": "Report ID",
-        "open": "Open the PDF",
-        "check": "Check the signature",
-        "checking": "Checking…",
-        "key": "key {{key}}",
-        "result": {
-          "VALID": "Signature valid: the report matches the record.",
-          "TAMPERED": "The record changed after this report was signed.",
-          "NOT_FOUND": "No report with this ID exists here."
-        }
-      },
-      "atRisk": {
-        "title": "A victim's report is close to its deadline",
-        "body": "Filed through the public form. The legal clock started when it arrived, and the compliance console warns before it runs out.",
-        "case": "Case number",
-        "clock": "Legal clock",
-        "track": "Track it as the reporter"
-      },
-      "breached": {
-        "title": "A government order missed its deadline",
-        "body": "The clock ran out, so it was escalated automatically and the breach stays on the record.",
-        "reference": "Order reference",
-        "console": "Open the compliance console"
-      },
-      "investigation": {
-        "title": "Where the composite went next",
-        "body": "Partner platforms reported {{sightings}} copies on {{platforms}} platforms. One account also posted the image from the victim's report, so the two cases are linked. Accounts are stored as pseudonyms and no media is kept.",
-        "case": "Investigation",
-        "related": "Linked case",
-        "open": "Open the investigation",
-        "custody": "Evidence",
-        "custodyValue": "Preserved {{preservations}}× · {{holds}} legal hold(s) requested",
-        "handover": "Investigator access",
-        "handoverValue": "{{request}} from {{authority}}, approved by a second senior moderator: \"{{investigator}}\" can read this case until {{until}}"
-      }
-    },
-    "sla": {
-      "ON_TRACK": "On track",
-      "AT_RISK": "At risk",
-      "BREACHED": "Deadline missed",
-      "dueIn": "due in {{time}}",
-      "overdue": "{{time}} overdue"
-    },
-    "moderator": {
-      "title": "Continue as a moderator",
-      "body": "Sign in to act on the story: the queue, the appeal (senior moderators), the compliance console and reports.",
-      "publicBody": "Shared demo accounts. Anything you do is wiped at the next reset.",
-      "passwordHint": "Passwords come from your .env (MODERATOR_PASSWORD and MODERATOR_EXTRA_ACCOUNTS).",
-      "signInAs": "Sign in as {{user}}",
-      "signIn": "Go to sign in",
-      "roles": {
-        "MODERATOR": "Moderator",
-        "SENIOR_MODERATOR": "Senior moderator",
-        "INVESTIGATOR": "Investigator (read-only)"
-      }
-    },
-    "tryIt": {
-      "title": "Try it yourself",
-      "body": "Analyse one of the bundled synthetic samples, file a report with one, or check a labelled copy.",
-      "cta": "Analyse a sample"
-    },
-    "samples": {
-      "hint": "No file to hand? Use a synthetic sample:",
-      "publicHint": "This public demo accepts only these synthetic samples:",
-      "kinds": {
-        "review": {
-          "label": "Striped pattern",
-          "body": "Synthetic test pattern; usually lands in the review queue."
-        },
-        "known": {
-          "label": "Known-hash pattern",
-          "body": "Its perceptual hash is on the known-content list, so the pre-screen matches it."
-        },
-        "credentials": {
-          "label": "C2PA-signed image",
-          "body": "Carries Content Credentials declaring AI generation."
-        },
-        "video": {
-          "label": "Short clip",
-          "body": "A few seconds of synthetic video, scored frame by frame."
-        }
-      }
-    },
-    "banner": {
-      "label": "Public demo notice",
-      "text": "Public demo: synthetic samples only, and all data is reset regularly.",
-      "next": "Next reset in {{time}}.",
-      "tour": "Take the tour",
-      "reset": "Reset now"
     }
   }
 }

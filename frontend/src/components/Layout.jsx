@@ -5,7 +5,6 @@ import {
   BarChart3,
   BookOpen,
   ChevronRight,
-  ExternalLink,
   FilePlus2,
   FolderSearch,
   Gavel,
@@ -20,18 +19,16 @@ import {
   ScanSearch,
   Search,
   ShieldCheck,
-  Sparkles,
   Stamp,
   Timer,
+  UserCog,
   WifiOff,
   X,
 } from 'lucide-react'
 import { fetchComplianceSummary } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
-import { cn, mockFeedUrl } from '../lib/format'
-import DemoBanner from './DemoBanner'
+import { cn } from '../lib/format'
 import LanguageToggle from './LanguageToggle'
 import { Logo } from './Logo'
 import { LoadingState } from './Status'
@@ -40,7 +37,6 @@ import { buttonClass } from './ui'
 
 /** Signed-out visitors: the end-user flows (report, track), translated. */
 const PUBLIC_NAV = [
-  { to: '/tour', key: 'tour', icon: Sparkles, demoOnly: true },
   { to: '/analyze', key: 'analyze', icon: ScanSearch },
   { to: '/report', key: 'report', icon: FilePlus2 },
   { to: '/status', key: 'status', icon: Search },
@@ -76,6 +72,11 @@ const MODERATOR_NAV = [
     ],
   },
 ]
+
+const ADMIN_NAV = {
+  label: 'Owner',
+  items: [{ to: '/admin', label: 'Admin', icon: UserCog }],
+}
 
 const MODERATOR_FOOTER_NAV = [
   { to: '/explained', label: 'How it works', icon: BookOpen },
@@ -231,7 +232,8 @@ function SideLink({ to, label, icon: Icon, badge, onNavigate }) {
   )
 }
 
-function roleLabel({ isSenior, isModerator, isInvestigator }) {
+function roleLabel({ isAdmin, isSenior, isModerator, isInvestigator }) {
+  if (isAdmin) return 'Owner admin'
   if (isSenior) return 'Senior moderator'
   if (isModerator) return 'Moderator'
   if (isInvestigator) return 'Investigator'
@@ -241,7 +243,6 @@ function roleLabel({ isSenior, isModerator, isInvestigator }) {
 function Sidebar({ groups, badges, onNavigate, onClose }) {
   const auth = useAuth()
   const { user, logout, isAuthenticated, isInvestigator } = auth
-  const { enabled: demoEnabled } = useDemo()
   const name = user?.username || '?'
   return (
     <div className="flex h-full flex-col">
@@ -288,19 +289,12 @@ function Sidebar({ groups, badges, onNavigate, onClose }) {
             {MODERATOR_FOOTER_NAV.map((item) => (
               <SideLink key={item.to} {...item} onNavigate={onNavigate} />
             ))}
-            {demoEnabled && (
-              <a href={mockFeedUrl()} target="_blank" rel="noreferrer" className={sideLinkClass({ isActive: false })}>
-                <ExternalLink aria-hidden className="size-4 shrink-0 text-subtle" />
-                <span className="truncate">Mock feed</span>
-                <span className="sr-only">(opens in a new tab)</span>
-              </a>
-            )}
           </>
         )}
         <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-line bg-surface-2 p-2">
           <span
             aria-hidden
-            className="grid place-items-center size-8 shrink-0 rounded-lg bg-brand text-[#fff] text-xs font-bold uppercase"
+            className="grid place-items-center size-8 shrink-0 rounded-lg bg-brand text-canvas text-xs font-bold uppercase"
           >
             {name[0]}
           </span>
@@ -334,12 +328,16 @@ function currentItem(groups, pathname) {
 }
 
 function ConsoleShell() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isAdmin } = useAuth()
   const { online, reviewCount } = useStats()
   const compliance = useComplianceAlerts(isAuthenticated)
   const location = useLocation()
   const [drawer, setDrawer] = useDrawer()
-  const groups = isAuthenticated ? MODERATOR_NAV : INVESTIGATOR_NAV
+  const groups = isAuthenticated
+    ? isAdmin
+      ? [ADMIN_NAV, ...MODERATOR_NAV]
+      : MODERATOR_NAV
+    : INVESTIGATOR_NAV
   const here = currentItem(groups, location.pathname)
   const badges = {
     queue: <NavBadge count={reviewCount} label="waiting for review" />,
@@ -376,8 +374,8 @@ function ConsoleShell() {
       )}
 
       <div className="flex min-h-screen flex-col">
-        <DemoBanner />
-        <header className="sticky top-0 z-20 h-14 border-b border-line bg-canvas/80 backdrop-blur-xl print:hidden">
+        <header className="sticky top-0 z-20 h-14 border-b border-line bg-canvas/85 backdrop-blur-md print:hidden">
+          <div aria-hidden className="rule-glint absolute inset-x-0 top-0" />
           <div className="h-full max-w-7xl mx-auto px-4 md:px-8 flex items-center gap-3">
             <button
               type="button"
@@ -411,7 +409,7 @@ function ConsoleShell() {
           </div>
         </header>
 
-        <Main className="max-w-7xl py-8 md:py-10" />
+        <Main className="max-w-7xl py-10 md:py-12" />
       </div>
     </div>
   )
@@ -445,10 +443,9 @@ function FooterColumn({ title, links }) {
 function PublicShell() {
   const { t } = useTranslation()
   const { online } = useStats()
-  const { enabled: demoEnabled } = useDemo()
   const onLogin = useLocation().pathname === '/login'
   const [menu, setMenu] = useDrawer()
-  const nav = PUBLIC_NAV.filter((item) => demoEnabled || !item.demoOnly).map((item) => ({ ...item, label: t(`common.nav.${item.key}`) }))
+  const nav = PUBLIC_NAV.map((item) => ({ ...item, label: t(`common.nav.${item.key}`) }))
   const label = (key) => t(`common.nav.${key}`)
 
   return (
@@ -457,12 +454,11 @@ function PublicShell() {
 
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden print:hidden">
         <div className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_70%_45%_at_50%_0%,black,transparent)]" />
-        <div className="absolute -top-56 left-1/2 -translate-x-1/2 h-[420px] w-[820px] rounded-full bg-brand/[0.13] blur-[120px]" />
+        <div className="absolute -top-56 left-1/2 -translate-x-1/2 h-[420px] w-[820px] rounded-full bg-brand/[0.05] blur-[120px]" />
       </div>
 
-      <DemoBanner />
-
-      <header className="sticky top-0 z-40 border-b border-line bg-canvas/75 backdrop-blur-xl print:hidden">
+      <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md print:hidden">
+        <div aria-hidden className="rule-glint absolute inset-x-0 top-0" />
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center gap-6">
           <NavLink to="/" className="shrink-0 rounded-lg" aria-label="Forged Media Detection, home">
             <Logo />
@@ -539,7 +535,7 @@ function PublicShell() {
         </div>
       )}
 
-      <Main className="max-w-6xl py-10 md:py-14" />
+      <Main className="max-w-6xl py-12 md:py-16" />
 
       <footer className="border-t border-line bg-surface/40 print:hidden">
         <div className="max-w-6xl mx-auto px-4 md:px-8 py-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
@@ -550,7 +546,6 @@ function PublicShell() {
           <FooterColumn
             title={t('common.footer.product')}
             links={[
-              ...(demoEnabled ? [{ to: '/tour', label: label('tour') }] : []),
               { to: '/analyze', label: label('analyze') },
               { to: '/verify', label: label('verify') },
               { to: '/dashboard', label: label('dashboard') },

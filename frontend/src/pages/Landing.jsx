@@ -22,7 +22,6 @@ import {
   ScanSearch,
   Search,
   ShieldCheck,
-  Sparkles,
   Stamp,
   Undo2,
   UserCheck,
@@ -31,7 +30,6 @@ import {
 import { useAuth } from '../auth/AuthContext'
 import VerdictBadge from '../components/VerdictBadge'
 import { Card, buttonClass } from '../components/ui'
-import { useDemo } from '../context/DemoContext'
 import { useStats } from '../context/StatsContext'
 import { UNDO_MS } from '../context/DecisionContext'
 import { cn } from '../lib/format'
@@ -80,15 +78,15 @@ function SectionHeading({ eyebrow, title, subtitle, id }) {
   return (
     <div className="max-w-2xl mb-8">
       {eyebrow && (
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand mb-3">
-          <span aria-hidden className="size-1.5 rounded-full bg-brand-gradient" />
+        <p className="label-caps inline-flex items-center gap-2 text-brand mb-3">
+          <span aria-hidden className="size-1.5 rounded-full bg-brand" />
           {eyebrow}
         </p>
       )}
-      <h2 id={id} className="text-2xl md:text-[32px] md:leading-[1.2] font-semibold tracking-[-0.02em]">
+      <h2 id={id} className="font-serif text-[30px] md:text-[40px] leading-[1.22] font-medium tracking-[-0.012em]">
         {title}
       </h2>
-      {subtitle && <p className="text-muted mt-3 text-[15px] leading-relaxed">{subtitle}</p>}
+      {subtitle && <p className="text-muted mt-4 text-[16px] leading-[1.7] max-w-prose">{subtitle}</p>}
     </div>
   )
 }
@@ -98,7 +96,7 @@ function HeroPreview() {
   const { t } = useTranslation()
   return (
     <div aria-hidden className="relative">
-      <div className="absolute -inset-y-8 inset-x-0 sm:-inset-x-8 rounded-[40px] bg-brand-gradient opacity-[0.1] blur-3xl" />
+      <div className="absolute -inset-y-8 inset-x-0 sm:-inset-x-8 rounded-[40px] bg-white opacity-[0.04] blur-3xl" />
       <Card className="relative overflow-hidden p-0 shadow-[0_30px_80px_-40px_rgb(0_0_0/0.8)]">
         <div className="flex items-center gap-1.5 h-10 px-4 border-b border-line bg-surface-2">
           <span className="size-2.5 rounded-full bg-white/15" />
@@ -156,8 +154,8 @@ function PathCard({ icon: Icon, title, body, to, cta, secondary, accent }) {
       <span className={cn('grid place-items-center size-11 rounded-xl border', accent)}>
         <Icon aria-hidden className="size-5" />
       </span>
-      <h3 className="mt-4 text-[17px] font-semibold tracking-tight">{title}</h3>
-      <p className="mt-1.5 flex-1 text-sm text-muted leading-relaxed">{body}</p>
+      <h3 className="mt-5 font-serif text-[20px] leading-snug font-medium tracking-[-0.01em]">{title}</h3>
+      <p className="mt-2.5 flex-1 text-[15px] text-muted leading-[1.7]">{body}</p>
       <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
         <Link to={to} className={buttonClass('secondary', 'sm')}>
           {cta}
@@ -190,7 +188,6 @@ function Mark({ value }) {
 export default function Landing() {
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
-  const { enabled: demoEnabled } = useDemo()
   const { stats } = useStats()
   const latency = useLatency()
 
@@ -233,22 +230,16 @@ export default function Landing() {
       {/* Hero */}
       <section aria-labelledby="landing-title" className="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-12 items-center animate-fade-up">
         <div>
-          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-white/[0.03] px-3 py-1 text-xs text-muted">
+          <p className="label-caps inline-flex items-center gap-2 text-muted">
             <ShieldCheck aria-hidden className="size-3.5 text-brand" />
             {t('landing.eyebrow')}
           </p>
-          <h1 id="landing-title" className="mt-5 text-4xl md:text-[54px] md:leading-[1.06] font-semibold tracking-[-0.035em] text-gradient">
+          <h1 id="landing-title" className="mt-6 font-serif text-[40px] md:text-[60px] leading-[1.05] font-medium tracking-[-0.015em] text-gradient">
             {t('landing.title')}
           </h1>
           <p className="mt-5 text-[16px] md:text-[17px] leading-relaxed text-muted max-w-2xl">{t('landing.subtitle')}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            {demoEnabled && (
-              <Link to="/tour" className={buttonClass('primary', 'lg')}>
-                <Sparkles aria-hidden className="size-4" />
-                {t('landing.ctaTour')}
-              </Link>
-            )}
-            <Link to="/analyze" className={buttonClass(demoEnabled ? 'secondary' : 'primary', 'lg')}>
+            <Link to="/analyze" className={buttonClass('primary', 'lg')}>
               <ScanSearch aria-hidden className="size-4" />
               {t('landing.ctaCheck')}
             </Link>
@@ -257,7 +248,6 @@ export default function Landing() {
               {t('landing.ctaReport')}
             </Link>
           </div>
-          {demoEnabled && <p className="mt-3 text-xs text-subtle">{t('landing.tourHint')}</p>}
           <Link to="/status" className="mt-4 inline-flex items-center gap-1.5 text-sm text-brand hover:underline underline-offset-4">
             <Search aria-hidden className="size-3.5" />
             {t('landing.ctaTrack')}
@@ -302,12 +292,12 @@ export default function Landing() {
               <div className="flex md:flex-col md:items-center md:text-center gap-4">
                 <span className="relative grid place-items-center size-12 shrink-0 rounded-2xl border border-line-strong bg-surface-2">
                   <Icon aria-hidden className="size-5 text-brand" />
-                  <span className="absolute -top-2 -right-2 grid place-items-center size-5 rounded-full bg-brand-gradient text-[10px] font-bold text-[#fff]">
+                  <span className="absolute -top-2 -right-2 grid place-items-center size-5 rounded-full bg-brand-gradient font-mono text-[10px] font-bold text-canvas">
                     {i + 1}
                   </span>
                 </span>
                 <div>
-                  <h3 className="text-[15px] font-semibold tracking-tight">{t(`landing.how.steps.${key}.title`)}</h3>
+                  <h3 className="font-serif text-[16px] leading-snug font-medium tracking-[-0.01em]">{t(`landing.how.steps.${key}.title`)}</h3>
                   <p className="mt-1.5 text-[13px] text-muted leading-relaxed">{t(`landing.how.steps.${key}.body`)}</p>
                 </div>
               </div>
@@ -397,7 +387,7 @@ export default function Landing() {
           {numbers.map(({ value, label, icon: Icon }, i) => (
             <div key={label} className={cn('bg-surface p-5 md:p-6', i === numbers.length - 1 && 'col-span-2 lg:col-span-1')}>
               <Icon aria-hidden className="size-4 text-brand" />
-              <p className="mt-4 text-[32px] leading-none font-semibold tracking-tight tabular-nums">{value}</p>
+              <p className="mt-4 font-serif text-[34px] leading-none font-medium tracking-[-0.02em] tabular-nums">{value}</p>
               <p className="mt-2 text-xs text-muted leading-relaxed">{label}</p>
             </div>
           ))}
@@ -425,7 +415,7 @@ export default function Landing() {
                 <span className="grid place-items-center size-9 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.07]">
                   <Icon aria-hidden className="size-4 text-emerald-300" />
                 </span>
-                <h3 className="mt-3 text-[15px] font-semibold">{t(`landing.privacy.${key}.title`)}</h3>
+                <h3 className="mt-3 font-serif text-[16px] leading-snug font-medium tracking-[-0.01em]">{t(`landing.privacy.${key}.title`)}</h3>
                 <p className="mt-1 text-[13px] text-muted leading-relaxed">{t(`landing.privacy.${key}.body`)}</p>
               </Card>
             </li>
@@ -437,19 +427,13 @@ export default function Landing() {
       <section aria-labelledby="landing-final">
         <Card className="relative overflow-hidden px-6 py-14 md:px-12 text-center">
           <div aria-hidden className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_60%_80%_at_50%_0%,black,transparent)]" />
-          <div aria-hidden className="absolute -top-32 left-1/2 -translate-x-1/2 h-56 w-[560px] rounded-full bg-brand/15 blur-3xl" />
-          <h2 id="landing-final" className="relative text-2xl md:text-[32px] font-semibold tracking-[-0.02em]">
+          <div aria-hidden className="absolute -top-32 left-1/2 -translate-x-1/2 h-56 w-[560px] rounded-full bg-white/[0.06] blur-3xl" />
+          <h2 id="landing-final" className="relative font-serif text-[28px] md:text-[40px] leading-[1.1] font-medium tracking-[-0.015em]">
             {t('landing.final.title')}
           </h2>
           <p className="relative mt-2 text-muted">{t('landing.final.body')}</p>
           <div className="relative mt-7 flex flex-wrap justify-center gap-3">
-            {demoEnabled && (
-              <Link to="/tour" className={buttonClass('primary', 'lg')}>
-                <Sparkles aria-hidden className="size-4" />
-                {t('landing.ctaTour')}
-              </Link>
-            )}
-            <Link to="/analyze" className={buttonClass(demoEnabled ? 'secondary' : 'primary', 'lg')}>
+            <Link to="/analyze" className={buttonClass('primary', 'lg')}>
               <ScanSearch aria-hidden className="size-4" />
               {t('landing.ctaCheck')}
             </Link>

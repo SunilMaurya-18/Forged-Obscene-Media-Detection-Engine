@@ -28,13 +28,11 @@ import { useAuth } from '../auth/AuthContext'
 import FamilyChip from '../components/FamilyChip'
 import JurisdictionBadge from '../components/JurisdictionBadge'
 import ReportButton from '../components/ReportButton'
-import SamplePicker from '../components/SamplePicker'
 import { ErrorState, LoadingState } from '../components/Status'
 import { useToast } from '../components/Toast'
 import { Alert, Button, Card, CardHeader, DecisionBadge, EmptyState, PageHeader, StatTile } from '../components/ui'
 import { useDecisions } from '../context/DecisionContext'
 import { useStats } from '../context/StatsContext'
-import { IMAGE_SAMPLES } from '../lib/demo'
 import { cn, dateTime, fileSize, score, timeAgo } from '../lib/format'
 import { COMPLAINT_TYPES, SLA_STATUS, countdown, humanDuration, liveStatus } from '../lib/sla'
 
@@ -415,7 +413,6 @@ function FileComplaintDialog({ rules, onClose, onFiled }) {
                 <span className="text-sm text-muted">Choose an image…</span>
               )}
             </button>
-            {!file && <SamplePicker kinds={IMAGE_SAMPLES} onPick={setFile} disabled={busy} className="mt-2" />}
           </div>
 
           {error && <Alert>{error}</Alert>}

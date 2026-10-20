@@ -16,7 +16,8 @@ permissions:
 jobs:
   backend:
     name: Backend (mvn test)
-    runs-on: ubuntu-latest
+    # Pin until GitHub's ubuntu-latest → 26 migration settles for torch/av wheels.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -41,7 +42,7 @@ jobs:
 
   ml-service:
     name: ml-service (pytest)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,7 +58,7 @@ jobs:
 
   ml:
     name: ml (pytest)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -75,7 +76,7 @@ jobs:
 
   frontend:
     name: Frontend (lint, test, build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -93,7 +94,7 @@ jobs:
 
   stack:
     name: Compose stack (smoke, Playwright, HA, image scan, SBOM)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend, ml-service, frontend]
     timeout-minutes: 60
     steps:
@@ -101,11 +102,29 @@ jobs:
 
       - name: Build images
         run: |
-          cp .env.example .env
+          # Strong secrets required: compose defaults to APP_PROFILE=prod
+          POSTGRES_PASSWORD=$(openssl rand -hex 16)
+          MODERATOR_PASSWORD=$(openssl rand -hex 16)
+          PROVENANCE_SIGNING_KEY=$(openssl rand -hex 32)
+          INVESTIGATION_PSEUDONYM_KEY=$(openssl rand -hex 32)
+          {
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "MODERATOR_USERNAME=ciadmin"
+            echo "MODERATOR_PASSWORD=${MODERATOR_PASSWORD}"
+            echo "MODERATOR_ROLE=ADMIN"
+            echo "PROVENANCE_SIGNING_KEY=${PROVENANCE_SIGNING_KEY}"
+            echo "INVESTIGATION_PSEUDONYM_KEY=${INVESTIGATION_PSEUDONYM_KEY}"
+            echo "REPORT_SIGNING_ALLOW_FILE_KEYS=true"
+            # Lower review band so the synthetic e2e pattern reliably routes to REVIEW
+            echo "DECISION_FORGERY_REVIEW=0.05"
+            echo "APP_PROFILE=prod"
+          } > .env
+          echo "E2E_MODERATOR_USERNAME=ciadmin" >> "$GITHUB_ENV"
+          echo "E2E_MODERATOR_PASSWORD=${MODERATOR_PASSWORD}" >> "$GITHUB_ENV"
           docker compose build
 
       - name: Start the stack
-        run: docker compose up -d --wait --wait-timeout 600
+        run: docker compose --profile tools up -d --wait --wait-timeout 600
 
       - name: Smoke test POST /api/analyze
         run: |
@@ -134,7 +153,7 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
-      - name: Playwright demo script
+      - name: Playwright end-to-end flow
         working-directory: e2e
         run: |
           npm ci
@@ -142,6 +161,8 @@ jobs:
           npx playwright test
         env:
           CI: "true"
+          E2E_MODERATOR_USERNAME: ${{ env.E2E_MODERATOR_USERNAME }}
+          E2E_MODERATOR_PASSWORD: ${{ env.E2E_MODERATOR_PASSWORD }}
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -155,12 +176,22 @@ jobs:
       - name: Two backend instances share one rate limit (Redis)
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --wait --wait-timeout 300 backend-2
-          sh ops/ha-ratelimit-check.sh
+          # Mint a FREE-plan key (no bootstrap key in production posture)
+          KEY=$(curl -fsS -u "${E2E_MODERATOR_USERNAME}:${E2E_MODERATOR_PASSWORD}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"ci-ha-$(date +%s)\",\"plan\":\"FREE\"}" \
+            http://localhost:8081/api/admin/clients | python3 -c "import sys,json; print(json.load(sys.stdin)['apiKey'])")
+          API_KEY="$KEY" sh ops/ha-ratelimit-check.sh
 
-      - name: Backend refuses demo secrets outside dev
+      - name: Backend refuses weak secrets
         run: |
           set +e
-          docker compose run --rm --no-deps -e SPRING_PROFILES_ACTIVE=prod backend > prod-start.log 2>&1
+          docker compose run --rm --no-deps \
+            -e SPRING_PROFILES_ACTIVE=prod \
+            -e MODERATOR_PASSWORD=moderator \
+            -e SPRING_DATASOURCE_PASSWORD=forged \
+            -e INVESTIGATION_PSEUDONYM_KEY=dev-only-account-pseudonym-key-change-me \
+            backend > prod-start.log 2>&1
           status=$?
           set -e
           tail -n 20 prod-start.log

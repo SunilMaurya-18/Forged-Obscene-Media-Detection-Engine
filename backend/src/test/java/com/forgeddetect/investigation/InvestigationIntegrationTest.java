@@ -25,14 +25,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
@@ -53,7 +54,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
             "ml.service.url=http://localhost:9",
             "app.security.moderator-username=moderator",
             "app.security.moderator-password=moderator",
-            "api.demo-key=" + InvestigationIntegrationTest.PARTNER_KEY,
+            "api.bootstrap-key=" + InvestigationIntegrationTest.PARTNER_KEY,
             "api.rate-limits.FREE=1000",
             "prescreen.phash-max-distance=8"
         })
@@ -67,7 +68,7 @@ class InvestigationIntegrationTest {
     @Autowired private SightingRepository sightings;
     @Autowired private AccountPseudonyms pseudonyms;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     private final AtomicReference<String> nextPhash = new AtomicReference<>();
 
@@ -195,7 +196,7 @@ class InvestigationIntegrationTest {
         assertThat(texts(rows, "via")).containsExactlyInAnyOrder("PROVENANCE", "PROVENANCE");
         assertThat(texts(rows, "source")).containsExactlyInAnyOrder("PARTNER_API", "MODERATOR");
         assertThat(texts(rows, "platform")).contains("vid-share");
-        assertThat(texts(rows, "reporter")).contains("moderator", "Demo Platform");
+        assertThat(texts(rows, "reporter")).contains("moderator", "Bootstrap Client");
     }
 
     @Test
@@ -239,7 +240,7 @@ class InvestigationIntegrationTest {
         // No platform: the partner's own name stands in
         JsonNode defaulted = json(partner(post("/api/v1/sightings").contentType(MediaType.APPLICATION_JSON)
                 .content(body(Map.of("phash", hash, "postRef", "own-1")))).andExpect(status().isCreated()));
-        assertThat(defaulted.get("platform").asText()).isEqualTo("demo-platform");
+        assertThat(defaulted.get("platform").asText()).isEqualTo("bootstrap-client");
         assertThat(defaulted.get("accountRecorded").asBoolean()).isFalse();
     }
 
@@ -277,11 +278,11 @@ class InvestigationIntegrationTest {
         return post("/api/v1/sightings").contentType(MediaType.APPLICATION_JSON).content(body(m));
     }
 
-    private ResultActions partner(MockHttpServletRequestBuilder request) throws Exception {
+    private ResultActions partner(AbstractMockHttpServletRequestBuilder<?> request) throws Exception {
         return mockMvc.perform(request.header("X-API-Key", PARTNER_KEY));
     }
 
-    private ResultActions moderator(MockHttpServletRequestBuilder request) throws Exception {
+    private ResultActions moderator(AbstractMockHttpServletRequestBuilder<?> request) throws Exception {
         return mockMvc.perform(request.with(httpBasic("moderator", "moderator")));
     }
 

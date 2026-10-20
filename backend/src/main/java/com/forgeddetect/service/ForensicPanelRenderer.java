@@ -121,6 +121,149 @@ public class ForensicPanelRenderer {
         return png(img);
     }
 
+    /**
+     * 8×8 mosaic of the 64-bit perceptual hash. Depicts the stored fingerprint of the pixels without
+     * reconstructing the image (used when no forensic signature grids were captured).
+     */
+    public byte[] phashMosaic(String phash, int size) {
+        long bits = phashBits(phash);
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(0x12151A));
+            g.fillRect(0, 0, size, size);
+            int pad = Math.max(8, size / 20);
+            int cell = (size - 2 * pad) / 8;
+            int origin = (size - cell * 8) / 2;
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    int bit = 63 - (row * 8 + col);
+                    boolean on = ((bits >>> bit) & 1L) == 1L;
+                    g.setColor(on ? new Color(0xE8E4DF) : new Color(0x2A3038));
+                    g.fillRect(origin + col * cell, origin + row * cell, cell - 1, cell - 1);
+                }
+            }
+        } finally {
+            g.dispose();
+        }
+        return png(img);
+    }
+
+    /**
+     * Twin horizontal meters for forgery and explicit scores with review / auto-flag guides.
+     * Drawn from the stored scores only — no media.
+     */
+    public byte[] scoreMeters(
+            double forgery, double explicit, double forgeryReview, double forgeryAuto,
+            double explicitReview, double explicitAuto, int size) {
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(0x12151A));
+            g.fillRect(0, 0, size, size);
+            int pad = Math.max(16, size / 12);
+            int trackH = Math.max(18, size / 10);
+            int gap = Math.max(28, size / 5);
+            int y0 = size / 2 - gap / 2 - trackH;
+            drawMeter(g, pad, y0, size - 2 * pad, trackH, clamp(forgery, 0, 1), forgeryReview, forgeryAuto,
+                    new Color(0xC53026));
+            drawMeter(g, pad, y0 + gap, size - 2 * pad, trackH, clamp(explicit, 0, 1), explicitReview, explicitAuto,
+                    new Color(0xA16207));
+        } finally {
+            g.dispose();
+        }
+        return png(img);
+    }
+
+    /**
+     * Deterministic pattern from the pixel content hash (SHA-256 hex). Binds the report to one file
+     * without showing any pixels.
+     */
+    public byte[] hashPattern(String contentHash, int size) {
+        byte[] digest = hashBytes(contentHash);
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+        int n = 16;
+        int cell = Math.max(1, size / n);
+        for (int row = 0; row < n; row++) {
+            for (int col = 0; col < n; col++) {
+                int idx = (row * n + col) % digest.length;
+                int v = digest[idx] & 0xFF;
+                // Mix neighbour nibble so adjacent cells vary even with short inputs
+                int mix = (digest[(idx + 7) % digest.length] & 0xFF);
+                int tone = (v * 3 + mix) / 4;
+                int r = 18 + (tone * 40) / 255;
+                int gre = 22 + (tone * 48) / 255;
+                int b = 28 + (tone * 70) / 255;
+                int rgb = (r << 16) | (gre << 8) | b;
+                for (int py = row * cell; py < Math.min(size, (row + 1) * cell); py++) {
+                    for (int px = col * cell; px < Math.min(size, (col + 1) * cell); px++) {
+                        img.setRGB(px, py, rgb);
+                    }
+                }
+            }
+        }
+        return png(img);
+    }
+
+    private static void drawMeter(
+            Graphics2D g, int x, int y, int width, int height, double value, double review, double auto, Color fill) {
+        g.setColor(new Color(0x2A3038));
+        g.fillRoundRect(x, y, width, height, height / 2, height / 2);
+        int filled = Math.max(2, (int) Math.round(value * width));
+        g.setColor(fill);
+        g.fillRoundRect(x, y, filled, height, height / 2, height / 2);
+        g.setStroke(new BasicStroke(Math.max(1.5f, height / 10f)));
+        g.setColor(new Color(0xE8C27A));
+        int rx = x + (int) Math.round(clamp(review, 0, 1) * width);
+        g.drawLine(rx, y - 3, rx, y + height + 3);
+        g.setColor(new Color(0xF07167));
+        int ax = x + (int) Math.round(clamp(auto, 0, 1) * width);
+        g.drawLine(ax, y - 3, ax, y + height + 3);
+    }
+
+    /** Prefer a real 16-hex pHash; otherwise fold the string into 64 bits so legacy rows still draw. */
+    static long phashBits(String phash) {
+        if (phash != null) {
+            String hex = phash.trim().toLowerCase();
+            if (hex.matches("[0-9a-f]{16}")) {
+                return Long.parseUnsignedLong(hex, 16);
+            }
+        }
+        long h = 0xcbf29ce484222325L;
+        if (phash != null) {
+            for (int i = 0; i < phash.length(); i++) {
+                h ^= phash.charAt(i);
+                h *= 0x100000001b3L;
+            }
+        }
+        return h;
+    }
+
+    private static byte[] hashBytes(String contentHash) {
+        String raw = contentHash == null ? "" : contentHash.trim().toLowerCase();
+        if (raw.startsWith("sha256:")) {
+            raw = raw.substring("sha256:".length());
+        }
+        if (raw.matches("[0-9a-f]{64}")) {
+            byte[] out = new byte[32];
+            for (int i = 0; i < 32; i++) {
+                out[i] = (byte) Integer.parseInt(raw.substring(i * 2, i * 2 + 2), 16);
+            }
+            return out;
+        }
+        // Deterministic fallback for missing / non-hex hashes (pre-hash rows)
+        long a = phashBits(raw.isEmpty() ? "missing-content-hash" : raw);
+        long b = phashBits(raw + "#fmd");
+        byte[] out = new byte[16];
+        for (int i = 0; i < 8; i++) {
+            out[i] = (byte) (a >>> (56 - i * 8));
+            out[8 + i] = (byte) (b >>> (56 - i * 8));
+        }
+        return out;
+    }
+
     /** Radial FFT profile as a filled line chart (low frequency on the left). */
     public byte[] profile(double[] values, int width, int height) {
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);

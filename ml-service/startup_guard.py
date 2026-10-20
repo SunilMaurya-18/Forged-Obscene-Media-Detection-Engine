@@ -1,8 +1,7 @@
-"""Phase 24: refuse to start outside the dev profile while demo secrets are configured.
+"""Refuse to start outside the test profile while insecure provenance secrets are configured.
 
-``APP_PROFILE`` (default ``dev``) mirrors the backend's Spring profile; docker compose sets both
-from one variable. In any other profile the service will not boot with the published demo
-provenance key, because anyone holding it could forge "verified" labels.
+``APP_PROFILE`` (default ``prod``) mirrors the backend Spring profile; docker compose sets both
+from one variable.
 """
 
 from __future__ import annotations
@@ -15,12 +14,14 @@ import provenance
 
 logger = logging.getLogger(__name__)
 
-DEV_PROFILES = frozenset({"dev", "test"})
+# Local compose uses APP_PROFILE=dev; only prod (and similar) enforce strong secrets.
+RELAXED_PROFILES = frozenset({"test", "dev"})
+TEST_PROFILES = RELAXED_PROFILES  # backwards-compatible alias
 MIN_KEY_LENGTH = 32
 
 
 def profile() -> str:
-    return (os.getenv("APP_PROFILE") or "dev").strip().lower()
+    return (os.getenv("APP_PROFILE") or "prod").strip().lower()
 
 
 def insecure_settings() -> list[str]:
@@ -28,21 +29,21 @@ def insecure_settings() -> list[str]:
     key = os.getenv("PROVENANCE_SIGNING_KEY", "")
     if not key or key == provenance.DEFAULT_SIGNING_KEY or len(key) < MIN_KEY_LENGTH:
         problems.append(
-            f"PROVENANCE_SIGNING_KEY is unset, the demo default or shorter than {MIN_KEY_LENGTH} characters"
+            f"PROVENANCE_SIGNING_KEY is unset, the published default or shorter than {MIN_KEY_LENGTH} characters"
         )
     return problems
 
 
 def enforce() -> None:
-    """Raises ``RuntimeError`` (aborting startup) when a non-dev profile runs with demo secrets."""
+    """Raises ``RuntimeError`` (aborting startup) when a non-dev/test profile runs with weak secrets."""
     current = profile()
-    if current in DEV_PROFILES:
+    if current in RELAXED_PROFILES:
         return
     problems = insecure_settings()
     if problems:
         raise RuntimeError(
             f"Refusing to start with APP_PROFILE={current}: " + "; ".join(problems)
-            + ". Set real secrets, or APP_PROFILE=dev for a local demo."
+            + ". Set real secrets (see .env.production.example), or APP_PROFILE=dev for local compose."
         )
     if content_credentials.write_enabled() and not os.getenv("C2PA_SIGNING_CERT"):
         logger.warning(

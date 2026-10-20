@@ -33,10 +33,9 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -50,7 +49,6 @@ import org.springframework.web.reactive.function.client.WebClient;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@AutoConfigureObservability
 @TestPropertySource(
         properties = {
             "spring.datasource.url=jdbc:h2:mem:phase24;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
@@ -84,7 +82,7 @@ class EngineeringMaturityIntegrationTest {
     @Autowired private ReportTimestampService timestamps;
     @Autowired private ObjectProvider<WebClient.Builder> webClients;
 
-    @MockBean private MlClientService mlClientService;
+    @MockitoBean private MlClientService mlClientService;
 
     @BeforeEach
     void stubMl() {

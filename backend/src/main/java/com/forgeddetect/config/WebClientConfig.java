@@ -3,7 +3,7 @@ package com.forgeddetect.config;
 import com.forgeddetect.observability.RequestIdFilter;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
+import org.springframework.boot.webclient.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -28,7 +28,7 @@ public class WebClientConfig {
                 // Runs on the calling thread when block() subscribes, so the servlet request's MDC is visible
                 .filter((request, next) -> {
                     String id = MDC.get(RequestIdFilter.MDC_KEY);
-                    return next.exchange(id == null || request.headers().containsKey(RequestIdFilter.HEADER)
+                    return next.exchange(id == null || request.headers().containsHeader(RequestIdFilter.HEADER)
                             ? request
                             : ClientRequest.from(request).header(RequestIdFilter.HEADER, id).build());
                 });

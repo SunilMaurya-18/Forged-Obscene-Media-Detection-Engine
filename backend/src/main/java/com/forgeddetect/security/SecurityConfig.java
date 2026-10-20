@@ -22,6 +22,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -67,14 +68,29 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * HTTP Basic still authenticates the console, but we must not emit {@code WWW-Authenticate: Basic}.
+     * That header makes browsers show a native username/password dialog over the React login page
+     * (Vite on :5173, nginx on :3000) whenever sign-in fails or a protected call returns 401.
+     */
+    static AuthenticationEntryPoint spaBasicEntryPoint() {
+        return (request, response, authException) -> {
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"error\":\"unauthorized\",\"message\":\"Sign in required.\"}");
+        };
+    }
+
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        AuthenticationEntryPoint entryPoint = spaBasicEntryPoint();
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                .httpBasic(Customizer.withDefaults())
+                .httpBasic(basic -> basic.authenticationEntryPoint(entryPoint))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -96,8 +112,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/appeals").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/appeals/*/status").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/transparency").permitAll()
-                        // Phase 25: 404 unless demo.enabled; privileged demo actions check roles in DemoController
-                        .requestMatchers("/api/demo", "/api/demo/**").permitAll()
                         .requestMatchers("/api/appeals/**", "/api/moderation/**").hasRole("MODERATOR")
                         .requestMatchers("/api/compliance/**").hasRole("MODERATOR")
                         .requestMatchers("/api/investigations", "/api/investigations/**").hasRole("MODERATOR")
@@ -105,6 +119,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/legal-requests", "/api/legal-requests/**").hasRole("MODERATOR")
                         .requestMatchers("/api/investigator", "/api/investigator/**").hasRole("INVESTIGATOR")
                         .requestMatchers("/api/admin/signing-keys/**").hasRole("SENIOR_MODERATOR")
+                        .requestMatchers("/api/admin/accounts", "/api/admin/accounts/**", "/api/admin/overview")
+                                .hasRole("ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("MODERATOR")
                         .anyRequest().authenticated()
                 );

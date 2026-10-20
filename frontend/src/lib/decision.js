@@ -9,8 +9,8 @@ export const DECISIONS = {
     text: 'text-emerald-300',
     dot: 'bg-emerald-400',
     bar: 'bg-emerald-400',
-    ring: 'border-emerald-400/25 bg-emerald-400/[0.07]',
-    glow: 'from-emerald-400/20',
+    ring: 'border-emerald-400/45 bg-emerald-400/12',
+    glow: 'from-emerald-400/28',
   },
   REVIEW: {
     label: 'Needs review',
@@ -20,7 +20,7 @@ export const DECISIONS = {
     text: 'text-amber-300',
     dot: 'bg-amber-400',
     bar: 'bg-amber-400',
-    ring: 'border-amber-400/25 bg-amber-400/[0.07]',
+    ring: 'border-amber-400/35 bg-amber-400/[0.1]',
     glow: 'from-amber-400/20',
   },
   AUTO_FLAG: {
@@ -31,8 +31,8 @@ export const DECISIONS = {
     text: 'text-rose-300',
     dot: 'bg-rose-400',
     bar: 'bg-rose-400',
-    ring: 'border-rose-400/25 bg-rose-400/[0.07]',
-    glow: 'from-rose-400/20',
+    ring: 'border-rose-400/45 bg-rose-400/12',
+    glow: 'from-rose-400/28',
   },
 }
 

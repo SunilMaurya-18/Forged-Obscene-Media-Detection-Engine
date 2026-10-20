@@ -15,9 +15,6 @@ public class ComplianceProperties {
     private final Sla sla = new Sla();
     private final Escalation escalation = new Escalation();
 
-    /** Dev/demo only: seed sample complaints at every SLA stage when none exist. */
-    private boolean seedDemo = false;
-
     /** Jurisdiction used when a complaint doesn't name one. Platform configuration, never inferred from IP. */
     private String defaultJurisdiction = "IN";
 
@@ -67,14 +64,6 @@ public class ComplianceProperties {
 
     public Escalation getEscalation() {
         return escalation;
-    }
-
-    public boolean isSeedDemo() {
-        return seedDemo;
-    }
-
-    public void setSeedDemo(boolean seedDemo) {
-        this.seedDemo = seedDemo;
     }
 
     public Duration windowFor(ComplaintType type) {

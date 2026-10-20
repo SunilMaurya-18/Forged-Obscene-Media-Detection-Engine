@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, Cpu, Fingerprint, ImageUp, Loader2, OctagonAlert, Send, ShieldCheck, Sparkles } from 'lucide-react'
+import { CircleCheck, Cpu, Fingerprint, ImageUp, Loader2, OctagonAlert, Send, ShieldCheck } from 'lucide-react'
 import { prescreenHash } from '../api/client'
-import { useDemo } from '../context/DemoContext'
 import { ALGORITHM, hashImageOnDevice } from '../utils/onDeviceHash'
 import { ErrorState, LoadingLine } from './Status'
 import { Card, CardHeader, buttonClass } from './ui'
 import { cn } from '../lib/format'
-
-const DEMO_IMAGE = '/prescreen-demo.png'
 
 function Step({ icon: Icon, label, detail, state }) {
   return (
@@ -33,7 +30,6 @@ function Step({ icon: Icon, label, detail, state }) {
  */
 export default function PrescreenCard() {
   const { t } = useTranslation()
-  const { enabled: demoEnabled } = useDemo()
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(null)
   const [phase, setPhase] = useState('idle')
@@ -65,11 +61,6 @@ export default function PrescreenCard() {
     }
   }
 
-  const tryDemo = async () => {
-    const res = await fetch(DEMO_IMAGE)
-    check(await res.blob())
-  }
-
   const stepState = (step) => {
     const order = ['hashing', 'sending', 'done']
     const at = order.indexOf(phase)
@@ -99,15 +90,10 @@ export default function PrescreenCard() {
               <Cpu aria-hidden className="size-3" /> {t('prescreen.onDevice')}
             </span>
           </div>
-          <div className={cn('mt-4 grid gap-2', demoEnabled && 'grid-cols-2')}>
+          <div className="mt-4">
             <button type="button" onClick={() => inputRef.current?.click()} className={buttonClass('primary', 'md')}>
               <ImageUp aria-hidden className="size-4" /> {t('prescreen.choose')}
             </button>
-            {demoEnabled && (
-              <button type="button" onClick={tryDemo} className={buttonClass('secondary', 'md')} title={t('prescreen.demoTitle')}>
-                <Sparkles aria-hidden className="size-4" /> {t('prescreen.demo')}
-              </button>
-            )}
           </div>
           <input
             ref={inputRef}

@@ -8,7 +8,7 @@ import { cn, dateTime } from '../lib/format'
 const PANEL_NOTE = {
   ORIGINAL: 'panels rendered from the verified original',
   SIGNATURE: 'panels from the stored forensic signature',
-  NONE: 'no forensic panels (item predates signature capture)',
+  NONE: 'fingerprint panels from stored hashes and scores (no spatial forensics)',
 }
 
 const VERDICT = {
