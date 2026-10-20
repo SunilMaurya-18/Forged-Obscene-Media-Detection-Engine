@@ -4,7 +4,10 @@ FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
-RUN mvn -q -DskipTests package
+RUN mvn -q -DskipTests package \
+    && jar tf target/*.jar | grep -E 'BOOT-INF/lib/spring-webmvc-7\.0\.(9|[1-9][0-9]+)\.jar$' \
+    && jar tf target/*.jar | grep -E 'BOOT-INF/lib/spring-webflux-7\.0\.(9|[1-9][0-9]+)\.jar$' \
+    && jar tf target/*.jar | grep -E 'BOOT-INF/lib/tomcat-embed-core-11\.0\.(2[5-9]|[3-9][0-9]+)\.jar$'
 
 FROM eclipse-temurin:21-jre
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
