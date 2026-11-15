@@ -10,7 +10,7 @@ imagehash>=4.3.0
 # Phase 23: in-memory video decoding and C2PA Content Credentials (the c2pa API changes between minors)
 av>=14.0.0
 c2pa-python>=0.37,<0.38
-cryptography>=43.0.0
+cryptography>=50.0.1
 # Phase 24: /metrics
 prometheus-client>=0.20.0
 
